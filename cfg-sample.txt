@@ -1,0 +1,43 @@
+# predefined configuration example
+# pass to makefile: make all CONFIGFILE=...
+# then clear config and program: make clearcfg && make prog
+
+# station hostname (default "tschenggins-laempli-xxxxxx, where xxxxxx is the chip id)
+STANAME "..."
+
+# station SSID (default is empty)
+STASSID "..."
+
+# station password (default is empty)
+STAPASS  "..."
+
+# access point SSID (default "tschenggins-laempli-xxxxxx, where xxxxxx is the chip id)
+APSSID "..."
+
+# access point password (default empty, i.e. open/no password required)
+APPASS "..."
+
+# http user password
+USERPASS "..."
+
+# http admin password
+ADMINPASS "..."
+
+# Jenkins status backend URL (default is empty)
+STATUSURL  "..."
+
+# have Chewbacca? (0 or 1)
+HAVECHEWIE 1
+
+# LEDs asignement
+LED01 0x00000000
+LED02 0x00000000
+LED03 0x00000000
+LED04 0x00000000
+LED05 0x00000000
+LED06 0x00000000
+LED07 0x00000000
+LED08 0x00000000
+
+
+# eof

@@ -1,0 +1,84 @@
+<div class="sound">
+
+  <h2>Stop Playing</h2>
+
+  <form method="GET" action="/sound">
+    <input type="hidden" name="stop" value="1"/>
+    <input type="submit" value="stop"/>
+  </form>
+
+  <h2>Chewbacca</h2>
+
+  <form method="GET" action="/sound">
+    <input type="hidden" name="chewie" value="r"/>
+    <input type="submit" value="Roar!"/>
+  </form>
+
+  <form method="GET" action="/sound">
+    <input type="hidden" name="chewie" value="i"/>
+    <input type="submit" value="Indy!"/>
+  </form>
+
+  <h2>Built-In Melodies</h2>
+
+  <p>From <a href="http://domoticx.com/arduino-melodieafspelen-rttt">here</a>,
+    <a href="http://www.lucodes.ca/ringtones.html">here</a>,
+    <a href="http://arcadetones.emuunlim.com/">here</a>, and
+    <a href="http://free.ringtonejungle.com/">here</a>.</p>
+
+  <form method="GET" action="/sound">
+    <div id="col" class="builtin">
+      <label><input type="radio" name="builtin" value="A-Team"> A-Team</label>
+      <label><input type="radio" name="builtin" value="Beethoven5th"> Beethoven5th</label>
+      <label><input type="radio" name="builtin" value="BeethovenElise"> BeethovenElise</label>
+      <label><input type="radio" name="builtin" value="Bond"> Bond</label>
+      <label><input type="radio" name="builtin" value="BubbleBobble"> BubbleBobble</label>
+      <label><input type="radio" name="builtin" value="Duke3d"> Duke3d</label>
+      <label><input type="radio" name="builtin" value="Entertainer"> Entertainer</label>
+      <label><input type="radio" name="builtin" value="Flinstones"> Flinstones</label>
+      <label><input type="radio" name="builtin" value="Gadget"> Gadget</label>
+      <label><input type="radio" name="builtin" value="GoodBad"> GoodBad</label>
+      <label><input type="radio" name="builtin" value="HappyBday"> HappyBday</label>
+      <label><input type="radio" name="builtin" value="ImperialMarch"> ImperialMarch</label>
+      <label><input type="radio" name="builtin" value="ImperialShort"> ImperialShort</label>
+      <label><input type="radio" name="builtin" value="Indiana"> Indiana</label>
+      <label><input type="radio" name="builtin" value="IndianaShort"> IndianaShort</label>
+      <label><input type="radio" name="builtin" value="Jeopardy"> Jeopardy</label>
+      <label><input type="radio" name="builtin" value="LeisureSuit"> LeisureSuit</label>
+      <label><input type="radio" name="builtin" value="Looney"> Looney</label>
+      <label><input type="radio" name="builtin" value="ManiacMansion"> ManiacMansion</label>
+      <label><input type="radio" name="builtin" value="MahnaMahna"> MahnaMahna</label>
+      <label><input type="radio" name="builtin" value="MASH"> MASH</label>
+      <label><input type="radio" name="builtin" value="MissionImp"> MissionImp</label>
+      <label><input type="radio" name="builtin" value="Muppets"> Muppets</label>
+      <label><input type="radio" name="builtin" value="PacMan"> PacMan</label>
+      <label><input type="radio" name="builtin" value="Smurfs"> Smurfs</label>
+      <label><input type="radio" name="builtin" value="StarWars"> StarWars</label>
+      <label><input type="radio" name="builtin" value="SuperMario1"> SuperMario1</label>
+      <label><input type="radio" name="builtin" value="SuperMario2"> SuperMario2</label>
+      <label><input type="radio" name="builtin" value="SuperMario3"> SuperMario3</label>
+      <label><input type="radio" name="builtin" value="TakeOnMe"> TakeOnMe</label>
+      <label><input type="radio" name="builtin" value="Tetris1"> Tetris1</label>
+      <label><input type="radio" name="builtin" value="Tetris2"> Tetris2</label>
+      <label><input type="radio" name="builtin" value="Tetris3"> Tetris3</label>
+      <label><input type="radio" name="builtin" value="Titanic"> Titanic</label>
+      <label><input type="radio" name="builtin" value="TopGun"> TopGun</label>
+      <label><input type="radio" name="builtin" value="TheSimpsons"> TheSimpsons</label>
+      <label><input type="radio" name="builtin" value="Urgent"> Urgent</label>
+      <label><input type="radio" name="builtin" value="Xfiles"> Xfiles</label>
+      <label><input type="radio" name="builtin" value="20thCenFox"> 20thCenFox</label>
+    </div>
+    <input type="submit" value="play"/>
+  </form>
+
+  <h2>Custom Melody</h2>
+
+  <p>See <a href="https://en.wikipedia.org/wiki/Ring_Tone_Transfer_Language">Wikipedia</a>
+    or <a href="http://merwin.bespin.org/t4a/specs/nokia_rtttl.txt">nokia_rtttl.txt</a>.</p>
+
+  <form method="GET" action="/sound">
+    <input type="text" name="rtttl" value="" autocomplete="off"/><br/>
+    <input type="submit" value="play"/>
+  </form>
+
+</div>

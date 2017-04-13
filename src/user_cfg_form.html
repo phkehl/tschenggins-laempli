@@ -1,0 +1,47 @@
+<div class="cfg" data-sysid="%SYSID%" data-onstanet="%ONSTANET%" data-wifionline="%WIFIONLINE%" data-ledids="%LEDIDS%">
+  <form method="POST" action="/config">
+
+    <h2>Station</h2>
+
+    <label for="stassid">SSID</label>
+    <input type="text" name="stassid" id="stassid" value="%STASSID%" autocomplete="off"/><br/>
+    <label for="stapass">Password</label>
+    <input type="password" name="stapass" id="stapass" value="%STAPASS%" autocomplete="off"/><br/>
+    <label for="staname">Hostname</label>
+    <input type="text" name="staname" id="staname" value="%STANAME%" autocomplete="off"/>
+
+    <h2>Access Point</h2>
+
+    <label for="apssid">SSID</label>
+    <input type="text" name="apssid" id="apssid" value="%APSSID%" autocomplete="off"/><br/>
+    <label for="appass">Password</label>
+    <input class="emptywarn" type="password" name="appass" id="appass" value="%APPASS%" autocomplete="off"/><br/>
+
+    <h2>Passwords</h2>
+
+    <label for="userpw">User</label>
+    <input class="emptywarn" type="password" name="userpw" id="userpw" value="%USERPW%" autocomplete="off"/><br/>
+    <label for="adminpw">Admin</label>
+    <input class="emptywarn" type="password" name="adminpw" id="adminpw" value="%ADMINPW%" autocomplete="off"/>
+
+    <h2>Status</h2>
+
+    <label for="statusurl">URL</label>
+    <input class="emptywarn" type="text" name="statusurl" id="statusurl" value="%STATUSURL%" autocomplete="off" placeholder="http://user:pass@foo.bar/path"/><br/>
+    <div id="statusurl-warning" class="cfgmsg warning"></div>
+
+    <h2>Sounds</h2>
+
+    <label for="havechewie">Chewie</label>
+    <input type="checkbox" name="havechewie" value="1" %HAVECHEWIE%/>
+
+    <h2>LEDs</h2>
+    <div class="leds"></div>
+
+    <h2>Apply</h2>
+
+    <label></label>
+    <input type="submit" value="save cfg"/>
+
+  </form>
+</div>

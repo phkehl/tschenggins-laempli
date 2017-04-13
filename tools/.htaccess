@@ -1,0 +1,15 @@
+
+Options +Indexes +ExecCGI
+
+AddHandler perl-script .pl
+
+DirectoryIndex tschenggins-status.pl
+
+#DirectoryIndex tschenggins-status.pl
+
+#<FilesMatch "tschenggins-status.pl">
+#    AuthType basic
+#    AuthName "Teschenggins Lämpli"
+#    AuthUserFile "/path/to/.htpasswd"
+#    Require user username
+#</FilesMatch>

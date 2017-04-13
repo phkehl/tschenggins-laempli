@@ -1,0 +1,8 @@
+# list all files that should go into the filesystem
+styles.css
+scripts.js
+jquery-3.2.1.min.js
+jquery-3.2.1.min.map
+laempli.png
+
+

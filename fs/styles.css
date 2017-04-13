@@ -1,0 +1,106 @@
+/*
+    Tschenggins Lämpli styles
+    Philipe Kehl <phkehl at oinkzwurgl dot org>
+    https://oinkzwurgl.org/projaeggd/tschenggins-laempli
+*/
+
+body { font-family: sans-serif; background-color: hsl(60, 100%, 80%); padding: 0; margin: 0; }
+.header, .footer { border-width: 0.2em; border-color: hsl(60, 100%, 40%); padding: 0.5em; text-align: center; }
+.header { border-bottom-style: solid; }
+.footer { border-top-style: solid; font-size: 90%; }
+.footer, .footer a { color: hsl(60, 30%, 20%); text-decoration: none; }
+.header h1 { margin: 0; color: hsl(60, 30%, 20%); }
+.header p, .footer p { margin: 0; }
+.footer .sysname { color: hsl(60, 60%, 20%); font-family: monospace; }
+.header .menu {margin-top: 0.75em;  }
+.header .menu a { color: hsl(60, 20%, 20%); background-color: hsl(60, 100%, 40%); font-style: italic; text-decoration: none; padding: 0.05em 0.25em; border-radius: 0.25em; }
+.header .menu a + a { margin-left: 0.5em; }
+.header .menu a:hover { background-color: hsl(60, 100%, 45%); }
+.header .menu:empty { display: none; }
+.wrapper { background-color: hsl(60, 100%, 90%); margin: 0; padding: 0.5em; }
+.content { min-width: 10em; display: table; margin: 0 auto; }
+table { padding: 0; border-collapse: collapse; }
+td, th { margin: 0; padding: 0.1em 0.25em; }
+th { font-weight: bold; text-align: left; }
+th, input, select { background-color: hsl(60, 60%, 80%); }
+table, input, select, table, td, th { border: 0.1em solid hsl(60, 30%, 20%); }
+input, select { margin: 0.1em 0.2em; }
+form { display: inline-block; }
+h2, h3 { margin: 1em 0 0.5em 0; }
+.bold { font-weight: bold; }
+.warning { color: hsl(35, 100%, 40%); }
+.error { color: hsl(0, 100%, 40%); }
+
+div.sound { }
+div.sound label { display: inline-block; white-space: nowrap; width: 10em; }
+div.sound .builtin {
+    -moz-column-width: 10em; -webkit-column-width: 10em; column-width: 10em;
+    -moz-column-count: 2;    -webkit-column-count: 2;    column-count: 2; }
+
+
+div.cfg pre { margin: 0 0 0 1em; }
+div.cfg label { width: 6em; display: inline-block; margin-left: 1em; }
+div.cfg input[type=text],
+div.cfg input[type=password] { font-family: monospace; width: 15em; }
+div.cfg select { width: 15em; }
+div.cfg input.emptywarn[value=""] { border-color: #f00; }
+div.cfg input[type=checkbox] { vertical-align: bottom; }
+div.cfg div.cfgmsg  { width: 26em; display: inline-block; margin-left: 1em;  }
+
+div.status { }
+div.status table.status span.name { font-size: 120%; }
+div.status table.status span.server { color: hsl(0, 0%, 30%); }
+/* LED CSS styles based on https://codepen.io/fskirschbaum/pen/MYJNaj by F. Stephen Kirschbaum */
+div.status .led { width: 2em; height: 2em; border-radius: 50%; margin: 0.5em/* 1em 0.5em 0.5em*/; display: inline-block; }
+div.status .led-green   { background-color: #abff00; box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset #304701 0 -1px 9px, #89ff00              0 2px 12px; }
+div.status .led-yellow  { background-color: #ff0;    box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset #808002 0 -1px 9px, #ff0                 0 2px 12px; }
+div.status .led-red     { background-color: #f00;    box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset #441313 0 -1px 9px, rgba(255, 0, 0, 0.5) 0 2px 12px; }
+div.status .led-unknown { background-color: #f6f3f3; box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset #999    0 -1px 9px, rgba(200, 197, 197, 0.5) 0 2px 12px; }
+div.status .led-off     { background-color: #a5a5a5; box-shadow: inset #303030 0 -1px 9px; }
+div.status .led-green-ani   { animation: ani-green   2s infinite; }
+div.status .led-yellow-ani  { animation: ani-yellow  2s infinite; }
+div.status .led-red-ani     { animation: ani-red     2s infinite; }
+div.status .led-unknown-ani { animation: ani-unknown 2s infinite; }
+@keyframes ani-green {
+     0% { background-color: #abff00; }
+    50% { background-color: #89bb00; box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset #304701 0 -1px 9px, #89ff00 0 2px 12px; }
+   100% { background-color: #abff00; }
+}
+@keyframes ani-yellow {
+     0% { background-color: #ff0; }
+    50% { background-color: #aa0; box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset #808002 0 -1px 9px, #FF0 0 2px 0; }
+   100% { background-color: #ff0; }
+}
+@keyframes ani-red {
+    0% { background-color: #f00; }
+   50% { background-color: #a00; box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset #441313 0 -1px 9px, rgba(255, 0, 0, 0.5) 0 2px 0; }
+  100% { background-color: #f00; }
+}
+@keyframes ani-unknown {
+    0% { background-color: #f6f3f3; }
+   50% { background-color: #cccccc; box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset #999    0 -1px 9px, rgba(200, 197, 197, 0.5) 0 2px 12px; }
+  100% { background-color: #f6f3f3; }
+}
+
+
+div.home { padding: 0.25em 0; text-align: center; font-size: 1000%; font-family: DejaVu Sans Mono, Droid Mono, sans-serif; }
+@keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+div.home > span { display:inline-block; animation: rotate 5.0s infinite cubic-bezier(.68,-0.55,.27,1.55); }
+div.home > span > span { color: inherit; text-decoration: none; animation: color_change 30s infinite alternate; }
+@keyframes color_change {
+      0% { color: hsl(  0, 100%,  50%); }  10% { color: hsl( 36, 100%,  50%); }
+     20% { color: hsl( 72, 100%,  50%); }  30% { color: hsl(108, 100%,  50%); }
+     40% { color: hsl(144, 100%,  50%); }  50% { color: hsl(180, 100%,  50%); }
+     60% { color: hsl(216, 100%,  50%); }  70% { color: hsl(252, 100%,  50%); }
+     80% { color: hsl(288, 100%,  50%); }  90% { color: hsl(324, 100%,  50%); }
+    100% { color: hsl(360, 100%,  50%); } }
+
+div.about { text-align: center; }
+
+div.signin { text-align: center; margin: 1em 0; }
+div.signin input[type=submit] { font-size: 200%; }
+
+
+div.status pre { margin: 0 0 0 1em; }
+
+/* eof */
