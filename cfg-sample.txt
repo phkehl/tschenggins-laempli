@@ -1,5 +1,5 @@
 # predefined configuration example
-# pass to makefile: make all CONFIGFILE=...
+# pass to makefile: make clean && make all CFGFILE=...
 # then clear config and program: make clearcfg && make prog
 
 # station hostname (default "tschenggins-laempli-xxxxxx, where xxxxxx is the chip id)
