@@ -10,7 +10,6 @@ $( document ).ready(function()
 
     $('.menu a').each(function ()
     {
-        DEBUG(this.href + ' === ' + location.href);
         if (this.href === location.href)
         {
             $(this).addClass('bold');
