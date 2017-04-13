@@ -589,6 +589,11 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
     const char *statusUrl  = userCfg.statusUrl;
     const char *haveChewie = userCfg.haveChewie    ? PSTR("checked") : emptyStr;
 
+    char staIp[16];
+    struct ip_info ipinfo;
+    wifi_get_ip_info(STATION_IF, &ipinfo);
+    os_sprintf(staIp, IPSTR, IP2STR(&ipinfo.ip));
+
     const char *sysId = getSystemId();
     const char *onStaNet = wifiIsApNet(pkTcp->remote_ip) ? PSTR("0") : PSTR("1");
     const char *wifiOnline = wifiIsOnline() ? PSTR("1") : PSTR("0");
@@ -609,7 +614,7 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
     //};
     const char *formKeys[]  =
     {
-        PSTR("STASSID"), PSTR("STAPASS"), PSTR("STANAME"),
+        PSTR("STASSID"), PSTR("STAPASS"), PSTR("STANAME"), PSTR("STAIP"),
         PSTR("APSSID"), PSTR("APPASS"),
         PSTR("USERPW"), PSTR("ADMINPW"),
         PSTR("STATUSURL"),
@@ -618,12 +623,12 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
     };
     const char *formVals[] =
     {
-         staSsid, staPass, staName,
-         apSsid, apPass,
-         userPw, adminPw,
-         statusUrl,
-         haveChewie,
-         sysId, onStaNet, wifiOnline, ledIds
+        staSsid, staPass, staName, staIp,
+        apSsid, apPass,
+        userPw, adminPw,
+        statusUrl,
+        haveChewie,
+        sysId, onStaNet, wifiOnline, ledIds
     };
 
     const int htmlLen = htmlRender(

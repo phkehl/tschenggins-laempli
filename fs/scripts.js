@@ -48,7 +48,10 @@ $( document ).ready(function()
             var html = '<div class="cfgmsg warning">Not online.<br/>LEDs configuration not available.';
             if (wifiOnline)
             {
-                html += '<br/>Connect to <em>' + staSsid + '</em> WiFi and<br/>go to <a href="http://' + staName + '/config">http://' + staName + '/config</a>.';
+                var staIp = divCfg.data('staip');
+                html += '<br/>Connect to <em>' + staSsid + '</em> WiFi and<br/>go to '
+                    + '<a href="http://' + staName + '/config">http://' + staName + '/config</a> or '
+                    + '<a href="http://' + staIp + '/config">http://' + staIp + '/config</a>.';
             }
             html += '</div>';
             divLeds.html(html);

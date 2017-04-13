@@ -396,7 +396,9 @@ deriv: $(addprefix $(OBJDIR)/$(PROJECT), .size .lss .lst .sym .sym_iram .sym_dra
 
 # firmware image
 .PHONY: firmware
-firmware: $(FWFILE1) $(FWFILE2) $(FSIMG) $(CFGIMG)
+firmware: $(OBJDIR)/.fwfiles
+$(OBJDIR)/.fwfiles: $(FWFILE1) $(FWFILE2) $(FSIMG) $(CFGIMG)
+	$(V)$(TOUCH) $@
 	$(V)$(LS) -l -h $(FWFILE1) $(FWFILE2) $(FSIMG) $(CFGIMG)
 
 # all(most all)
