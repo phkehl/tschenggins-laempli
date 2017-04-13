@@ -1,3 +1,6 @@
 cfg-ffi.txt
 cfg-u*.txt
 privat
+cscope.out
+*~
+
