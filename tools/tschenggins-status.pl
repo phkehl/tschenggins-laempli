@@ -418,6 +418,14 @@ Returns info for a client given one or more job IDs. Endless connection with rea
     {
         # first like cmd=leds to update the client info and then below dispatch to real-time monitoring
         ($data, $error) = _leds($db, $client, $strlen, { name => $name, staip => $staip, version => $version }, @ch);
+
+        # save pid so that previous instances can terminate in case they're still running
+        # and haven't noticed yet that the Lämpli is gone (Apache waiting "forever" for TCP timeout)
+        unless ($error)
+        {
+            $db->{clients}->{$client}->{pid} = $$;
+            $db->{_dirtiness}++;
+        }
     }
 
     # illegal command
@@ -896,24 +904,40 @@ sub _realtime
     my $n = 0;
     my $lastTs = 0;
     my $lastStatus = '';
+    my $lastCheck = 0;
     $|++;
     print("hello $client $strlen $info->{name} @ch\n");
     while (1)
     {
         sleep(1);
+        my $now = time();
         if ( ($n % 5) == 0 )
         {
-            my $now = int(time() + 0.5);
-            printf("heartbeat $now $n\r\n");
+            my $nowInt = int($now + 0.5);
+            printf("heartbeat $nowInt $n\r\n");
         }
         $n++;
 
-        # check if database has changed
+        # check database?
+        my $doCheck = 0;
+
+        # ...if it has changed
         my $ts = -f $DBFILE ? (stat($DBFILE))[9] : 0;
         if ($ts != $lastTs)
         {
-            #printf("debug change $ts\n");
+            $doCheck = 1;
             $lastTs = $ts;
+        }
+        # ...and every once in a while
+        elsif (($now - $lastCheck) > 10)
+        {
+            $doCheck = 1;
+            $lastCheck = $now;
+        }
+
+        if ($doCheck)
+        {
+            #printf("debug change $ts\n");
 
             # load database
             my $dbHandle;
@@ -938,6 +962,12 @@ sub _realtime
             # check if we're interested
             if ($db && $db->{clients} && $db->{clients}->{$client})
             {
+                # exit if we're no longer in charge
+                if ($db->{clients}->{$client}->{pid} && ($db->{clients}->{$client}->{pid} != $$))
+                {
+                    exit(0);
+                }
+
                 # same as cmd=led to get the data but we won't store the database (this updates $db->{clients}->{$client})
                 my ($data, $error) = _leds($db, $client, $strlen, $info, $staip, $version, @ch);
                 if ($error)

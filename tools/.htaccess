@@ -5,8 +5,6 @@ AddHandler perl-script .pl
 
 DirectoryIndex tschenggins-status.pl
 
-#DirectoryIndex tschenggins-status.pl
-
 #<FilesMatch "tschenggins-status.pl">
 #    AuthType basic
 #    AuthName "Teschenggins Lämpli"
