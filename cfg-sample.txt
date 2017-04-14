@@ -29,6 +29,9 @@ STATUSURL  "..."
 # have Chewbacca? (0 or 1)
 HAVECHEWIE 1
 
+# be noisy? (0 or 1)
+BENOISY 1
+
 # LEDs asignement
 LED01 0x00000000
 LED02 0x00000000

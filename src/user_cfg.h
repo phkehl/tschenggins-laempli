@@ -27,7 +27,7 @@
 void cfgInit(const bool reset);
 
 //! configuration structure version
-#define USER_CFG_VERSION 11 // bump when changing struct USER_CONFIG_s
+#define USER_CFG_VERSION 12 // bump when changing struct USER_CONFIG_s
 
 //! configuration data
 typedef struct USER_CFG_s
@@ -45,7 +45,8 @@ typedef struct USER_CFG_s
     char statusUrl[256];         //!< tschenggins-status.pl server URL
 
     bool haveChewie;             //!< have Chewbacca sound module (or fall-back to melody)
-    __PAD(3);                    //!< struct padding
+    bool beNoisy;                //!< make sounds on events
+    __PAD(2);                    //!< struct padding
 
     uint32_t leds[APP_NUM_LEDS]; //!< LEDs assignment (job IDs)
 

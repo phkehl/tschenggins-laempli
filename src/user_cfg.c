@@ -154,7 +154,22 @@ void ICACHE_FLASH_ATTR cfgDefault(USER_CFG_t *pCfg)
     pCfg->haveChewie = false;
 #  endif
 #else
+#  if (FF_MODEL == 1)
     pCfg->haveChewie = true;
+#  else
+    pCfg->haveChewie = false;
+#  endif
+#endif
+
+    // be noisy?
+#if (defined DEF_CFG_BENOISY)
+#  if (DEF_CFG_BENOISY > 0)
+    pCfg->beNoisy = true;
+#  else
+    pCfg->beNoisy = false;
+#  endif
+#else
+    pCfg->beNoisy = true;
 #endif
 
     // LEDs
@@ -232,8 +247,10 @@ void ICACHE_FLASH_ATTR cfgDebug(const USER_CFG_t *pkCfg)
         pkCfg->staSsid, os_strlen(pkCfg->staPass),
         pkCfg->apSsid, os_strlen(pkCfg->apPass),
         os_strlen(pkCfg->userPass), os_strlen(pkCfg->adminPass));
-    DEBUG("cfgDebug() statusUrl=%s",
-        pkCfg->statusUrl);
+    DEBUG("cfgDebug() statusUrl=%s haveChewie=%s beNoisy=%s",
+        pkCfg->statusUrl,
+        pkCfg->haveChewie ? PSTR("yes") : PSTR("no"),
+        pkCfg->beNoisy    ? PSTR("yes") : PSTR("no"));
 #if (APP_NUM_LEDS == 8)
     DEBUG("cfgDebug() ch00=%08x ch01=%08x ch02=%08x ch03=%08x",
         pkCfg->leds[0], pkCfg->leds[1], pkCfg->leds[2], pkCfg->leds[3]);
@@ -300,7 +317,7 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
     {
         USER_CFG_t defaultCfg;
         const char *errorMsg = NULL;
-        cfgDefault(&defaultCfg);
+        cfgGet(&defaultCfg);
         cfgDebug(&defaultCfg);
         bool staChanged      = false;
         bool apChanged       = false;
@@ -308,6 +325,7 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
         bool ledsChanged     = false;
         bool redirHostname   = os_strcmp(pkInfo->host, userCfg.staName) == 0 ? true : false;
         bool haveChewie      = false;
+        bool beNoisy         = false;
         for (int ix = 0; ix < pkInfo->numKV; ix++)
         {
             const char *key = pkInfo->keys[ix];
@@ -514,6 +532,10 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
             {
                 haveChewie = val[0] && (val[0] == '1') ? true : false;
             }
+            else if (strcmp_PP(key, PSTR("benoisy")) == 0)
+            {
+                beNoisy = val[0] && (val[0] == '1') ? true : false;
+            }
             else if ( (key[0] == 'l') && (key[1] == 'e') && (key[2] == 'd') &&
                 isdigit((int)key[3]) && isdigit((int)key[4]) && (valLen == 8) )
             {
@@ -535,6 +557,12 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
         {
             DEBUG("sCfgRequestCb() havechewie change (%d)", haveChewie);
             userCfg.haveChewie = haveChewie;
+            otherChanged = true;
+        }
+        if (beNoisy != userCfg.beNoisy)
+        {
+            DEBUG("sCfgRequestCb() benoisy change (%d)", beNoisy);
+            userCfg.beNoisy = beNoisy;
             otherChanged = true;
         }
 
@@ -559,7 +587,7 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
             const uint32_t arg = (apChanged ? 0x2 : 0x0) | (staChanged ? 0x1 : 0x0);
             os_timer_disarm(&sWifiChangeTimer);
             os_timer_setfn(&sWifiChangeTimer, (os_timer_func_t *)sWifiChangeTimerFunc, arg);
-            os_timer_arm(&sWifiChangeTimer, 1000, 0); // 1000ms, once
+            os_timer_arm(&sWifiChangeTimer, 1500, 0); // 1.5s, once
         }
 
         char location[256];
@@ -591,6 +619,7 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
     const char *apPass     = userCfg.apPass[0]     ? dummyPass : emptyStr;
     const char *statusUrl  = userCfg.statusUrl;
     const char *haveChewie = userCfg.haveChewie    ? PSTR("checked") : emptyStr;
+    const char *beNoisy    = userCfg.beNoisy       ? PSTR("checked") : emptyStr;
 
     char staIp[16];
     struct ip_info ipinfo;
@@ -621,7 +650,7 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
         PSTR("APSSID"), PSTR("APPASS"),
         PSTR("USERPW"), PSTR("ADMINPW"),
         PSTR("STATUSURL"),
-        PSTR("HAVECHEWIE"),
+        PSTR("HAVECHEWIE"), PSTR("BENOISY"),
         PSTR("SYSID"), PSTR("ONSTANET"), PSTR("WIFIONLINE"), PSTR("LEDIDS")
     };
     const char *formVals[] =
@@ -630,7 +659,7 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
         apSsid, apPass,
         userPw, adminPw,
         statusUrl,
-        haveChewie,
+        haveChewie, beNoisy,
         sysId, onStaNet, wifiOnline, ledIds
     };
 
