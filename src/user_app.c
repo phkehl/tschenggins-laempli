@@ -8,6 +8,7 @@
 #include "user_httpd.h"
 #include "user_html.h"
 #include "user_wget.h"
+#include "user_tone.h"
 #include "user_cfg.h"
 #include "jsmn.h"
 #include "version_gen.h"
@@ -267,6 +268,64 @@ static void ICACHE_FLASH_ATTR sAppTriggerChewie(const bool happy)
 }
 
 
+/* ***** noises ********************************************************************************** */
+
+typedef enum NOISE_e
+{
+    NOISE_ABORT,
+    NOISE_FAIL,
+    //NOISE_OFFLINE,
+    NOISE_ONLINE,
+    NOISE_OTHER
+} NOISE_t;
+
+static const int16_t skNoiseAbort[] PROGMEM =
+{
+    TONE(A5, 30), TONE(PAUSE, 20), TONE(G5, 60), TONE_END
+};
+
+static const int16_t skNoiseFail[] PROGMEM =
+{
+    TONE(A5, 30), TONE(PAUSE, 20), TONE(G5, 60), TONE(PAUSE, 20), TONE(F5, 100), TONE_END
+};
+
+static const int16_t skNoiseOnline[] PROGMEM =
+{
+    TONE(D6, 30), TONE(PAUSE, 20), TONE(E6, 60), TONE_END
+};
+
+static const int16_t skNoiseOther[] PROGMEM =
+{
+    TONE(C6, 30), TONE_END
+};
+
+static void ICACHE_FLASH_ATTR sMakeNoise(const NOISE_t noise)
+{
+    const USER_CFG_t *pkCfg = cfgGetPtr();
+    if (!pkCfg->beNoisy)
+    {
+        return;
+    }
+    switch (noise)
+    {
+        case NOISE_ABORT:
+            toneMelody(skNoiseAbort);
+            break;
+        case NOISE_FAIL:
+            toneMelody(skNoiseFail);
+            break;
+        //case NOISE_OFFLINE:
+        //    break;
+        case NOISE_ONLINE:
+            toneMelody(skNoiseOnline);
+            break;
+        case NOISE_OTHER:
+            toneMelody(skNoiseOther);
+            break;
+    }
+}
+
+
 /* ***** status update stuff (real-time) ********************************************************* */
 
 typedef enum UPDATE_STATE_e
@@ -313,7 +372,8 @@ bool ICACHE_FLASH_ATTR appForceUpdate(void)
             if (!sForceUpdate)
             {
                 sForceUpdate = true;
-                TRIGGER_UPDATE(UPDATE_ABORT, 10);
+                TRIGGER_UPDATE(UPDATE_ABORT, 250);
+                sMakeNoise(NOISE_OTHER);
             }
             break;
 
@@ -380,7 +440,7 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
             if (sInitLoop == 0)
             {
                 sLedStop();
-                toneStart(1000, 30);
+                sMakeNoise(NOISE_OTHER);
                 statusSet(USER_STATUS_UPDATE);
                 sInitLoop = 255;
                 TRIGGER_UPDATE(UPDATE_INIT, 100);
@@ -388,14 +448,14 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
             else if (sInitLoop == 1)
             {
                 sLedStart();
-                toneStart(800, 30);
+                sMakeNoise(NOISE_OTHER);
                 TRIGGER_UPDATE(UPDATE_CHECK, UPDATE_CHECK_INTERVAL);
             }
             else
             {
                 for (uint16_t ix = 0; ix < APP_NUM_LEDS; ix++)
                 {
-                    const uint8_t hue = sInitLoop + (ix * 20);
+                    const uint8_t hue = 2 * (uint16_t)sInitLoop + (ix * 20);
                     //const uint8_t hue = sInitLoop + (ix * (255 / APP_NUM_LEDS));
                     ws2801SetHSV(ix, hue, 255, 100);
                 }
@@ -553,7 +613,7 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
             statusSet(USER_STATUS_HEARTBEAT);
             if (sUpdateState != UPDATE_ONLINE)
             {
-                toneStart(1000, 30);
+                sMakeNoise(NOISE_ONLINE);
                 PRINT("app: status online");
             }
 
@@ -568,7 +628,7 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
             STATUS_HELP_t *pSH = &sStatusHelper;
             struct espconn *pConn = &pSH->conn;
 
-            toneStart(800, 30);
+            sMakeNoise(NOISE_FAIL);
             statusSet(USER_STATUS_FAIL);
             sSetLedsUnknown();
 
@@ -586,7 +646,7 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
             STATUS_HELP_t *pSH = &sStatusHelper;
             struct espconn *pConn = &pSH->conn;
 
-            toneStart(800, 30);
+            sMakeNoise(NOISE_ABORT);
             statusSet(USER_STATUS_FAIL);
             sSetLedsUnknown();
 
@@ -830,6 +890,7 @@ static void ICACHE_FLASH_ATTR sButtonTimerFunc(void *pArg)
     {
         if (pressedTime++ == (500/BUTTON_TIMER_INTERVAL))
         {
+            sMakeNoise(NOISE_OTHER);
             appForceUpdate();
         }
     }
@@ -1078,6 +1139,11 @@ static void ICACHE_FLASH_ATTR sAppJsonResponseToState(char *resp, const int resp
         else if ( (worstResult < sWorstResult) && (worstResult == JENKINS_RESULT_SUCCESS) )
         {
             sAppTriggerChewie(true);
+        }
+        // something else (start/stop building)
+        else
+        {
+            sMakeNoise(NOISE_OTHER);
         }
         PRINT("app: %s --> %s",
             skJenkinsResultStrs[sWorstResult], skJenkinsResultStrs[worstResult]);

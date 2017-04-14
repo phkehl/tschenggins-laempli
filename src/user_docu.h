@@ -179,6 +179,7 @@ sect address  size             what
 - https://github.com/SuperHouse/esp-open-rtos/blob/master/core/esp_iomux.c
 - https://github.com/Spritetm/libesphttpd, https://github.com/Spritetm/esphttpd
 - https://github.com/espressif/esp-gdbstub
+- wifi scan in config form
 
 
 \page P_DOXYGEN Doxygen
