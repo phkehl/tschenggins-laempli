@@ -13,6 +13,7 @@
 #
 # TODO:
 # - handle jobs that can run multiple times in parallel
+# - logging (when using -d)
 #
 ################################################################################
 
@@ -30,8 +31,12 @@ use XML::Simple;
 use JSON::PP;
 use Clone;
 use Sys::Hostname;
+#use BSD::Resource;
 
 use Ffi::Debug ':all';
+
+# limit our resource usage
+#setrlimit( RLIMIT_VMEM, 0.35 * ( 1 << 30 ), 1 * ( 1 << 30 ) );
 
 
 ################################################################################
@@ -44,6 +49,7 @@ my $CFG =
     agent       => 'tschenggins-watcher/1.0',
     checkperiod => 300,
     server      => Sys::Hostname::hostname(),
+    daemonise   => 0,
 };
 
 my @pendingUpdates = ();
@@ -59,6 +65,7 @@ do
         elsif ($arg eq '-q') { $Ffi::Debug::VERBOSITY--; $CFG->{verbosity}--; }
         elsif ($arg eq '-b') { $CFG->{backend} = shift(@ARGV); }
         elsif ($arg eq '-s') { $CFG->{server} = shift(@ARGV); }
+        elsif ($arg eq '-d') { $CFG->{daemonise} = 1; }
         elsif ($arg eq '-h') { help(); }
         elsif (-d $arg && -f "$arg/config.xml" && -d "$arg/builds")
         {
@@ -100,6 +107,22 @@ do
         }
     }
 
+    # daemonise?
+    if ($CFG->{daemonise})
+    {
+        my $pid = fork();
+        if ($pid)
+        {
+            PRINT("tschenggins-watcher.pl running, pid=%i", $pid);
+            exit(0);
+        }
+        chdir('/');
+        open(STDIN, '<', '/dev/null');
+        open(STDOUT, '>', '/dev/null');
+        open(STDERR, '>', '/dev/null');
+        setsid();
+    }
+
     # run..
     run(@jobdirs);
 };
@@ -113,7 +136,7 @@ sub help
           "",
           "Usage:",
           "",
-          "  $0 [-q] [-v] [-h] [-n <name>] -b <statusurl> <jobdir> ...",
+          "  $0 [-q] [-v] [-h] [-d] [-n <name>] -b <statusurl> <jobdir> ...",
           "",
           "Where:",
           "",
@@ -122,6 +145,7 @@ sub help
           "  -v  increases verbosity",
           "  -b <statusurl>  URL for the jenkins-status.pl backend",
           "  -s <server>  the Jenkins server name (default on this machine: $CFG->{hostname})",
+          "  -d  run in background",
           "  <jobdir> one or more Jenkins job directories to monitor",
           "",
           "Examples:",
@@ -214,7 +238,7 @@ sub getJenkinsJob
         local $SIG{__DIE__} = 'IGNORE';
         $build = XML::Simple::XMLin($buildXmlFile);
     };
-    my $jState = -f $buildXmlFile ? 'idle' : 'running';
+    my $jState = $buildXmlFile ? (-f $buildXmlFile ? 'idle' : 'running') : 'unknown';
     my $jResult = 'unknown';
     my $jDuration = 0;
     if ( $config && $config->{disabled} && ($config->{disabled} =~ m{true}i) )
