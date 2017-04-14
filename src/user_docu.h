@@ -131,7 +131,7 @@ Other 3rd-party stuff:
 
 (5) only CLK and MOSI are connected to the WS2801 chain,
     but MOSI and CS are also configured (user_ws2801.c)
-    (it's unclear if that is required or the pins could be used for something else),
+    (it's unclear if that is required or the pins could be used for something else)
 
 (6) connected to the CH304G USB to UART chip,
     for debug output (user_stuff.c)

@@ -111,8 +111,18 @@ const char skRtttlMelody37[] PROGMEM = "ImperialMarch:d=4,o=5,b=80:8d.,8d.,8d.,8
 const char skRtttlMelody38[] PROGMEM = "ImperialShort:d=4,o=5,b=80:8d.,8d.,8d.,8a#4,16f,8d.,8a#4,16f,d.";
 const char skRtttlMelody39[] PROGMEM = "Beethoven5th:d=16,o=5,b=100:g,g,g,4d#,4p,f,f,f,4d,4p,g,g,g,d#,g#,g#,g#,g,d#6,d#6,d#6,4c6,8p,g,g,g,d,g#,g#,g#,g,f6,f6,f6,4d6,8p,g6,g6,f6,4d#6,8p,g6,g6,f6,4d#6";
 const char skRtttlMelody40[] PROGMEM = "BeethovenElise:d=8,o=5,b=125:32p,e6,d#6,e6,d#6,e6,b,d6,c6,4a.,32p,c,e,a,4b.,32p,e,g#,b,4c.6,32p,e,e6,d#6,e6,d#6,e6,b,d6,c6,4a.,32p,c,e,a,4b.,32p,d,c6,b,2a";
+// from http://www.vex.net/~lawrence/ringtones.html
+const char skRtttlMelody41[] PROGMEM = "XFile:d=16,o=6,b=355:e.,p,e.,p,e.,p,e.,p,b.,p,b.,p,b.,p,b.,p,a.,p,a.,p,a.,p,a.,p,b.,p,b.,p,b.,p,b.,p,d.7,p,d.7,p,d.7,p,d.7,p,b.,p,b.,p,b.,p,b.,p,b.,p,b.,p,b.,p,b.,p,b.,p,b.,p,b.,p,b.,p";
+const char skRtttlMelody42[] PROGMEM = "Fido:d=16,o=6,b=800:f,4p,f,4p,f,4p,f,4p,c,4p,c,4p,c,4p,c,1p,1p,1p,1p";
+const char skRtttlMelody43[] PROGMEM = "Fido2:d=8,o=7,b=500:f,f6,f,f6,f,f6,c,c6,c,c6,c,c6,c,c6,c,c6,c,c6,c,c6,c,c6,c,c6,c,c6,c,c6,c,c6,c,c6,c,c6,c,2p";
+const char skRtttlMelody44[] PROGMEM = "Intel:d=16,o=5,b=320:d,p,d,p,d,p,g,p,g,p,g,p,d,p,d,p,d,p,a,p,a,p,a,2p";
+const char skRtttlMelody45[] PROGMEM = "Knock:d=32,o=4,b=100:e,4p,e,p,e,8p,e,4p,e,8p,e,4p";
+const char skRtttlMelody46[] PROGMEM = "Urgent:d=8,o=6,b=500:c,e,d7,c,e,a#,c,e,a,c,e,g,c,e,a,c,e,a#,c,e,d7";
+const char skRtttlMelody47[] PROGMEM = "Mosaic:d=8,o=6,b=400:c,e,g,e,c,g,e,g,c,g,c,e,c,g,e,g,e,c";
+const char skRtttlMelody48[] PROGMEM = "Mosaic2:d=8,o=6,b=400:c,e,g,e,c,g,e,g,c,g,c,e,c,g,e,g,e,c,p,c5,e5,g5,e5,c5,g5,e5,g5,c5,g5,c5,e5,c5,g5,e5,g5,e5,c5";
+const char skRtttlMelody49[] PROGMEM = "Triple:d=8,o=5,b=635:c,e,g,c,e,g,c,e,g,c6,e6,g6,c6,e6,g6,c6,e6,g6,c7,e7,g7,c7,e7,g7,c7,e7,g7";
 
-const char * const skRtttlMelodies[] PROGMEM =
+    const char * const skRtttlMelodies[] PROGMEM =
 {
     skRtttlMelody01, skRtttlMelody02, skRtttlMelody03, skRtttlMelody04, skRtttlMelody05,
     skRtttlMelody06, skRtttlMelody07, skRtttlMelody08, skRtttlMelody09, skRtttlMelody10,
@@ -121,7 +131,9 @@ const char * const skRtttlMelodies[] PROGMEM =
     skRtttlMelody21, skRtttlMelody22, skRtttlMelody23, skRtttlMelody24, skRtttlMelody25,
     skRtttlMelody26, skRtttlMelody27, skRtttlMelody28, skRtttlMelody29, skRtttlMelody30,
     skRtttlMelody31, skRtttlMelody32, skRtttlMelody33, skRtttlMelody34, skRtttlMelody35,
-    skRtttlMelody36, skRtttlMelody37, skRtttlMelody38, skRtttlMelody39, skRtttlMelody40
+    skRtttlMelody36, skRtttlMelody37, skRtttlMelody38, skRtttlMelody39, skRtttlMelody40,
+    skRtttlMelody41, skRtttlMelody42, skRtttlMelody43, skRtttlMelody44, skRtttlMelody45,
+    skRtttlMelody46, skRtttlMelody47, skRtttlMelody48, skRtttlMelody49
 };
 
 const char * ICACHE_FLASH_ATTR rtttlBuiltinMelody(const char *name)
