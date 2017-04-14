@@ -62,9 +62,17 @@ $( document ).ready(function()
         else
         {
             divLeds.html('<label>Loading&hellip;</label>');
+            var progressInt = setInterval(function ()
+            {
+                divLeds.append('.');
+            }, 300);
             $.ajax(
             {
-                url: statusUrl + '?cmd=list', timeout: 10000, type: 'GET',
+                url: statusUrl + '?cmd=list', timeout: 15000, type: 'GET',
+                complete: function(jqXHR, textStatus)
+                {
+                    clearInterval(progressInt);
+                },
                 success: function(data, textStatus, jqXHR )
                 {
                     divLeds.empty().hide();
