@@ -33,7 +33,7 @@ void ICACHE_FLASH_ATTR user_init(void)
 
     // say hello
     NOTICE("------------------------------------------------------------------------------------------");
-    NOTICE(FF_PROJTITLE " (" FF_PROJECT " " FF_BUILDVER " "FF_BUILDDATE ")");
+    NOTICE(FF_PROJTITLE " - Model " STRINGIFY(FF_MODEL) " (" FF_PROJECT " " FF_BUILDVER " "FF_BUILDDATE ")");
     NOTICE("Copyright (c) " FF_COPYRIGHT " <" FF_COPYRIGHT_EMAIL ">");
     NOTICE("Parts copyright by others. See source code.");
     NOTICE(FF_PROJLINK);
