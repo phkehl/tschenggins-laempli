@@ -215,6 +215,18 @@ static void ICACHE_FLASH_ATTR sLedTimerFunc(void *arg)
     ws2801Flush();
 }
 
+static os_timer_t sLedTimer;
+static void ICACHE_FLASH_ATTR sLedStop(void)
+{
+    os_timer_disarm(&sLedTimer);
+}
+static void ICACHE_FLASH_ATTR sLedStart(void)
+{
+    os_timer_disarm(&sLedTimer);
+    os_timer_setfn(&sLedTimer, (os_timer_func_t *)sLedTimerFunc, NULL);
+    os_timer_arm(&sLedTimer, LED_TIMER_INTERVAL, 1); // interval, repeated
+}
+
 
 /* ***** Chewbacca ******************************************************************************* */
 
@@ -259,12 +271,12 @@ static void ICACHE_FLASH_ATTR sAppTriggerChewie(const bool happy)
 
 typedef enum UPDATE_STATE_e
 {
-    UPDATE_CHECK, UPDATE_LOOKUP, UPDATE_CONNECT, UPDATE_ONLINE, UPDATE_ABORT, UPDATE_FAIL
+    UPDATE_INIT, UPDATE_CHECK, UPDATE_LOOKUP, UPDATE_CONNECT, UPDATE_ONLINE, UPDATE_ABORT, UPDATE_FAIL
 } UPDATE_STATE_t;
 
 static const char skUpdateStateStrs[][8] PROGMEM =
 {
-    { "CHECK\0" }, { "LOOKUP\0" }, { "CONNECT\0" }, { "ONLINE\0" }, { "ABORT\0" }, { "FAIL\0" }
+    { "INIT\0" }, { "CHECK\0" }, { "LOOKUP\0" }, { "CONNECT\0" }, { "ONLINE\0" }, { "ABORT\0" }, { "FAIL\0" }
 };
 
 static os_timer_t sUpdateTimer;
@@ -300,6 +312,9 @@ bool ICACHE_FLASH_ATTR appForceUpdate(void)
         case UPDATE_ONLINE:
             sForceUpdate = true;
             TRIGGER_UPDATE(UPDATE_ABORT, 10);
+            break;
+
+        case UPDATE_INIT:
             break;
 
         case UPDATE_LOOKUP:
@@ -354,6 +369,41 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
 
     switch (state)
     {
+        // initialisation, show off LEDs.. :-)
+        case UPDATE_INIT:
+        {
+            static uint8_t sInitLoop;
+
+            if (sInitLoop == 0)
+            {
+                sLedStop();
+                toneStart(1000, 30);
+                statusSet(USER_STATUS_UPDATE);
+                sInitLoop = 255;
+                TRIGGER_UPDATE(UPDATE_INIT, 100);
+            }
+            else if (sInitLoop == 1)
+            {
+                sLedStart();
+                toneStart(800, 30);
+                TRIGGER_UPDATE(UPDATE_CHECK, UPDATE_CHECK_INTERVAL);
+            }
+            else
+            {
+                for (uint16_t ix = 0; ix < APP_NUM_LEDS; ix++)
+                {
+                    const uint8_t hue = sInitLoop + (ix * 20);
+                    //const uint8_t hue = sInitLoop + (ix * (255 / APP_NUM_LEDS));
+                    ws2801SetHSV(ix, hue, 255, 100);
+                }
+                ws2801Flush();
+                TRIGGER_UPDATE(UPDATE_INIT, 8);
+            }
+            sInitLoop--;
+            break;
+        }
+
+
         // 1. check if an update is due and possible
         case UPDATE_CHECK:
         {
@@ -1225,16 +1275,14 @@ void ICACHE_FLASH_ATTR appStart(void)
     PRINT("app: start");
 
     // LED timer
-    static os_timer_t sLedTimer;
-    os_timer_disarm(&sLedTimer);
-    os_timer_setfn(&sLedTimer, (os_timer_func_t *)sLedTimerFunc, NULL);
-    os_timer_arm(&sLedTimer, LED_TIMER_INTERVAL, 1); // interval, repeated
+    sLedStart();
 
     // setup update timer
     os_timer_disarm(&sUpdateTimer);
     os_timer_setfn(&sUpdateTimer, (os_timer_func_t *)sUpdateTimerFunc, &sUpdateStateNext);
     // fire update timer
-    TRIGGER_UPDATE(UPDATE_CHECK, UPDATE_CHECK_INTERVAL);
+    //TRIGGER_UPDATE(UPDATE_CHECK, UPDATE_CHECK_INTERVAL);
+    TRIGGER_UPDATE(UPDATE_INIT, UPDATE_CHECK_INTERVAL);
 
     // button timer
     static os_timer_t sButtonTimer;
