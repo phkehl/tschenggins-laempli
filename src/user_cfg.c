@@ -239,6 +239,9 @@ void ICACHE_FLASH_ATTR cfgDebug(const USER_CFG_t *pkCfg)
         pkCfg->leds[0], pkCfg->leds[1], pkCfg->leds[2], pkCfg->leds[3]);
     DEBUG("cfgDebug() ch04=%08x ch05=%08x ch06=%08x ch07=%08x",
         pkCfg->leds[4], pkCfg->leds[5], pkCfg->leds[6], pkCfg->leds[7]);
+#elif (APP_NUM_LEDS == 3)
+    DEBUG("cfgDebug() ch00=%08x ch01=%08x ch02=%08x",
+        pkCfg->leds[0], pkCfg->leds[1], pkCfg->leds[2]);
 #else
 #  warning please implement me
 #endif
