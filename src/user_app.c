@@ -310,8 +310,11 @@ bool ICACHE_FLASH_ATTR appForceUpdate(void)
     {
         case UPDATE_CHECK:
         case UPDATE_ONLINE:
-            sForceUpdate = true;
-            TRIGGER_UPDATE(UPDATE_ABORT, 10);
+            if (!sForceUpdate)
+            {
+                sForceUpdate = true;
+                TRIGGER_UPDATE(UPDATE_ABORT, 10);
+            }
             break;
 
         case UPDATE_INIT:
@@ -427,7 +430,7 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
             if (doUpdate)
             {
                 statusSet(USER_STATUS_UPDATE);
-                TRIGGER_UPDATE(UPDATE_LOOKUP, 1000);
+                TRIGGER_UPDATE(UPDATE_LOOKUP, 250);
             }
             else
             {
@@ -550,6 +553,7 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
             statusSet(USER_STATUS_HEARTBEAT);
             if (sUpdateState != UPDATE_ONLINE)
             {
+                toneStart(1000, 30);
                 PRINT("app: status online");
             }
 
@@ -564,6 +568,7 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
             STATUS_HELP_t *pSH = &sStatusHelper;
             struct espconn *pConn = &pSH->conn;
 
+            toneStart(800, 30);
             statusSet(USER_STATUS_FAIL);
             sSetLedsUnknown();
 
@@ -581,6 +586,7 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
             STATUS_HELP_t *pSH = &sStatusHelper;
             struct espconn *pConn = &pSH->conn;
 
+            toneStart(800, 30);
             statusSet(USER_STATUS_FAIL);
             sSetLedsUnknown();
 
@@ -589,6 +595,7 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
             if (sForceUpdate)
             {
                 PRINT("app: force update");
+                sForceUpdate = false;
                 TRIGGER_UPDATE(UPDATE_CHECK, 250);
             }
             else if (sUpdateState == UPDATE_FAIL)
@@ -803,7 +810,10 @@ static void ICACHE_FLASH_ATTR sAppDisconnectCb(void *arg)
 
     DEBUG("sAppDisconnectCb(%p)", pConn);
 
-    TRIGGER_UPDATE(UPDATE_ABORT, 20);
+    if (sUpdateState != UPDATE_ABORT)
+    {
+        TRIGGER_UPDATE(UPDATE_ABORT, 20);
+    }
 }
 
 
