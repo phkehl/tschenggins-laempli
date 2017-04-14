@@ -905,6 +905,7 @@ sub _realtime
     my $lastTs = 0;
     my $lastStatus = '';
     my $lastCheck = 0;
+    my $startTs = time();
     $|++;
     print("hello $client $strlen $info->{name} @ch\n");
     while (1)
@@ -917,6 +918,12 @@ sub _realtime
             printf("heartbeat $nowInt $n\r\n");
         }
         $n++;
+
+        # don't run forever
+        if ( ($now - $startTs) > (4 * 3600) )
+        {
+            exit(0);
+        }
 
         # check database?
         my $doCheck = 0;
