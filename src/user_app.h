@@ -16,13 +16,20 @@
 #define __USER_APP_H__
 
 #include "user_stuff.h"
+#include "version_gen.h"
+
+#if (FF_MODEL == 1)
 
 //! the number of LEDs in the Tschenggins Lämpli
-#define APP_NUM_LEDS 8
+#  define APP_NUM_LEDS 8
 
 //! the arrangement of the LEDs (index of the LED in the box -> index of the LED on the chain)
-#define APP_LED_MAP { 7, 0, 6, 1, 5, 2, 4, 3 } // box setup vertically ("portrait")
-//#define APP_LED_MAP { 0, 1, 2, 3, 7, 6, 5, 4 } // box setup horizontally ("landscape")
+#  define APP_LED_MAP { 7, 0, 6, 1, 5, 2, 4, 3 } // box setup vertically ("portrait")
+//#  define APP_LED_MAP { 0, 1, 2, 3, 7, 6, 5, 4 } // box setup horizontally ("landscape")
+
+#else
+#  warning Please implement your model here.
+#endif
 
 //! initialise application
 void appInit(void);

@@ -35,6 +35,9 @@ COPY_EMAIL  := flipflip at oinkzwurgl dot org
 PROJTITLE   := Tschenggins Lämpli
 PROJLINK    := https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
+# model of the Lämpli
+MODEL       := 1
+
 # pre-defined configuration, see cfg-sample.txt
 CFGFILE     :=
 
@@ -286,6 +289,7 @@ $(OBJDIR)/version_gen.h: $(OBJDIR)/.dummy $(OBJDIR)/.version_gen.h Makefile
 	@echo "#define FF_COPYRIGHT_EMAIL \"$(COPY_EMAIL)\"" >> $@.tmp
 	@echo "#define FF_CFGADDR $(CFGADDR)" >> $@.tmp
 	@echo "#define FF_FSADDR $(FSADDR)" >> $@.tmp
+	@echo "#define FF_MODEL $(MODEL)" >> $@.tmp
 	@echo "#endif" >> $@.tmp
 	$(V)$(MV) $@.tmp $@
 
@@ -477,7 +481,7 @@ what:
 .PHONY: help
 help:
 	@echo
-	@echo "Usage: make ... [VERBOSE=0|1] [...=...]"
+	@echo "Usage: make ... [VERBOSE=0|1] [MODEL=1|...] [...=...]"
 	@echo
 	@echo "Possible targets are:"
 	@echo
@@ -512,10 +516,14 @@ help:
 	@echo "    ESPBAUD -- set programming baudrate (default: $(ESPBAUD))"
 	@echo "    SDKBASE -- set to SDK base directory (default: $(SDKBASE))"
 	@echo "    CFGFILE -- pre-defined default configuration (see cfg-sample.txt)"
+	@echo "    MODEL   -- the model of the Lämpli to configure the software for"
+	@echo
+	@echo "Note: Be sure the 'make clean' when changing the CFGFILE or MODEL parameters."
 	@echo
 	@echo "Typical usage:"
 	@echo
-	@echo "    make all && make prog && make debug"
+	@echo "    make clean && make all && make prog && make debug"
+	@echo "    make clean && make all CFGFILE=cfg-xxx.txt MODEL=1 && make prog && make debug"
 	@echo
 
 
