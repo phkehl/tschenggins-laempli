@@ -56,11 +56,11 @@ void ICACHE_FLASH_ATTR toneMelody(const int16_t *pkFreqDur)
 
     for (int16_t ix = 0; ix < TONE_MELODY_N; ix++)
     {
-        const int16_t freq = pkFreqDur[ 2 * ix ];
+        const int16_t freq = pgm_read_uint16(&pkFreqDur[ 2 * ix ]);
         if ( (freq != TONE_END) && (freq > 0) )
         {
             const int16_t _freq = freq != TONE_PAUSE ? freq : PAUSE_FREQ;
-            const int16_t dur = pkFreqDur[ (2 * ix) + 1 ];
+            const int16_t dur = pgm_read_uint16(&pkFreqDur[ (2 * ix) + 1 ]);
 
             // timer value
             const uint32_t timerval = (APB_CLK_FREQ / 1000000 * 500000) / _freq;

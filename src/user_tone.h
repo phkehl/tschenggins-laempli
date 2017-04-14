@@ -49,7 +49,7 @@ void toneStop(void);
     \note This is non-blocking and returns immediately. It stopy any currently playing tone or
     melody.
 
-    \param[in] pkFreqDur  list of pairs of tone frequency and duration
+    \param[in] pkFreqDur  list of pairs of tone frequency and duration (can be ROM data)
 
     Example:
 \code{.c}
