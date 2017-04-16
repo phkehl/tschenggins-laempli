@@ -176,25 +176,25 @@ void ICACHE_FLASH_ATTR cfgDefault(USER_CFG_t *pCfg)
 #if (defined DEF_CFG_LED01)
     pCfg->leds[0] = DEF_CFG_LED01;
 #endif
-#if (defined DEF_CFG_LED01)
+#if (defined DEF_CFG_LED02)
     pCfg->leds[1] = DEF_CFG_LED02;
 #endif
-#if (defined DEF_CFG_LED01)
+#if (defined DEF_CFG_LED03)
     pCfg->leds[2] = DEF_CFG_LED03;
 #endif
-#if (defined DEF_CFG_LED01)
+#if (defined DEF_CFG_LED04)
     pCfg->leds[3] = DEF_CFG_LED04;
 #endif
-#if (defined DEF_CFG_LED01)
+#if (defined DEF_CFG_LED05)
     pCfg->leds[4] = DEF_CFG_LED05;
 #endif
-#if (defined DEF_CFG_LED01)
+#if (defined DEF_CFG_LED06)
     pCfg->leds[5] = DEF_CFG_LED06;
 #endif
-#if (defined DEF_CFG_LED01)
+#if (defined DEF_CFG_LED07)
     pCfg->leds[6] = DEF_CFG_LED07;
 #endif
-#if (defined DEF_CFG_LED01)
+#if (defined DEF_CFG_LED08)
     pCfg->leds[7] = DEF_CFG_LED08;
 #endif
 }
