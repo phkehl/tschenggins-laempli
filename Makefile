@@ -290,6 +290,7 @@ $(OBJDIR)/version_gen.h: $(OBJDIR)/.dummy $(OBJDIR)/.version_gen.h Makefile
 	@echo "#define FF_CFGADDR $(CFGADDR)" >> $@.tmp
 	@echo "#define FF_FSADDR $(FSADDR)" >> $@.tmp
 	@echo "#define FF_MODEL $(MODEL)" >> $@.tmp
+	@echo "#define FF_MODEL_STR \"$(MODEL)\"" >> $@.tmp
 	@echo "#endif" >> $@.tmp
 	$(V)$(MV) $@.tmp $@
 
