@@ -357,7 +357,7 @@ static uint32_t sAppLocalTime;
 #  define APP_STATUS_REQ_STRLEN APP_LED_JOBNAME_LEN
 #endif
 
-#define APP_STATUS_RETRY_INTERVAL    10000
+#define APP_STATUS_RETRY_INTERVAL    60000
 #define APP_STATUS_HELLO_TIMEOUT     10000
 #define APP_STATUS_HEARTBEAT_TIMEOUT 10000
 
@@ -855,8 +855,16 @@ static void ICACHE_FLASH_ATTR sAppTcpRecvCb(void *arg, char *data, uint16_t size
             }
             else
             {
+                if (size > 50)
+                {
+                    data[50] = '\0';
+                }
                 DEBUG("sAppTcpRecvCb(%p) size=%u data=%s", pConn, size, data);
                 WARNING("app: ignoring fishy response");
+                if (sUpdateState != UPDATE_ONLINE)
+                {
+                    TRIGGER_UPDATE(UPDATE_FAIL, 0); // must go there immediately before the disconnectCb put's us in ABORT state
+                }
             }
         }
     }
