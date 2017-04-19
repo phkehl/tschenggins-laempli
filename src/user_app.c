@@ -447,6 +447,8 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
             }
             else if (sInitLoop == 1)
             {
+                ws2801Clear();
+                ws2801Flush();
                 sLedStart();
                 sMakeNoise(NOISE_OTHER);
                 TRIGGER_UPDATE(UPDATE_CHECK, UPDATE_CHECK_INTERVAL);
@@ -460,7 +462,7 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
                     ws2801SetHSV(ix, hue, 255, 100);
                 }
                 ws2801Flush();
-                TRIGGER_UPDATE(UPDATE_INIT, 8);
+                TRIGGER_UPDATE(UPDATE_INIT, 5);
             }
             sInitLoop--;
             break;
