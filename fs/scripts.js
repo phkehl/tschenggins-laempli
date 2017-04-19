@@ -62,13 +62,30 @@ $( document ).ready(function()
         else
         {
             divLeds.html('<label>Loading&hellip;</label>');
+            var maxProgress = 50;
             var progressInt = setInterval(function ()
             {
-                divLeds.append('.');
+                if (maxProgress-- > 0)
+                {
+                    divLeds.append('.');
+                }
+                else
+                {
+                    clearInterval(progressInt);
+                }
             }, 300);
+            var m = statusUrl.match(/^(https?:\/\/)(?:(.[^:]+:[^:]+)@)(.*)/);
+            var headers = {};
+            if (m && (m.length == 4))
+            {
+                headers['Authorization'] = 'Basic ' + btoa(m[2]);
+                statusUrl = m[1] + m[3];
+            }
+            DEBUG('ajax', [ statusUrl, headers ]);
             $.ajax(
             {
                 url: statusUrl + '?cmd=list', timeout: 15000, type: 'GET',
+                headers: headers,
                 complete: function(jqXHR, textStatus)
                 {
                     clearInterval(progressInt);
@@ -99,7 +116,8 @@ $( document ).ready(function()
                 },
                 error: function(jqXHR, textStatus, errorThrown )
                 {
-                    divLeds.html('<div class="cfgmsg error">Error: ' + textStatus + '.</br>LEDs configuration not available.' + '</div>');
+                    divLeds.html('<div class="cfgmsg error">Error: ' + textStatus +
+                                 ' (' + errorThrown + ').</br>LEDs configuration not available.' + '</div>');
                 }
             });
         }
