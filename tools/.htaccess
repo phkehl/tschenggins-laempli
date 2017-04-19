@@ -7,7 +7,7 @@ DirectoryIndex tschenggins-status.pl
 
 #<FilesMatch "tschenggins-status.pl">
 #    AuthType basic
-#    AuthName "Teschenggins Lämpli"
+#    AuthName "Teschenggins Laempli"
 #    AuthUserFile "/path/to/.htpasswd"
-#    Require user username
+#    Require valid-user
 #</FilesMatch>

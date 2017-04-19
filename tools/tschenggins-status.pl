@@ -42,7 +42,7 @@ my $UNKSTATE      = { name => 'unknown', server => 'unknown', result => 'unknown
 my $JOBNAMERE     = qr{^[-_a-zA-Z0-9]{5,50}$};
 my $JOBIDRE       = qr{^[0-9a-z]{8,8}$};
 my $DEFAULTCMD    = 'gui';
-my $DBFILE        = "$DATADIR/tschenggins-status.json";
+my $DBFILE        = $ENV{'REMOTE_USER'} ? "$DATADIR/tschenggins-status-$ENV{'REMOTE_USER'}.json" : "$DATADIR/tschenggins-status.json";
 
 #DEBUG("DATADIR=%s, VALIDRESULT=%s, VALIDSTATE=%s", $DATADIR, $VALIDRESULT, $VALIDSTATE);
 
@@ -134,8 +134,7 @@ do
         }
     }
     $q->param('debug', $debug);
-    DEBUG("cmd=[%s]", $cmd);
-
+    DEBUG("cmd=%s user=%s", $cmd, $ENV{'REMOTE_USER'} || 'anonymous');
 
     ##### output is HTML, JSON or text #####
 
@@ -247,7 +246,7 @@ Connection check. Responds with "hi there" (immediately or after a delay).
 
 =head3 C<< cmd=update >>
 
-Interface for C<jenkins-watcher.pl>.
+Interface for C<tschenggins-watcher.pl>.
 
 =cut
 
