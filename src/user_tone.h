@@ -35,6 +35,12 @@ void toneStart(const uint32_t freq, const uint32_t dur);
 //! stop playing tone/melody
 void toneStop(void);
 
+//! is a tone/melody playing
+/*!
+    \returns true if a tone or melody is currently playing, false otherwise
+*/
+bool toneIsPlaying(void);
+
 //! helper macro for toneMelody()
 #define TONE(note, dur) RTTTL_NOTE_ ## note, dur
 

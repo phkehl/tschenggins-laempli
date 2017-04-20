@@ -27,6 +27,8 @@ static void sToneIsr(void *pArg);
 static void sToneStop(void);
 static void sToneStart(void);
 
+static volatile bool sToneIsPlaying;
+
 void ICACHE_FLASH_ATTR toneStart(const uint32_t freq, const uint32_t dur)
 {
     sToneStop();
@@ -93,6 +95,7 @@ void ICACHE_FLASH_ATTR toneMelody(const int16_t *pkFreqDur)
     ETS_FRC_TIMER1_INTR_ATTACH(sToneIsr, NULL);
     ETS_FRC1_INTR_ENABLE();
 
+    sToneIsPlaying = true;
     sToneStart();
 }
 
@@ -130,11 +133,17 @@ static void sToneStop(void) // RAM func
     RTC_REG_WRITE(FRC1_CTRL_ADDRESS, 0);
     TM1_EDGE_INT_DISABLE();
     GPIO_OUT_CLR(PIN_D2);
+    sToneIsPlaying = false;
 }
 
 void ICACHE_FLASH_ATTR toneStop(void)
 {
     sToneStop();
+}
+
+inline bool toneIsPlaying(void)
+{
+    return sToneIsPlaying;
 }
 
 
