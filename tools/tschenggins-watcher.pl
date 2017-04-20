@@ -305,23 +305,26 @@ sub jobdone
 {
     my ($st, $e) = @_;
     my $file = $e->fullname();
-    #DEBUG("Job '%s' has new file '%s'.", $st->{jobName}, $createdFile);
+    #DEBUG("Job '%s' has new file '%s'.", $st->{jobName}, $file);
 
     # the job is done once the build.xml file appears
     if ($file =~ m{/build.xml$})
     {
         # get result
         my ($jState, $jResult, $jDuration) = getJenkinsJob(undef, $file);
-        DEBUG("Job '%s' has stopped, duration=%.1fm, result is '%s'.", $st->{jobName}, $jDuration / 60, $jResult);
+        if ($jDuration > 0)
+        {
+            DEBUG("Job '%s' has stopped, duration=%.1fm, result is '%s'.", $st->{jobName}, $jDuration / 60, $jResult);
 
-        # set status
-        setState($st, $jState, $jResult);
+            # set status
+            setState($st, $jState, $jResult);
 
-        # update backend
-        update($st);
+            # update backend
+            update($st);
 
-        # remove the watch on the build directory
-        $e->w()->cancel();
+            # remove the watch on the build directory
+            $e->w()->cancel();
+        }
     }
 }
 
