@@ -141,7 +141,7 @@ void ICACHE_FLASH_ATTR toneStop(void)
     sToneStop();
 }
 
-inline bool toneIsPlaying(void)
+__INLINE bool toneIsPlaying(void)
 {
     return sToneIsPlaying;
 }

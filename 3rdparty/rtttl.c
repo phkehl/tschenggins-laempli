@@ -122,7 +122,7 @@ const char skRtttlMelody47[] PROGMEM = "Mosaic:d=8,o=6,b=400:c,e,g,e,c,g,e,g,c,g
 const char skRtttlMelody48[] PROGMEM = "Mosaic2:d=8,o=6,b=400:c,e,g,e,c,g,e,g,c,g,c,e,c,g,e,g,e,c,p,c5,e5,g5,e5,c5,g5,e5,g5,c5,g5,c5,e5,c5,g5,e5,g5,e5,c5";
 const char skRtttlMelody49[] PROGMEM = "Triple:d=8,o=5,b=635:c,e,g,c,e,g,c,e,g,c6,e6,g6,c6,e6,g6,c6,e6,g6,c7,e7,g7,c7,e7,g7,c7,e7,g7";
 
-    const char * const skRtttlMelodies[] PROGMEM =
+const char * const skRtttlMelodies[] PROGMEM =
 {
     skRtttlMelody01, skRtttlMelody02, skRtttlMelody03, skRtttlMelody04, skRtttlMelody05,
     skRtttlMelody06, skRtttlMelody07, skRtttlMelody08, skRtttlMelody09, skRtttlMelody10,
