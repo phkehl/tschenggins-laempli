@@ -302,7 +302,7 @@ static const int16_t skNoiseOther[] PROGMEM =
 static void ICACHE_FLASH_ATTR sMakeNoise(const NOISE_t noise)
 {
     const USER_CFG_t *pkCfg = cfgGetPtr();
-    if (!pkCfg->beNoisy)
+    if (!pkCfg->beNoisy || toneIsPlaying())
     {
         return;
     }
