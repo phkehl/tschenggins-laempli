@@ -1,9 +1,20 @@
-// by Philippe Kehl <flipflip at oinkzwurgl dot org>
+/*!
+    \file
+    \brief flipflip's Tschenggins Lämpli: xxx (see \ref USER_HTTPD)
+
+    - Copyright (c) 2017 Philippe Kehl (flipflip at oinkzwurgl dot org),
+      https://oinkzwurgl.org/projaeggd/tschenggins-laempli
+
+    \addtogroup USER_HTTPD
+
+    @{
+*/
 
 #include "user_httpd.h"
 #include "user_stuff.h"
 #include "user_status.h"
 #include "user_html.h"
+#include "user_config.h"
 #include "user_cfg.h"
 #include "base64.h"
 #include "html_gen.h"
@@ -56,15 +67,15 @@ static uint32_t sHttpdHandlePostCnt;
 
 // user and admin authentication ("auth basic" style, base64)
 #define HTTPD_AUTHLEN(ulen, plen) BASE64_ENCLEN((ulen) + 1 + (plen))
-#define HTTPD_AUTHLEN_MAX HTTPD_AUTHLEN(HTTPD_USER_LEN_MAX, HTTPD_PASS_LEN_MAX)
+#define HTTPD_AUTHLEN_MAX HTTPD_AUTHLEN(USER_HTTPD_USER_LEN_MAX, USER_HTTPD_PASS_LEN_MAX)
 static char sHttpdAuthUser[HTTPD_AUTHLEN_MAX];
 static char sHttpdAuthAdmin[HTTPD_AUTHLEN_MAX];
 
 static const char *skHttpdAuthLevelStrs[] = { "PUBLIC", "USER", "ADMIN" };
 
-HTTPD_REQCB_ENTRY_t sHttpdReqCbs[HTTPD_REQUESTCB_NUM];
+HTTPD_REQCB_ENTRY_t sHttpdReqCbs[USER_HTTPD_REQUESTCB_NUM];
 
-HTTPD_CONN_DATA_t sHttpdConns[HTTPD_CONN_NUM];
+HTTPD_CONN_DATA_t sHttpdConns[USER_HTTPD_CONN_NUM];
 
 // http request debugging
 #if 0
@@ -115,7 +126,7 @@ void ICACHE_FLASH_ATTR httpdStart(void)
 
 // -------------------------------------------------------------------------------------------------
 
-HTTPD_CONN_DATA_STORE_t sHttpdConnData[HTTPD_CONN_NUM];
+HTTPD_CONN_DATA_STORE_t sHttpdConnData[USER_HTTPD_CONN_NUM];
 
 static bool ICACHE_FLASH_ATTR sHttpdConnDataSet(struct espconn *pConn)
 {
@@ -403,10 +414,10 @@ bool httpdSetAuth(const HTTPD_AUTH_LEVEL_t authLevel, const char *username, cons
         return true;
     }
     else if ( (authStr != NULL) && (ulen > 0) && (plen > 0) &&
-        (ulen <= HTTPD_USER_LEN_MAX) && (plen <= HTTPD_PASS_LEN_MAX) &&
+        (ulen <= USER_HTTPD_USER_LEN_MAX) && (plen <= USER_HTTPD_PASS_LEN_MAX) &&
         (HTTPD_AUTHLEN(ulen, plen) <= HTTPD_AUTHLEN_MAX) )
     {
-        char tmp[HTTPD_USER_LEN_MAX + 1 + HTTPD_PASS_LEN_MAX + 1];
+        char tmp[USER_HTTPD_USER_LEN_MAX + 1 + USER_HTTPD_PASS_LEN_MAX + 1];
         sprintf_PP(tmp, PSTR("%s:%s"), username, password);
         base64enc(tmp, authStr, HTTPD_AUTHLEN_MAX);
         REQ_DEBUG("httpdSetAuth() %s %s -> %s", skHttpdAuthLevelStrs[authLevel], tmp, authStr);
@@ -587,11 +598,11 @@ static bool ICACHE_FLASH_ATTR sHttpdHandleRequest(
         int numKV = 0;
         if ((query != NULL) /*&& !isPOST*/)
         {
-            numKV += sHttpdSplitQueryString(query, &cbInfo.keys[numKV], &cbInfo.vals[numKV], HTTP_NUMPARAM - numKV);
+            numKV += sHttpdSplitQueryString(query, &cbInfo.keys[numKV], &cbInfo.vals[numKV], USER_HTTP_NUMPARAM - numKV);
         }
         if ((body != NULL) && isPOST)
         {
-            numKV += sHttpdSplitQueryString(body, &cbInfo.keys[numKV], &cbInfo.vals[numKV], HTTP_NUMPARAM - numKV);
+            numKV += sHttpdSplitQueryString(body, &cbInfo.keys[numKV], &cbInfo.vals[numKV], USER_HTTP_NUMPARAM - numKV);
         }
         cbInfo.numKV = numKV;
 
@@ -608,7 +619,7 @@ static bool ICACHE_FLASH_ATTR sHttpdHandleRequest(
 
     // what we know so far
     REQ_DEBUG("sHttpdHandleRequest(%p) method=%s path=%s numKV=%d/%d",
-        pConn, cbInfo.method, cbInfo.path, cbInfo.numKV, HTTP_NUMPARAM);
+        pConn, cbInfo.method, cbInfo.path, cbInfo.numKV, USER_HTTP_NUMPARAM);
 
 
     // ***** dispatch request *****
@@ -1293,6 +1304,7 @@ void ICACHE_FLASH_ATTR httpdStatus(void)
 }
 
 
-// -------------------------------------------------------------------------------------------------
 
+/* *********************************************************************************************** */
+//@}
 // eof

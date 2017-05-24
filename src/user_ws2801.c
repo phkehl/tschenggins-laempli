@@ -1,312 +1,21 @@
-// by Philippe Kehl <flipflip at oinkzwurgl dot org>
+/*!
+    \file
+    \brief flipflip's Tschenggins Lämpli: WS2801 RGB LEDs (see \ref USER_WS2801)
+
+    - Copyright (c) 2017 Philippe Kehl (flipflip at oinkzwurgl dot org),
+      https://oinkzwurgl.org/projaeggd/tschenggins-laempli
+
+    - Register info (in user_ws2801.c) copyright (c) 2016 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
+
+    \addtogroup USER_WS2801
+
+    @{
+*/
 
 #include "user_stuff.h"
+#include "user_hsv2rgb.h"
 #include "user_ws2801.h"
-
-
-/* ***** HSV to RGB conversion ******************************************************************* */
-
-//! HSV2RGB conversion method to use
-/*!
-    - 1 = classic (à la wikipedia, linear ramps), optimized
-    - 2 = using saturation/value dimming curve to to make it look more natural
-    - 3 = FastLED's "rainbow" coversion with better yellow and neater hue sweeps
-          FIXME: this has a problem with value = 0
-
-    See below for references & credits.
-*/
-#define HSV2RGB_METHOD 2
-
-#if ( (HSV2RGB_METHOD == 1) || (HSV2RGB_METHOD == 2) )
-//! classic HSV2RGB code (#HSV2RGB_METHOD 1 and 2) à la Wikipedia
-#  define HSV2RGB_CLASSIC(_H, _S, _V, _R, _G, _B) \
-    const uint8_t __H = _H; \
-    const uint8_t __S = _S; \
-    const uint8_t __V = _V; \
-    const uint32_t s = (6 * (uint32_t)__H) >> 8;               /* the segment 0..5 (360/60 * [0..255] / 256) */ \
-    const uint32_t t = (6 * (uint32_t)__H) & 0xff;             /* within the segment 0..255 (360/60 * [0..255] % 256) */ \
-    const uint32_t l = ((uint32_t)__V * (255 - (uint32_t)__S)) >> 8; /* lower level */ \
-    const uint32_t r = ((uint32_t)__V * (uint32_t)__S * t) >> 16;    /* ramp */ \
-    switch (s) \
-    { \
-        case 0: (_R) = (uint8_t)__V;        (_G) = (uint8_t)(l + r);    (_B) = (uint8_t)l;          break; \
-        case 1: (_R) = (uint8_t)(__V - r);  (_G) = (uint8_t)__V;        (_B) = (uint8_t)l;          break; \
-        case 2: (_R) = (uint8_t)l;          (_G) = (uint8_t)__V;        (_B) = (uint8_t)(l + r);    break; \
-        case 3: (_R) = (uint8_t)l;          (_G) = (uint8_t)(__V - r);  (_B) = (uint8_t)__V;        break; \
-        case 4: (_R) = (uint8_t)(l + r);    (_G) = (uint8_t)l;          (_B) = (uint8_t)__V;        break; \
-        case 5: (_R) = (uint8_t)__V;        (_G) = (uint8_t)l;          (_B) = (uint8_t)(__V - r);  break; \
-    }
-#endif
-
-// ***** classic conversion *****
-#if (HSV2RGB_METHOD == 1)
-
-//! classic HSV2RGB conversion
-#  define HSV2RGB(H, S, V, R, G, B) HSV2RGB_CLASSIC(H, S, V, R, G, B)
-
-// ***** saturation/value dimming *****
-#elif (HSV2RGB_METHOD == 2)
-
-//! saturation/value lookup table
-/*!
-
-    Saturation/Value lookup table to compensate for the nonlinearity of human
-    vision.  Used in the getRGB function on saturation and brightness to make
-    dimming look more natural. Exponential function used to create values below
-    : x from 0 - 255 : y = round(pow( 2.0, x+64/40.0) - 1)
-
-    From: http://www.kasperkamperman.com/blog/arduino/arduino-programming-hsb-to-rgb/
-*/
-static const uint8_t skMatrixDimCurve[] =
-{
-      0,   1,   1,   2,   2,   2,   2,   2,   2,   3,   3,   3,   3,   3,   3,   3,
-      3,   3,   3,   3,   3,   3,   3,   4,   4,   4,   4,   4,   4,   4,   4,   4,
-      4,   4,   4,   5,   5,   5,   5,   5,   5,   5,   5,   5,   5,   6,   6,   6,
-      6,   6,   6,   6,   6,   7,   7,   7,   7,   7,   7,   7,   8,   8,   8,   8,
-      8,   8,   9,   9,   9,   9,   9,   9,  10,  10,  10,  10,  10,  11,  11,  11,
-     11,  11,  12,  12,  12,  12,  12,  13,  13,  13,  13,  14,  14,  14,  14,  15,
-     15,  15,  16,  16,  16,  16,  17,  17,  17,  18,  18,  18,  19,  19,  19,  20,
-     20,  20,  21,  21,  22,  22,  22,  23,  23,  24,  24,  25,  25,  25,  26,  26,
-     27,  27,  28,  28,  29,  29,  30,  30,  31,  32,  32,  33,  33,  34,  35,  35,
-     36,  36,  37,  38,  38,  39,  40,  40,  41,  42,  43,  43,  44,  45,  46,  47,
-     48,  48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,
-     63,  64,  65,  66,  68,  69,  70,  71,  73,  74,  75,  76,  78,  79,  81,  82,
-     83,  85,  86,  88,  90,  91,  93,  94,  96,  98,  99, 101, 103, 105, 107, 109,
-    110, 112, 114, 116, 118, 121, 123, 125, 127, 129, 132, 134, 136, 139, 141, 144,
-    146, 149, 151, 154, 157, 159, 162, 165, 168, 171, 174, 177, 180, 183, 186, 190,
-    193, 196, 200, 203, 207, 211, 214, 218, 222, 226, 230, 234, 238, 242, 248, 255
-};
-
-
-//! classic HSV2RGB conversion with saturation/value dimming
-#  define HSV2RGB(H, S, V, R, G, B) \
-    HSV2RGB_CLASSIC(H, 255 - skMatrixDimCurve[255-(S)], skMatrixDimCurve[V], R, G, B)
-
-
-// ***** rainbow conversion *****
-#elif (HSV2RGB_METHOD == 3)
-
-//  FastLED code (excerpt) from https://github.com/FastLED/FastLED
-#  define scale8(i, scale) ((int)(i) * (int)(scale) ) >> 8
-#  define scale8_video_LEAVING_R1_DIRTY( g, Gscale) scale8_video(g, Gscale)
-#  define scale8_video(i, scale) (i == 0) ? 0 : (((int)i * (int)(scale) ) >> 8) + ((scale != 0) ? 1 : 0)
-#  define nscale8x3(r, g, b, scale) \
-    (r) = ((I)(r) * (I)(scale) ) >> 8; \
-    (g) = ((I)(g) * (I)(scale) ) >> 8; \
-    (b) = ((I)(b) * (I)(scale) ) >> 8
-#  define nscale8x3_video(r, g, b, scale) \
-    const uint8_t nonzeroscale = (scale != 0) ? 1 : 0; \
-    (r) = ((r) == 0) ? 0 : (((I)(r) * (I)(scale) ) >> 8) + nonzeroscale; \
-    (g) = ((g) == 0) ? 0 : (((I)(g) * (I)(scale) ) >> 8) + nonzeroscale; \
-    (b) = ((b) == 0) ? 0 : (((I)(b) * (I)(scale) ) >> 8) + nonzeroscale;
-//! "rainbow" HSV2RGB conversion
-static void sMatrixHSV2RGBrainbow(IN const uint8_t hue, IN const uint8_t sat, IN const uint8_t val,
-                                  OUT uint8_t *R, OUT uint8_t *G, OUT uint8_t *B)
-{
-    // Yellow has a higher inherent brightness than
-    // any other color; 'pure' yellow is perceived to
-    // be 93% as bright as white. In order to make
-    // yellow appear the correct relative brightness,
-    // it has to be rendered brighter than all other
-    // colors.
-    // Level Y1 is a moderate boost, the default.
-    // Level Y2 is a strong boost.
-    const uint8_t Y1 = 0;
-    const uint8_t Y2 = 1;
-
-    // G2: Whether to divide all greens by two.
-    // Depends GREATLY on your particular LEDs
-    const uint8_t G2 = 0;
-
-    // Gscale: what to scale green down by.
-    // Depends GREATLY on your particular LEDs
-    const uint8_t Gscale = 0;
-
-    const uint8_t offset = hue & 0x1F; // 0..31
-
-    // offset8 = offset * 8
-    uint8_t offset8 = offset * 8;
-    //{
-    //    offset8 <<= 1;
-    //    asm volatile("");
-    //    offset8 <<= 1;
-    //    asm volatile("");
-    //    offset8 <<= 1;
-    //}
-
-    const uint8_t third = scale8( offset8, (256 / 3));
-
-    uint8_t r, g, b;
-
-    if ( ! (hue & 0x80) )
-    {
-        // 0XX
-        if ( ! (hue & 0x40) )
-        {
-            // 00X
-            //section 0-1
-            if ( ! (hue & 0x20) )
-            {
-                // 000
-                //case 0: // R -> O
-                r = 255 - third;
-                g = third;
-                b = 0;
-            }
-            else
-            {
-                // 001
-                //case 1: // O -> Y
-                if ( Y1 )
-                {
-                    r = 171;
-                    g = 85 + third;
-                    b = 0;
-                }
-                if ( Y2 )
-                {
-                    r = 171 + third;
-                    uint8_t twothirds = (third << 1);
-                    g = 85 + twothirds;
-                    b = 0;
-                }
-            }
-        }
-        else
-        {
-            //01X
-            // section 2-3
-            if ( ! (hue & 0x20) )
-            {
-                // 010
-                //case 2: // Y -> G
-                if ( Y1 )
-                {
-                    uint8_t twothirds = (third << 1);
-                    r = 171 - twothirds;
-                    g = 171 + third;
-                    b = 0;
-                }
-                if ( Y2 )
-                {
-                    r = 255 - offset8;
-                    g = 255;
-                    b = 0;
-                }
-            }
-            else
-            {
-                // 011
-                // case 3: // G -> A
-                r = 0;
-                g = 255 - third;
-                b = third;
-            }
-        }
-    }
-    else
-    {
-        // section 4-7
-        // 1XX
-        if ( ! (hue & 0x40) )
-        {
-            // 10X
-            if ( ! ( hue & 0x20) )
-            {
-                // 100
-                //case 4: // A -> B
-                r = 0;
-                uint8_t twothirds = (third << 1);
-                g = 171 - twothirds;
-                b = 85 + twothirds;
-
-            }
-            else
-            {
-                // 101
-                //case 5: // B -> P
-                r = third;
-                g = 0;
-                b = 255 - third;
-
-            }
-        }
-        else
-        {
-            if ( ! (hue & 0x20) )
-            {
-                // 110
-                //case 6: // P -- K
-                r = 85 + third;
-                g = 0;
-                b = 171 - third;
-
-            }
-            else
-            {
-                // 111
-                //case 7: // K -> R
-                r = 171 + third;
-                g = 0;
-                b = 85 - third;
-
-            }
-        }
-    }
-
-    // This is one of the good places to scale the green down,
-    // although the client can scale green down as well.
-    if ( G2 )
-    {
-        g = g >> 1;
-    }
-    if ( Gscale )
-    {
-        g = scale8_video_LEAVING_R1_DIRTY( g, Gscale);
-    }
-
-    // Scale down colors if we're desaturated at all
-    // and add the brightness_floor to r, g, and b.
-    if ( sat != 255 )
-    {
-        nscale8x3_video( r, g, b, sat);
-
-        uint8_t desat = 255 - sat;
-        desat = scale8( desat, desat);
-
-        uint8_t brightness_floor = desat;
-        r += brightness_floor;
-        g += brightness_floor;
-        b += brightness_floor;
-    }
-
-    // Now scale everything down if we're at value < 255.
-    if ( val != 255 )
-    {
-        const uint8_t _val = scale8_video_LEAVING_R1_DIRTY(val, val);
-        nscale8x3_video( r, g, b, _val);
-    }
-
-    // Here we have the old AVR "missing std X+n" problem again
-    // It turns out that fixing it winds up costing more than
-    // not fixing it.
-    // To paraphrase Dr Bronner, profile! profile! profile!
-    //asm volatile( "" : : : "r26", "r27" );
-    //asm volatile (" movw r30, r26 \n" : : : "r30", "r31");
-    *R = r;
-    *G = g;
-    *B = b;
-}
-#  undef scale8
-#  undef scale8_video
-#  undef scale8_video_LEAVING_R1_DIRTY
-#  undef nscale8x3
-#  undef nscale8x3_video
-#  define HSV2RGB(H, S, V, R, G, B) sMatrixHSV2RGBrainbow(H, S, V, &(R), &(G), &(B))
-
-#else
-#  error Illegal value for HSV2RGB_METHOD!
-#endif
+#include "user_config.h"
 
 
 /* ***** LED framebuffer ************************************************************************* */
@@ -319,18 +28,33 @@ void ICACHE_FLASH_ATTR ws2801Clear(void)
     os_memset(sLedData, 0, sizeof(sLedData));
 }
 
-// red, green and blue channel order
-enum { IX_R = 1, IX_G = 2, IX_B = 0 };
+// check valid colour ordering
+#if   (USER_WS2801_ORDER == 123) // RGB
+enum { _R_ = 0, _G_ = 1, _B_ = 2 };
+#elif (USER_WS2801_ORDER == 132) // RBG
+enum { _R_ = 0, _B_ = 1, _G_ = 2 };
+#elif (USER_WS2801_ORDER == 213) // GRB
+enum { _G_ = 0, _R_ = 1, _B_ = 2 };
+#elif (USER_WS2801_ORDER == 231) // GBR
+enum { _G_ = 0, _B_ = 1, _R_ = 2 };
+#elif (USER_WS2801_ORDER == 312) // BRG
+enum { _B_ = 0, _R_ = 1, _G_ = 2 };
+#elif (USER_WS2801_ORDER == 321) // BGR
+enum { _B_ = 0, _G_ = 1, _R_ = 2 };
+#else
+#  error Illegal value for USER_WS2801_ORDER
+#endif
+
 
 void ICACHE_FLASH_ATTR ws2801SetHSV(const uint16_t ix, const uint8_t H, const uint8_t S, const uint8_t V)
 {
     if (ix < USER_WS2801_NUMLEDS)
     {
         uint8_t R, G, B;
-        HSV2RGB(H, S, V, R, G, B);
-        sLedData[ix][IX_R] = R;
-        sLedData[ix][IX_G] = G;
-        sLedData[ix][IX_B] = B;
+        hsv2rgb(H, S, V, &R, &G, &B);
+        sLedData[ix][_R_] = R;
+        sLedData[ix][_G_] = G;
+        sLedData[ix][_B_] = B;
     }
 }
 
@@ -338,9 +62,9 @@ void ICACHE_FLASH_ATTR ws2801SetRGB(const uint16_t ix, const uint8_t R, const ui
 {
     if (ix < USER_WS2801_NUMLEDS)
     {
-        sLedData[ix][IX_R] = R;
-        sLedData[ix][IX_G] = G;
-        sLedData[ix][IX_B] = B;
+        sLedData[ix][_R_] = R;
+        sLedData[ix][_G_] = G;
+        sLedData[ix][_B_] = B;
     }
 }
 
@@ -598,5 +322,5 @@ void ICACHE_FLASH_ATTR ws2801Flush(void)
 
 
 /* *********************************************************************************************** */
-
+//@}
 // eof

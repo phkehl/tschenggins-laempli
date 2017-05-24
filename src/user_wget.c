@@ -1,8 +1,19 @@
-// by Philippe Kehl <flipflip at oinkzwurgl dot org>
+/*!
+    \file
+    \brief flipflip's Tschenggins Lämpli: HTTP requests (see \ref USER_WGET)
+
+    - Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+      https://oinkzwurgl.org/projaeggd/tschenggins-laempli
+
+    \addtogroup USER_WGET
+
+    @{
+*/
 
 #include "user_stuff.h"
 #include "user_wget.h"
 #include "user_wifi.h"
+#include "user_config.h"
 #include "version_gen.h"
 #include "base64.h"
 
@@ -122,7 +133,7 @@ bool ICACHE_FLASH_ATTR sWgetDoRequest(WGET_STATE_t *pState, const char *url)
     pState->cbDone = false;
 
     // request timeout
-    os_timer_arm(&sWgetCbTimer, pState->timeout ? pState->timeout : WGET_DEFAULT_TIMEOUT, 0);
+    os_timer_arm(&sWgetCbTimer, pState->timeout ? pState->timeout : USER_WGET_DEFAULT_TIMEOUT, 0);
 
     // trigger hostlookup
     const int8_t res = espconn_gethostbyname(
@@ -231,11 +242,11 @@ static void ICACHE_FLASH_ATTR sWgetDoCallback(WGET_STATE_t *pState)
                 *locationEnd = '\0';
                 REQ_DEBUG("sWgetDoCallback(%p) location=%s", pState, locationCont);
 
-#if (WGET_MAX_REDIRECTS > 0)
+#if (USER_WGET_MAX_REDIRECTS > 0)
                 // handle redirects
-                if (pState->redirCnt++ >= WGET_MAX_REDIRECTS)
+                if (pState->redirCnt++ >= USER_WGET_MAX_REDIRECTS)
                 {
-                    ERROR("wget: maximum redirects ("STRINGIFY(WGET_MAX_REDIRECTS)") exceeded");
+                    ERROR("wget: maximum redirects ("STRINGIFY(USER_WGET_MAX_REDIRECTS)") exceeded");
                     pResp->error = WGET_ERROR;
                 }
                 // fire request again with new url
@@ -673,11 +684,11 @@ int ICACHE_FLASH_ATTR wgetReqParamsFromUrl(const char *url, char *buf, const int
 static void ICACHE_FLASH_ATTR sWgetTestCb(const WGET_RESPONSE_t *pkResp, void *pUser)
 {
     DEBUG("sWgetTestCb(%p, %p) error=%d status=%d contentType=%s bodyLen=%d (%d) body=[%s]"
-#if (WGET_MAX_REDIRECTS == 0)
+#if (USER_WGET_MAX_REDIRECTS == 0)
         " location=%s"
 #endif
         , pkResp, pUser, pkResp->error, pkResp->status, pkResp->contentType, pkResp->bodyLen, pkResp->body ? os_strlen(pkResp->body) : 0, pkResp->body
-#if (WGET_MAX_REDIRECTS == 0)
+#if (USER_WGET_MAX_REDIRECTS == 0)
         , pkResp->location
 #endif
         );
@@ -746,5 +757,5 @@ void ICACHE_FLASH_ATTR wgetTest(void)
 
 
 /* ********************************************************************************************** */
-
+//@}
 // eof

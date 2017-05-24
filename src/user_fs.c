@@ -1,4 +1,14 @@
-// by Philippe Kehl <flipflip at oinkzwurgl dot org>
+/*!
+    \file
+    \brief flipflip's Tschenggins Lämpli: filesystem (see \ref USER_FS)
+
+    - Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+      https://oinkzwurgl.org/projaeggd/tschenggins-laempli
+
+    \addtogroup USER_FS
+
+    @{
+*/
 
 #include "user_fs.h"
 #include "user_httpd.h"
@@ -224,4 +234,6 @@ static bool sFsConnCb(struct espconn *pConn, HTTPD_CONN_DATA_t *pData, const HTT
 }
 
 
+/* *********************************************************************************************** */
+//@}
 // eof

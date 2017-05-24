@@ -2,7 +2,7 @@
     \file
     \brief flipflip's Tschenggins Lämpli: debugging output and other handy stuff (see \ref USER_STUFF)
 
-    - Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+    - Copyright (c) 2017 Philippe Kehl (flipflip at oinkzwurgl dot org),
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
     \defgroup USER_STUFF STUFF
@@ -28,7 +28,6 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include <stddef.h>
-
 
 /* ***** ESP SDK ********************************************************************************* */
 
@@ -80,16 +79,13 @@ void stuffStatus(void);
     arguments in ROM space. Note that it doesn't handle padding for strings (e.g. "%-20s").
 
     The \c tools/debug.pl script can be used to receiver and display this debug output (in colours!).
+
+    Configuration:
+    - #USER_DEBUG_TXBUFSIZE
+    - #USER_DEBUG_UART
+    - #USER_DEBUG_USE_ISR
+
 */
-
-//! debug tx buffer size,set to 0 for blocking output (besides the 128 bytes UART tx FIFO), set to something resonably high otherwise (recommended)
-#define DEBUG_TXBUFSIZE 4096 // 1536
-
-//! UART peripheral to use, 0 or 1
-#define DEBUG_UART      0
-
-//! use interrupt (recommended) instead of timer for buffered tx (only if #DEBUG_TXBUFSIZE > 0)
-#define DEBUG_USE_ISR   1
 
 //! print an error message \hideinitializer
 #define ERROR(fmt, ...)   printf_PP(PSTR("E: " fmt "\n"), ## __VA_ARGS__)
@@ -106,8 +102,10 @@ void stuffStatus(void);
 //! print a debug message \hideinitializer
 #define DEBUG(fmt, ...)   printf_PP(PSTR("D: " fmt "\n"), ## __VA_ARGS__)
 
-// like os_printf() but can handle fmt and string (%s) arguments in ROM,
-// note: padding of ROM strings doesn't work (e.g. "%-20s")!
+//! like os_printf() but can handle fmt and string (%s) arguments in ROM,
+/*!
+    \note padding of ROM strings doesn't work (e.g. "%-20s")
+*/
 void printf_PP(const char *fmt, ...);
 
 //! hex dump data
@@ -128,49 +126,48 @@ void hexdump(const void *pkData, int size);
 #  define UNUSED(foo) (void)foo //!< unused variable
 #endif
 #ifndef NULL
-#  define NULL (void *)0    //!< null pointer
+#  define NULL (void *)0    //!< null pointer     \hideinitializer
 #endif /* NULL */
-//#define TRUE  1               //!< boolean true
-//#define FALSE 0               //!< boolean false
-//#define SETBITS(port, bits)    port |= (bits)   //!< sets the bits
-//#define CLRBITS(port, bits)    port &= ~(bits)  //!< clears the bits
-//#define TOGBITS(port, bits)    port ^= (bits)   //!< toggles the bits
-#define NUMOF(x) (sizeof(x)/sizeof(*(x)))       //!< number of elements in vector
-#define ENDLESS true          //!< for endless while loops
-#define FALLTHROUGH           //!< switch fall-through marker
-#define ___PADNAME(x) __pad##x    //!< padding name (used by __PAD())
-#define __PADNAME(x) ___PADNAME(x) //!< padding name (used by __PAD())
-#define __PAD(n) uint8_t __PADNAME(__LINE__)[n]  //!< struct padding macro
-#define __PADFILL { 0 }           //!< to fill const padding
-#define MIN(a, b)  ((b) < (a) ? (b) : (a)) //!< smaller value of a and b
-#define MAX(a, b)  ((b) > (a) ? (b) : (a)) //!< bigger value of a and b
-#define ABS(a) ((a) > 0 ? (a) : -(a)) //!< absolute value
-#define CLIP(x, a, b) ((x) <= (a) ? (a) : ((x) >= (b) ? (b) : (x))) //!< clip value in range [a:b]
-#define _STRINGIFY(x) #x //!< helper for STRINGIFY()
-#define STRINGIFY(x) _STRINGIFY(x) //!< stringify argument
-#define _CONCAT(a, b) a ## b //!< helper for CONCAT()
-#define CONCAT(a, b) _CONCAT(a, b) //!< concatenate arguments
+#define NUMOF(x) (sizeof(x)/sizeof(*(x)))       //!< number of elements in vector     \hideinitializer
+#define ENDLESS true          //!< for endless while loops     \hideinitializer
+#define FALLTHROUGH           //!< switch fall-through marker     \hideinitializer
+#define __PAD(n) uint8_t __PADNAME(__LINE__)[n]  //!< struct padding macro     \hideinitializer
+#define __PADFILL { 0 }           //!< to fill const padding     \hideinitializer
+#define MIN(a, b)  ((b) < (a) ? (b) : (a)) //!< smaller value of a and b     \hideinitializer
+#define MAX(a, b)  ((b) > (a) ? (b) : (a)) //!< bigger value of a and b     \hideinitializer
+#define ABS(a) ((a) > 0 ? (a) : -(a)) //!< absolute value     \hideinitializer
+#define CLIP(x, a, b) ((x) <= (a) ? (a) : ((x) >= (b) ? (b) : (x))) //!< clip value in range [a:b]     \hideinitializer
+#define STRINGIFY(x) _STRINGIFY(x) //!< stringify argument     \hideinitializer
+#define CONCAT(a, b) _CONCAT(a, b) //!< concatenate arguments     \hideinitializer
 #define SWAP2(x) ( (( (x) >>  8)                                                             | ( (x) <<  8)) )
 #define SWAP4(x) ( (( (x) >> 24) | (( (x) & 0x00FF0000) >>  8) | (( (x) & 0x0000FF00) <<  8) | ( (x) << 24)) )
 //@}
 
-//! \name compiler hints etc.
+#ifndef __DOXYGEN__
+#  define _STRINGIFY(x) #x
+#  define _CONCAT(a, b)  a ## b
+#  define ___PADNAME(x) __pad##x
+#  define __PADNAME(x) ___PADNAME(x)
+#endif
+
+//! \name Compiler Hints etc.
 //@{
-#define __PURE(func)          func __attribute__ ((pure))            //!< pure
-#define __IRQ(func)           func __attribute__ ((interrupt))       //!< irq
-#define __WEAK(arg)           arg  __attribute__ ((weak))            //!< weak
-#define __PACKED(arg)         arg  __attribute__ ((packed))          //!< packed
-#define __ALIGN(n, arg)       arg  __attribute__ ((aligned (n)))     //!< align
+#define __PURE()              __attribute__ ((pure))          //!< pure \hideinitializer
+#define __IRQ()               __attribute__ ((interrupt))     //!< irq \hideinitializer
+#define __WEAK()              __attribute__ ((weak))          //!< weak \hideinitializer
+#define __PACKED              __attribute__ ((packed))        //!< packed \hideinitializer
+#define __ALIGN(n)            __attribute__ ((aligned (n)))   //!< align \hideinitializer
 #ifdef __INLINE
 #  undef __INLINE
 #endif
-#define __INLINE              inline                                 //!< inline
-#define __NOINLINE            __attribute__((noinline))              //!< no inline
-#define __USED                __attribute__((used))                  //!< used
-#define __NORETURN            __attribute__((noreturn))              //!< no return
-#define __PRINTF(six, aix)    __attribute__((format(printf, six, aix))) //!< printf() style func
-#define __SECTION(sec)        __attribute__((section (STRINGIFY(sec)))); //!< place symbol in section
-#define __NAKED               __attribute__((naked))                 //!< naked function
+#define __INLINE              inline                                 //!< inline \hideinitializer
+#define __NOINLINE            __attribute__((noinline))              //!< no inline \hideinitializer
+#define __FORCEINLINE         __attribute__((always_inline)) inline  //!< force inline (also with -Os) \hideinitializer
+#define __USED                __attribute__((used))                  //!< used \hideinitializer
+#define __NORETURN            __attribute__((noreturn))              //!< no return \hideinitializer
+#define __PRINTF(six, aix)    __attribute__((format(printf, six, aix))) //!< printf() style func \hideinitializer
+#define __SECTION(sec)        __attribute__((section (STRINGIFY(sec)))); //!< place symbol in section \hideinitializer
+#define __NAKED               __attribute__((naked))                 //!< naked function \hideinitializer
 //@}
 
 
@@ -184,11 +181,10 @@ void hexdump(const void *pkData, int size);
 #define CS_ENTER do { wdt_feed(); csEnter();
 //! leave a critical section, re-enabling the interrupts if necessary \hideinitializer
 #define CS_LEAVE csLeave(); } while (0)
+//@}
 
 void csEnter(void);
 void csLeave(void);
-
-//@}
 
 /* ***** handy functions ************************************************************************* */
 
@@ -239,15 +235,18 @@ bool parseHex(const char *hexStr, uint32_t *val);
     \name Heap Memory Functions
     @{
 */
-
+//! allocate memory
 void *memAlloc(size_t size);
+//! free memory
 void memFree(void *pMem);
+//! get minimum free heap size
 uint32_t memGetMinFree(void);
+//! get current free heap size
 uint32_t memGetFree(void);
+//! get maximum free heap size
 uint32_t memGetMaxFree(void);
+//! get number of chunks currently allocated
 int memGetNumAlloc(void);
-
-
 //@}
 
 /* ***** rom data stuff ************************************************************************** */
@@ -261,6 +260,11 @@ int sprintf_PP(char *str, const char *fmt, ...);
 
 
 /* ***** NodeMCU pins **************************************************************************** */
+
+/*!
+    \name NodeMCU / ESP8266 Pins
+    @{
+*/
 
 #define GPIO_DIR_ALL(pins) GPIO_REG_WRITE( (GPIO_ENABLE_ADDRESS),      (pins) & GPIO_OUT_W1TC_DATA_MASK )
 #define GPIO_DIR_SET(pins) GPIO_REG_WRITE( (GPIO_ENABLE_W1TS_ADDRESS), (pins) & GPIO_OUT_W1TC_DATA_MASK ) // set output
@@ -308,7 +312,7 @@ int sprintf_PP(char *str, const char *fmt, ...);
 #define GPIO_ENA_PIN_D2(x) PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO4_U, FUNC_GPIO4)
 #define GPIO_ENA_PIN_D3(x) PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0)
 #define GPIO_ENA_PIN_D4(x) PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2)
-
+//@}
 
 /* *********************************************************************************************** */
 

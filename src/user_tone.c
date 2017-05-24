@@ -1,4 +1,14 @@
-// by Philippe Kehl <flipflip at oinkzwurgl dot org>
+/*!
+    \file
+    \brief flipflip's Tschenggins Lämpli: tones and melodies (see \ref USER_TONE)
+
+    - Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+      https://oinkzwurgl.org/projaeggd/tschenggins-laempli
+
+    \addtogroup USER_TONE
+
+    @{
+*/
 
 #include "user_stuff.h"
 #include "user_tone.h"
@@ -254,5 +264,5 @@ void ICACHE_FLASH_ATTR toneInit(void)
 
 
 /* *********************************************************************************************** */
-
+//@}
 // eof

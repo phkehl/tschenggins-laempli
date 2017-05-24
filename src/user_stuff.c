@@ -1,10 +1,16 @@
-// by Philippe Kehl <flipflip at oinkzwurgl dot org>
+/*!
+    \file
+    \brief flipflip's Tschenggins Lämpli: debugging output and other handy stuff (see \ref USER_STUFF)
 
-// some *_P() functions based on Arduino's esp8266/2.3.0/cores/esp8266/pgmspace.cpp,
-// pgmspace.cpp - string functions that support PROGMEM
-// Copyright (c) 2015 Michael C. Miller.  All right reserved.
-// GPL V2.1
+    - Copyright (c) 2017 Philippe Kehl (flipflip at oinkzwurgl dot org),
+      https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
+    \addtogroup USER_STUFF
+
+    \todo move debugging stuff to separate files
+
+    @{
+*/
 
 #include <alloca.h>
 
@@ -508,17 +514,17 @@ void ICACHE_FLASH_ATTR hexdump(const void *pkData, int size)
 
 
 // -------------------------------------------------------------------------------------------------
-#if (DEBUG_TXBUFSIZE == 0)
+#if (USER_DEBUG_TXBUFSIZE == 0)
 
 #  define DEBUG_PUTC_FUNC sDebugPutcBlock
 // put character into tx fifo, possibly wait until space becomes available
 static void sDebugPutcBlock(char c) // RAM function
 {
     // wait for space in tx fifo
-    while (UART_TXFIFO_CNT(DEBUG_UART) > (UART_FIFO_SIZE - 1)) { }
+    while (UART_TXFIFO_CNT(USER_DEBUG_UART) > (UART_FIFO_SIZE - 1)) { }
 
     // add byte to output FIFO
-    UART_FIFO_WRITE(DEBUG_UART, c);
+    UART_FIFO_WRITE(USER_DEBUG_UART, c);
 }
 
 // put character to /dev/null
@@ -529,9 +535,9 @@ static void sDebugPutcBlock(char c) // RAM function
 
 // -------------------------------------------------------------------------------------------------
 
-#else // DEBUG_TXBUFSIZE == 0
+#else // USER_DEBUG_TXBUFSIZE == 0
 
-static volatile char     svDebugBuf[DEBUG_TXBUFSIZE];  // debug buffer
+static volatile char     svDebugBuf[USER_DEBUG_TXBUFSIZE];  // debug buffer
 static volatile uint16_t svDebugBufHead;               // write-to-buffer pointer (index)
 static volatile uint16_t svDebugBufTail;               // read-from-buffer pointer (index)
 static volatile uint16_t svDebugBufSize;               // size of buffered data
@@ -543,7 +549,7 @@ static volatile uint16_t svDebugBufDrop;               // number of dropped byte
 // put character to tx buffer or drop it if the buffer is full
 static void sDebugPutcBuff(char c) // RAM function
 {
-#if (DEBUG_USE_ISR > 0)
+#if (USER_DEBUG_USE_ISR > 0)
     CS_ENTER;
 #endif
 
@@ -567,59 +573,59 @@ static void sDebugPutcBuff(char c) // RAM function
         svDebugBufDrop++;
     }
 
-#if (DEBUG_USE_ISR > 0)
+#if (USER_DEBUG_USE_ISR > 0)
     CS_LEAVE;
     // enable tx fifo empty interrupt
-    ENA_UART_TXFIFO_EMPTY_INT(DEBUG_UART);
+    ENA_UART_TXFIFO_EMPTY_INT(USER_DEBUG_UART);
 #endif
 }
 
 // flush buffered debug data to the tx fifo
 static void sDebugFlush(void) // RAM function
 {
-#if (DEBUG_USE_ISR > 0)
-    DIS_UART_TXFIFO_EMPTY_INT(DEBUG_UART);
+#if (USER_DEBUG_USE_ISR > 0)
+    DIS_UART_TXFIFO_EMPTY_INT(USER_DEBUG_UART);
     //CS_ENTER;
 #endif
 
     // write more data to the UART tx FIFO
-    uint8_t fifoRemaining = UART_FIFO_SIZE - UART_TXFIFO_CNT(DEBUG_UART);
+    uint8_t fifoRemaining = UART_FIFO_SIZE - UART_TXFIFO_CNT(USER_DEBUG_UART);
     while (svDebugBufSize && fifoRemaining--)
     {
         const char c = svDebugBuf[svDebugBufTail];
         svDebugBufTail += 1;
         svDebugBufTail %= sizeof(svDebugBuf);
         svDebugBufSize--;
-        UART_FIFO_WRITE(DEBUG_UART, c);
+        UART_FIFO_WRITE(USER_DEBUG_UART, c);
     }
 
-#if (DEBUG_USE_ISR > 0)
+#if (USER_DEBUG_USE_ISR > 0)
     //CS_LEAVE;
     // FIXME: only re-enable if there's more in the buffer
     if (svDebugBufSize)
     {
-        ENA_UART_TXFIFO_EMPTY_INT(DEBUG_UART);
+        ENA_UART_TXFIFO_EMPTY_INT(USER_DEBUG_UART);
     }
 #endif
 }
 
-#if (DEBUG_USE_ISR > 0)
+#if (USER_DEBUG_USE_ISR > 0)
 
 // interrupt handler (for *any* UART interrupt of *any* UART peripheral)
 static void sUartISR(void *pArg) // RAM function
 {
     UNUSED(pArg);
 
-    if (IS_UART_TXFIFO_EMPTY_INT(DEBUG_UART))
+    if (IS_UART_TXFIFO_EMPTY_INT(USER_DEBUG_UART))
     {
-        DIS_UART_TXFIFO_EMPTY_INT(DEBUG_UART);
+        DIS_UART_TXFIFO_EMPTY_INT(USER_DEBUG_UART);
         sDebugFlush();
-        CLR_UART_TXFIFO_EMPTY_INT(DEBUG_UART);
+        CLR_UART_TXFIFO_EMPTY_INT(USER_DEBUG_UART);
     }
     // else if (...) // handle other sources of this interrupt
 }
 
-#else // (DEBUG_USE_ISR > 0)
+#else // (USER_DEBUG_USE_ISR > 0)
 
 static os_timer_t sDebugFlushTimer;
 static void sDebugFlushTimerFunc(void *arg)
@@ -628,9 +634,9 @@ static void sDebugFlushTimerFunc(void *arg)
     sDebugFlush();
 }
 
-#endif // (DEBUG_USE_ISR > 0)
+#endif // (USER_DEBUG_USE_ISR > 0)
 
-#endif // DEBUG_TXBUFSIZE == 0
+#endif // USER_DEBUG_TXBUFSIZE == 0
 
 
 // -------------------------------------------------------------------------------------------------
@@ -871,35 +877,35 @@ int ICACHE_FLASH_ATTR sprintf_PP(char *str, const char *fmt, ...)
 void ICACHE_FLASH_ATTR stuffInit(void)
 {
 
-#if (DEBUG_UART == 0)
+#if (USER_DEBUG_UART == 0)
     // enable TXD0 (GPIO1, D10)
     PIN_PULLUP_DIS(PERIPHS_IO_MUX_U0TXD_U);
     PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0TXD_U, FUNC_U0TXD);
-#elif (DEBUG_UART == 1)
+#elif (USER_DEBUG_UART == 1)
     // enable TXD1 (GPIO2, D4)
     PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U, FUNC_U1TXD_BK);
 #else
-#  error Illegal value for DEBUG_UART!
+#  error Illegal value for USER_DEBUG_UART!
 #endif
 
     // setup UART0 to 8N1
-    WRITE_PERI_REG(UART_CONF_0(DEBUG_UART),
+    WRITE_PERI_REG(UART_CONF_0(USER_DEBUG_UART),
         UART_DATA_EIGHT | UART_PARITY_NONE | UART_STOP_ONE);
 
     // set UART0 baudrate to 115200 (ROM default is is 74880)
-    WRITE_PERI_REG(UART_CLKDIV(DEBUG_UART), UART_BAUD_115200);
-    // = uart_div_modify(UART_CLKDIV(DEBUG_UART), UART_CLK_FREQ / 115200)
+    WRITE_PERI_REG(UART_CLKDIV(USER_DEBUG_UART), UART_BAUD_115200);
+    // = uart_div_modify(UART_CLKDIV(USER_DEBUG_UART), UART_CLK_FREQ / 115200)
 
     // enable os_printf()
     system_set_os_print(true);
 
-#if (DEBUG_TXBUFSIZE == 0)
+#if (USER_DEBUG_TXBUFSIZE == 0)
 
     // install putc() callback
     os_install_putc1(DEBUG_PUTC_FUNC);
     //os_install_putc1(sDebugPutcSink);
 
-#else // DEBUG_TXBUFSIZE == 0
+#else // USER_DEBUG_TXBUFSIZE == 0
 
     // initialise the output buffer
     svDebugBufHead = 0;
@@ -911,26 +917,26 @@ void ICACHE_FLASH_ATTR stuffInit(void)
     // install putc() callback
     os_install_putc1(DEBUG_PUTC_FUNC);
 
-#  if (DEBUG_USE_ISR > 0)
+#  if (USER_DEBUG_USE_ISR > 0)
 
     // attach UART ISR, configure tx fifo empty threshold
     ETS_UART_INTR_ATTACH(sUartISR, NULL);
-    UART_TX_EMPTY_THRS(DEBUG_UART, 16);
+    UART_TX_EMPTY_THRS(USER_DEBUG_UART, 16);
 
     // disable all UART interrupt sources (this seems to be crucial!) and enable UART interrupt
-    WRITE_PERI_REG(UART_INT_ENA(DEBUG_UART), 0x0);
-    WRITE_PERI_REG(UART_INT_CLR(DEBUG_UART), ~0x0);
+    WRITE_PERI_REG(UART_INT_ENA(USER_DEBUG_UART), 0x0);
+    WRITE_PERI_REG(UART_INT_CLR(USER_DEBUG_UART), ~0x0);
     ETS_UART_INTR_ENABLE();
 
-#  else // (DEBUG_USE_ISR > 0)
+#  else // (USER_DEBUG_USE_ISR > 0)
 
     os_timer_disarm(&sDebugFlushTimer);
     os_timer_setfn(&sDebugFlushTimer, (os_timer_func_t *)sDebugFlushTimerFunc, NULL);
     os_timer_arm(&sDebugFlushTimer, 10, 1); // every 10ms
 
-#  endif // (DEBUG_USE_ISR > 0)
+#  endif // (USER_DEBUG_USE_ISR > 0)
 
-#endif // DEBUG_TXBUFSIZE == 0
+#endif // USER_DEBUG_TXBUFSIZE == 0
 
     os_delay_us(50000);
     int n = 20;
@@ -939,14 +945,14 @@ void ICACHE_FLASH_ATTR stuffInit(void)
         printf_PP(PSTR("\n\n\n\n\n\n\n\n\n\n"));
     }
     os_delay_us(50000);
-    DEBUG("stuff: init (" STRINGIFY(DEBUG_TXBUFSIZE) ")");
+    DEBUG("stuff: init (" STRINGIFY(USER_DEBUG_TXBUFSIZE) ")");
 }
 
 // -------------------------------------------------------------------------------------------------
 
 void ICACHE_FLASH_ATTR stuffStatus(void)
 {
-#if (DEBUG_TXBUFSIZE > 0)
+#if (USER_DEBUG_TXBUFSIZE > 0)
     uint16_t size, peak, drop;
     CS_ENTER;
     size = svDebugBufSize;
@@ -970,4 +976,6 @@ void ICACHE_FLASH_ATTR stuffStatus(void)
 }
 
 
+/* *********************************************************************************************** */
+//@}
 // eof

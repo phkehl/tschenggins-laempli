@@ -1,4 +1,14 @@
-// by Philippe Kehl <flipflip at oinkzwurgl dot org>
+/*!
+    \file
+    \brief flipflip's Tschenggins Lämpli: WiFi access point and station (see \ref USER_WIFI)
+
+    - Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+      https://oinkzwurgl.org/projaeggd/tschenggins-laempli
+
+    \addtogroup USER_WIFI
+
+    @{
+*/
 
 #include "user_wifi.h"
 #include "user_stuff.h"
@@ -6,9 +16,7 @@
 #include "user_cfg.h"
 #include "user_httpd.h"
 #include "html_gen.h"
-
-// provide access point for configuration
-#define USE_AP 1
+#include "user_config.h"
 
 
 /* ***** initialisation and status ************************************************************** */
@@ -38,7 +46,7 @@ static const char skFixedRateStrs[][4] PROGMEM =
 {
     { "48\0" }, { "24\0" }, { "12\0" }, { "6\0" }, { "54\0" }, { "36\0" }, { "18\0" }, { "9\0" }
 };
-#if (USE_AP > 0)
+#if (USER_WIFI_USE_AP > 0)
 static const char skAuthModeStrs[][16] PROGMEM =
 {
     { "OPEN\0" }, { "WEP\0" }, { "WPA_PSK\0" }, { "WPA2_PSK\0" }, { "WPA_WPA2_PSK\0" }
@@ -47,7 +55,7 @@ static const char skAuthModeStrs[][16] PROGMEM =
 
 // -------------------------------------------------------------------------------------------------
 
-#if (USE_AP > 0)
+#if (USER_WIFI_USE_AP > 0)
 #  define WIFI_OPMODE STATIONAP_MODE
 #else
 #  define WIFI_OPMODE STATION_MODE
@@ -138,7 +146,7 @@ uint32_t ICACHE_FLASH_ATTR user_rf_cal_sector_set(void)
 
 // cheap mac -> rssi hash table with signal strength seen for clients
 
-#if (USE_AP > 0)
+#if (USER_WIFI_USE_AP > 0)
 
 #define MACHASH(mac) \
         ((uint32_t)mac[5] <<  0) ^ \
@@ -199,7 +207,7 @@ static int8_t ICACHE_FLASH_ATTR sWifiGetRssi(const uint8_t mac[6])
     }
     return 0;
 }
-#endif // (USE_AP > 0)
+#endif // (USER_WIFI_USE_AP > 0)
 
 
 // -------------------------------------------------------------------------------------------------
@@ -252,7 +260,7 @@ void ICACHE_FLASH_ATTR wifiStatus(void)
         opmodeStr, statusStr, dhcpcStatusStr, phymodeStr, rssi, sleeptypeStr,
         fixedRateEnStr, fixedRateStr, rateLimitStr);
 
-#if (USE_AP > 0)
+#if (USER_WIFI_USE_AP > 0)
     struct softap_config apCfg;
     if (wifi_softap_get_config(&apCfg))
     {
@@ -306,7 +314,7 @@ void ICACHE_FLASH_ATTR wifiStart(const bool sta, const bool ap)
 
     espconn_mdns_disable();
 
-#if (USE_AP > 0)
+#if (USER_WIFI_USE_AP > 0)
     if (ap)
     {
         // start access point and http server
@@ -444,7 +452,7 @@ static void ICACHE_FLASH_ATTR sWifiEventCb(System_Event_t *evt)
             WARNING("wifi sta dhcp: timeout");
             break;
         }
-#if (USE_AP > 0)
+#if (USER_WIFI_USE_AP > 0)
         case EVENT_SOFTAPMODE_STACONNECTED:
         {
             const Event_SoftAPMode_StaConnected_t *pkI = &evt->event_info.sta_connected;
@@ -491,7 +499,7 @@ bool ICACHE_FLASH_ATTR wifiIsOnline(void)
 
 // -------------------------------------------------------------------------------------------------
 
-#if (USE_AP > 0)
+#if (USER_WIFI_USE_AP > 0)
 
 static struct ip_info sWifiDhcpsIp;
 
@@ -708,4 +716,6 @@ static bool ICACHE_FLASH_ATTR sWifiStatusRequestCb(struct espconn *pConn, const 
 }
 
 
+/* ********************************************************************************************** */
+//@}
 // eof

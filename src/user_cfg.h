@@ -2,7 +2,7 @@
     \file
     \brief flipflip's Tschenggins Lämpli: configuration (see \ref USER_CFG)
 
-    - Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+    - Copyright (c) 2017 Philippe Kehl (flipflip at oinkzwurgl dot org),
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
     \defgroup USER_CFG CFG
@@ -10,6 +10,9 @@
 
     This implements the configuration interface. The configuration can be stored to and loaded from
     flash and there's a web interface at /config.
+
+    Configuration:
+    - see the \c Makefile for \c FF_CFGADDR
 
     @{
 */
@@ -19,6 +22,7 @@
 #include "user_stuff.h"
 #include "user_httpd.h"
 #include "user_app.h"
+#include "user_config.h"
 
 //! initialise configuration system (load config from flash and optionally reset to defaults)
 /*!
@@ -39,8 +43,8 @@ typedef struct USER_CFG_s
     char apSsid[32];         //!< access point ssid
     char apPass[32];         //!< access point password
 
-    char userPass[HTTPD_PASS_LEN_MAX];  //!< httpd user password
-    char adminPass[HTTPD_PASS_LEN_MAX]; //!< httpd admin password
+    char userPass[USER_HTTPD_PASS_LEN_MAX];  //!< httpd user password
+    char adminPass[USER_HTTPD_PASS_LEN_MAX]; //!< httpd admin password
 
     char statusUrl[256];         //!< tschenggins-status.pl server URL
 
@@ -48,7 +52,7 @@ typedef struct USER_CFG_s
     bool beNoisy;                //!< make sounds on events
     __PAD(2);                    //!< struct padding
 
-    uint32_t leds[APP_NUM_LEDS]; //!< LEDs assignment (job IDs)
+    uint32_t leds[USER_APP_NUM_LEDS]; //!< LEDs assignment (job IDs)
 
 } USER_CFG_t;
 

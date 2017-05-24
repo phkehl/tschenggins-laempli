@@ -276,39 +276,54 @@ endif
 # generate include files
 $(OBJDIR)/version_gen.h: $(OBJDIR)/.dummy $(OBJDIR)/.version_gen.h Makefile
 	@echo "$(HLV)G $@ $(HLO)"
-	@echo "#ifndef __VERSION_GEN_H__" > $@.tmp
-	@echo "#define __VERSION_GEN_H__" >> $@.tmp
-	@echo "#define FF_GCCVERSION \"$(GCCVERSION)\"" >> $@.tmp
-	@echo "#define FF_BUILDVER \"$(BUILDVER)\"" >> $@.tmp
-	@echo "#define FF_BUILDDATE \"$(BUILDDATE)\"" >> $@.tmp
-	@echo "#define FF_PROJECT \"$(PROJECT)\"" >> $@.tmp
-	@echo "#define FF_PROJTITLE \"$(PROJTITLE)\"" >> $@.tmp
-	@echo "#define FF_PROJLINK \"$(PROJLINK)\"" >> $@.tmp
-	@echo "#define FF_COPYRIGHT \"$(COPYRIGHT)\"" >> $@.tmp
-	@echo "#define FF_COPYRIGHT_HTML \"$(COPY_HTML)\"" >> $@.tmp
-	@echo "#define FF_COPYRIGHT_EMAIL \"$(COPY_EMAIL)\"" >> $@.tmp
-	@echo "#define FF_CFGADDR $(CFGADDR)" >> $@.tmp
-	@echo "#define FF_FSADDR $(FSADDR)" >> $@.tmp
-	@echo "#define FF_MODEL $(MODEL)" >> $@.tmp
-	@echo "#define FF_MODEL_STR \"$(MODEL)\"" >> $@.tmp
-	@echo "#endif" >> $@.tmp
+	$(V)$(RM) -f $@
+	$(V)echo "/*!" > $@.tmp
+	$(V)echo "    \\file" >> $@.tmp
+	$(V)echo "    \\brief generated file -- see Makefile" >> $@.tmp
+	$(V)echo "*/" >> $@.tmp
+	$(V)echo "#ifndef __VERSION_GEN_H__" >> $@.tmp
+	$(V)echo "#define __VERSION_GEN_H__" >> $@.tmp
+	$(V)echo "#define FF_GCCVERSION \"$(GCCVERSION)\"" >> $@.tmp
+	$(V)echo "#define FF_BUILDVER \"$(BUILDVER)\"" >> $@.tmp
+	$(V)echo "#define FF_BUILDDATE \"$(BUILDDATE)\"" >> $@.tmp
+	$(V)echo "#define FF_PROJECT \"$(PROJECT)\"" >> $@.tmp
+	$(V)echo "#define FF_PROJTITLE \"$(PROJTITLE)\"" >> $@.tmp
+	$(V)echo "#define FF_PROJLINK \"$(PROJLINK)\"" >> $@.tmp
+	$(V)echo "#define FF_COPYRIGHT \"$(COPYRIGHT)\"" >> $@.tmp
+	$(V)echo "#define FF_COPYRIGHT_HTML \"$(COPY_HTML)\"" >> $@.tmp
+	$(V)echo "#define FF_COPYRIGHT_EMAIL \"$(COPY_EMAIL)\"" >> $@.tmp
+	$(V)echo "#define FF_CFGADDR $(CFGADDR)" >> $@.tmp
+	$(V)echo "#define FF_FSADDR $(FSADDR)" >> $@.tmp
+	$(V)echo "#define FF_MODEL $(MODEL)" >> $@.tmp
+	$(V)echo "#define FF_MODEL_STR \"$(MODEL)\"" >> $@.tmp
+	$(V)echo "#endif" >> $@.tmp
 	$(V)$(MV) $@.tmp $@
 
 $(OBJDIR)/cfg_gen.h: $(OBJDIR)/.dummy Makefile $(CFGFILE)
 	@echo "$(HLV)G $@ $(HLO)"
-	@echo "#ifndef __CFG_GEN_H__" > $@
-	@echo "#define __CFG_GEN_H__" >> $@
+	$(V)$(RM) -f $@
+	$(V)echo "/*!" > $@.tmp
+	$(V)echo "    \\file" >> $@.tmp
+	$(V)echo "    \\brief generated file -- see Makefile" >> $@.tmp
+	$(V)echo "*/" >> $@.tmp
+	$(V)echo "#ifndef __CFG_GEN_H__" >> $@.tmp
+	$(V)echo "#define __CFG_GEN_H__" >> $@.tmp
 ifneq ($(CFGFILE),)
-	@echo "// predefined config from $(CFGFILE)" >> $@
-	$(V)$(AWK) '!/^\s*#/ && !/^\s*$$/ { print "#define DEF_CFG_"$$1" "$$2 }' $(CFGFILE) >> $@
+	$(V)echo "// predefined config from $(CFGFILE)" >> $@.tmp
+	$(V)$(AWK) '!/^\s*#/ && !/^\s*$$/ { print "#define DEF_CFG_"$$1" "$$2 }' $(CFGFILE) >> $@.tmp
 endif
-	@echo "#endif" >> $@
+	$(V)echo "#endif" >> $@.tmp
+	$(V)$(MV) $@.tmp $@
 
 
 $(OBJDIR)/html_gen.h: $(HTMLFILES) Makefile $(OBJDIR)/.dummy tools/html2c.pl $(OBJDIR)/version_gen.h
 	@echo "$(HLV)G $@ $(HLO)"
 	$(V)$(RM) -f $@
-	$(V)$(PERL) tools/html2c.pl $(HTMLFILES) > $@.tmp
+	$(V)echo "/*!" > $@.tmp
+	$(V)echo "    \\file" >> $@.tmp
+	$(V)echo "    \\brief generated file -- see Makefile" >> $@.tmp
+	$(V)echo "*/" >> $@.tmp
+	$(V)$(PERL) tools/html2c.pl $(HTMLFILES) >> $@.tmp
 	$(V)$(MV) $@.tmp $@
 
 $(OFILES): $(OBJDIR)/html_gen.h $(OBJDIR)/version_gen.h $(OBJDIR)/cfg_gen.h
@@ -543,7 +558,7 @@ cscope:
 
 .PHONY: doc
 doc: $(OBJDIR)/html/.done
-$(OBJDIR)/html/.done: Makefile $(CFILES) $(HFILES) Doxyfile tools/doxylogfix.pl
+$(OBJDIR)/html/.done: Makefile $(CFILES) $(HFILES) Doxyfile tools/doxylogfix.pl $(OBJDIR)/cfg_gen.h $(OBJDIR)/version_gen.h $(OBJDIR)/html_gen.h
 # remove previous output and create new output directory
 	$(V)$(RM) -rf $(OBJDIR)/html
 	$(V)$(MKDIR) -p $(OBJDIR)/html
@@ -556,7 +571,7 @@ $(OBJDIR)/html/.done: Makefile $(CFILES) $(HFILES) Doxyfile tools/doxylogfix.pl
 		echo "WARN_LOGFILE = $(OBJDIR)/doxygen_warnings.log"; \
 	) | $(DOXYGEN) - | $(TEE) $(OBJDIR)/doxygen.log $(V1)
 # make paths in the logfiles relative
-	$(V)$(SED) -i -r -e 's@$(CURDIR)/@@g' -e '/^$$/d' $(OBJDIR)/doxygen_warnings.log $(OBJDIR)/doxygen.log
+	$(V)$(SED) -i -r -e 's@$(CURDIR)/?@./@g' -e '/^$$/d' $(OBJDIR)/doxygen_warnings.log $(OBJDIR)/doxygen.log
 # remove some known won't-fix warnings in the logfile
 	$(V)$(PERL) tools/doxylogfix.pl < $(OBJDIR)/doxygen_warnings.log > $(OBJDIR)/doxygen_warnings_clean.log
 	$(V)if [ -s $(OBJDIR)/doxygen_warnings_clean.log ]; then \

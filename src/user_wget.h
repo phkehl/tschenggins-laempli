@@ -2,7 +2,7 @@
     \file
     \brief flipflip's Tschenggins Lämpli: HTTP requests (see \ref USER_WGET)
 
-    - Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+    - Copyright (c) 2017 Philippe Kehl (flipflip at oinkzwurgl dot org),
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
     \defgroup USER_WGET WGET
@@ -18,6 +18,7 @@
 #define __USER_WGET_H__
 
 #include "user_stuff.h"
+#include "user_config.h"
 
 
 //! initialise http request stuff
@@ -32,9 +33,6 @@ typedef enum WGET_ERROR_e
 
 } WGET_ERROR_t;
 
-//! maximum number of redirects to follow (3xx status), set to 0 to disable
-#define WGET_MAX_REDIRECTS 3
-
 //! http request response callback data
 typedef struct WGET_RESPONSE_s
 {
@@ -43,7 +41,7 @@ typedef struct WGET_RESPONSE_s
     char *body;           //!< response body data
     int   bodyLen;        //!< length of response body data
     WGET_ERROR_t error;   //!< error status
-#if (WGET_MAX_REDIRECTS == 0)
+#if (USER_WGET_MAX_REDIRECTS == 0)
     char *location;       //!< location to redirect to (goes with a 3xx \c status)
 #endif
 } WGET_RESPONSE_t;
@@ -82,7 +80,7 @@ typedef struct WGET_STATE_s
     \param[in] respCb      response callback function
     \param[in] pUser       optional user argument, passed-through to response callback function
     \param[in] respMaxLen  maximum response length to handle (translates to amount of heap memory allocated)
-    \param[in] timeout     response timeout [ms] (0 for #WGET_DEFAULT_TIMEOUT)
+    \param[in] timeout     response timeout [ms] (0 for #USER_WGET_DEFAULT_TIMEOUT)
 
     \returns true if parameters were acceptable and the request has been successfully initiated, false otherwise
 
@@ -127,9 +125,6 @@ static void ICACHE_FLASH_ATTR sWgetTestCb(const WGET_RESPONSE_t *pkResp, void *p
 \endcode
 */
 bool wgetRequest(WGET_STATE_t *pState, const char *url, WGET_REQCB_t respCb, void *pUser, const int respMaxLen, const uint16_t timeout);
-
-//! default timeout
-#define WGET_DEFAULT_TIMEOUT 10000
 
 //! verify URL for consistency and split into parts
 /*!

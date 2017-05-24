@@ -1,9 +1,20 @@
-// by Philippe Kehl <flipflip at oinkzwurgl dot org>
+/*!
+    \file
+    \brief flipflip's Tschenggins Lämpli: configuration (see \ref USER_CFG)
+
+    - Copyright (c) 2017 Philippe Kehl (flipflip at oinkzwurgl dot org),
+      https://oinkzwurgl.org/projaeggd/tschenggins-laempli
+
+    \addtogroup USER_CFG
+
+    @{
+*/
 
 #include "user_cfg.h"
 #include "user_httpd.h"
 #include "user_wifi.h"
 #include "user_app.h"
+#include "user_config.h"
 #include "html_gen.h"
 #include "cfg_gen.h"
 #include "version_gen.h"
@@ -31,7 +42,7 @@ typedef struct USER_CFG_STORE_s
 
 #define CFG_ADDR FF_CFGADDR
 #define CFG_SECTOR (CFG_ADDR / SPI_FLASH_SEC_SIZE)
-#define CFG_MAGIC ((uint32_t)0 | (CFG_SECTOR << 24) | (APP_NUM_LEDS << 16) | (HTTPD_PASS_LEN_MAX << 8) | USER_CFG_VERSION)
+#define CFG_MAGIC ((uint32_t)0 | (CFG_SECTOR << 24) | (USER_APP_NUM_LEDS << 16) | (USER_HTTPD_PASS_LEN_MAX << 8) | USER_CFG_VERSION)
 
 // initialise, load from flash or set defaults
 void ICACHE_FLASH_ATTR cfgInit(const bool reset)
@@ -251,14 +262,17 @@ void ICACHE_FLASH_ATTR cfgDebug(const USER_CFG_t *pkCfg)
         pkCfg->statusUrl,
         pkCfg->haveChewie ? PSTR("yes") : PSTR("no"),
         pkCfg->beNoisy    ? PSTR("yes") : PSTR("no"));
-#if (APP_NUM_LEDS == 8)
+#if (USER_APP_NUM_LEDS == 8)
     DEBUG("cfgDebug() ch00=%08x ch01=%08x ch02=%08x ch03=%08x",
         pkCfg->leds[0], pkCfg->leds[1], pkCfg->leds[2], pkCfg->leds[3]);
     DEBUG("cfgDebug() ch04=%08x ch05=%08x ch06=%08x ch07=%08x",
         pkCfg->leds[4], pkCfg->leds[5], pkCfg->leds[6], pkCfg->leds[7]);
-#elif (APP_NUM_LEDS == 3)
+#elif (USER_APP_NUM_LEDS == 3)
     DEBUG("cfgDebug() ch00=%08x ch01=%08x ch02=%08x",
         pkCfg->leds[0], pkCfg->leds[1], pkCfg->leds[2]);
+#elif (USER_APP_NUM_LEDS == 2)
+    DEBUG("cfgDebug() ch00=%08x ch01=%08x",
+        pkCfg->leds[0], pkCfg->leds[1]);
 #else
 #  warning please implement me
 #endif
@@ -630,13 +644,13 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
     const char *onStaNet = wifiIsApNet(pkTcp->remote_ip) ? PSTR("0") : PSTR("1");
     const char *wifiOnline = wifiIsOnline() ? PSTR("1") : PSTR("0");
 
-    char ledIds[APP_NUM_LEDS * 9 + 1];
+    char ledIds[USER_APP_NUM_LEDS * 9 + 1];
     ledIds[0] = 0;
-    for (int ledIx = 0; ledIx < APP_NUM_LEDS; ledIx++)
+    for (int ledIx = 0; ledIx < USER_APP_NUM_LEDS; ledIx++)
     {
         os_sprintf(&ledIds[ledIx * 9], "%08x ", userCfg.leds[ledIx]);
     }
-    ledIds[APP_NUM_LEDS * 9 - 1] = '\0';
+    ledIds[USER_APP_NUM_LEDS * 9 - 1] = '\0';
 
     // render html
     //static const char formKeys[][12] PROGMEM = // FIXME: why not?!
@@ -675,6 +689,6 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
 }
 
 
-// -------------------------------------------------------------------------------------------------
-
+/* *********************************************************************************************** */
+//@}
 // eof

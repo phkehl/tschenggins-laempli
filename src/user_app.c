@@ -1,5 +1,14 @@
-// by Philippe Kehl <flipflip at oinkzwurgl dot org>
+/*!
+    \file
+    \brief flipflip's Tschenggins Lämpli: main application (see \ref USER_APP)
 
+    - Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+      https://oinkzwurgl.org/projaeggd/tschenggins-laempli
+
+    \addtogroup USER_APP
+
+    @{
+*/
 #include "user_stuff.h"
 #include "user_app.h"
 #include "user_wifi.h"
@@ -13,6 +22,13 @@
 #include "jsmn.h"
 #include "version_gen.h"
 #include "html_gen.h"
+
+// check config
+#if (FF_MODEL == 1) || (FF_MODEL == 2)
+// okay..
+#else
+#  error Illegal value for FF_MODEL
+#endif
 
 
 /* ***** Jenkins status ************************************************************************** */
@@ -59,7 +75,7 @@ typedef struct LEDS_s
 } LEDS_t;
 
 // storage for jenkins state/result
-static LEDS_t sLeds[APP_NUM_LEDS];
+static LEDS_t sLeds[USER_APP_NUM_LEDS];
 
 JENKINS_RESULT_t sWorstResult = JENKINS_RESULT_OFF;
 
@@ -166,8 +182,8 @@ static uint8_t ICACHE_FLASH_ATTR sStateVal(const JENKINS_STATE_t jState, const u
 
 #define LED_TIMER_INTERVAL 10
 
-#if (USER_WS2801_NUMLEDS < APP_NUM_LEDS)
-#  error USER_WS2801_NUMLEDS < APP_NUM_LEDS
+#if (USER_WS2801_NUMLEDS < USER_APP_NUM_LEDS)
+#  error USER_WS2801_NUMLEDS < USER_APP_NUM_LEDS
 #endif
 
 // also using the regular LED timer to measure time
@@ -179,7 +195,7 @@ static void ICACHE_FLASH_ATTR sLedTimerFunc(void *arg)
     UNUSED(arg);
     //sAppTick++;
 
-    static const uint8_t skLedIxMap[APP_NUM_LEDS] = APP_LED_MAP;
+    static const uint8_t skLedIxMap[USER_APP_NUM_LEDS] = USER_APP_LED_MAP;
 
     static int16_t phase;
 
@@ -455,10 +471,10 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
             }
             else
             {
-                for (uint16_t ix = 0; ix < APP_NUM_LEDS; ix++)
+                for (uint16_t ix = 0; ix < USER_APP_NUM_LEDS; ix++)
                 {
                     const uint8_t hue = 2 * (uint16_t)sInitLoop + (ix * 20);
-                    //const uint8_t hue = sInitLoop + (ix * (255 / APP_NUM_LEDS));
+                    //const uint8_t hue = sInitLoop + (ix * (255 / USER_APP_NUM_LEDS));
                     ws2801SetHSV(ix, hue, 255, 100);
                 }
                 ws2801Flush();
@@ -1408,5 +1424,5 @@ void ICACHE_FLASH_ATTR appStatus(void)
 
 
 /* *********************************************************************************************** */
-
+//@}
 // eof

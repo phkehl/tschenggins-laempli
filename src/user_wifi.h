@@ -2,7 +2,7 @@
     \file
     \brief flipflip's Tschenggins Lämpli: WiFi access point and station (see \ref USER_WIFI)
 
-    - Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+    - Copyright (c) 2017 Philippe Kehl (flipflip at oinkzwurgl dot org),
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
     \defgroup USER_WIFI WIFI
@@ -11,13 +11,15 @@
     This implements the WiFi access point and station functionality. It also installs a status page
     on the \ref USER_HTTPD at /wifi.
 
+    Configuration:
+    - #USER_WIFI_USE_AP
+
     @{
 */
 #ifndef __USER_WIFI_H__
 #define __USER_WIFI_H__
 
 #include "user_stuff.h"
-
 
 //! initialise WiFi stuff
 void wifiInit(void);

@@ -1,4 +1,14 @@
-// by Philippe Kehl <flipflip at oinkzwurgl dot org>
+/*!
+    \file
+    \brief flipflip's Tschenggins Lämpli: HTML templates (see \ref USER_HTML)
+
+    - Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+      https://oinkzwurgl.org/projaeggd/tschenggins-laempli
+
+    \addtogroup USER_HTML
+
+    @{
+*/
 
 #include "user_html.h"
 #include "version_gen.h"
@@ -253,6 +263,6 @@ void ICACHE_FLASH_ATTR htmlTest(void)
 }
 #endif
 
-// -------------------------------------------------------------------------------------------------
-
+/* *********************************************************************************************** */
+//@}
 // eof

@@ -1,4 +1,14 @@
-// by Philippe Kehl <flipflip at oinkzwurgl dot org>
+/*!
+    \file
+    \brief flipflip's Tschenggins Lämpli: xxx (see \ref USER_STATUS)
+
+    - Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+      https://oinkzwurgl.org/projaeggd/tschenggins-laempli
+
+    \addtogroup USER_STATUS
+
+    @{
+*/
 
 #include "user_stuff.h"
 #include "user_status.h"
@@ -109,4 +119,6 @@ void ICACHE_FLASH_ATTR statusSet(const USER_STATUS_t status)
     sStatus = status;
 }
 
+/* *********************************************************************************************** */
+//@}
 // eof

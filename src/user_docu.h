@@ -2,7 +2,7 @@
     \file
     \brief flipflip's Tschenggins Lämpli: documentation (see \ref mainpage)
 
-    - Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+    - Copyright (c) 2017 Philippe Kehl (flipflip at oinkzwurgl dot org),
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 */
 #ifndef __USER_DOCU_H_
@@ -25,17 +25,20 @@ See [source code](files.html) for copyrights, credits, sources and more.
 
 Original stuff:
 
-- \ref USER_APP    (user_app.c)    the main application
-- \ref USER_CFG    (user_cfg.c)    application configuration incl. web interface
-- \ref USER_FS     (user_fs.c)     read-only filesystem incl. serving files on \ref USER_HTTPD
-- \ref USER_HTML   (user_html.c)   a simple HTML templating system
-- \ref USER_HTTPD  (user_httpd.c)  a HTTP webserver
-- \ref USER_STATUS (user_status.c) a status LED with different blink patterns
-- \ref USER_STUFF  (user_stuff.c)  various utility functions, buffered non-blocking (using interrupts) debug output on serial console, and more
-- \ref USER_TONE   (user_tone.c)   tone and melody generation
-- \ref USER_WGET   (user_wget.c)   HTTP requests with authentication and query parameters
-- \ref USER_WIFI   (user_wifi.c)   WiFi station and access point functions incl. status web interface
-- \ref USER_WS2801 (user_ws2801.c) buffered non-blocking (using interrupts) WS2801 RGB LED driver
+- \ref USER_APP     (user_app.c)     the main application
+- \ref USER_CFG     (user_cfg.c)     application configuration incl. web interface
+- \ref USER_FS      (user_fs.c)      read-only filesystem incl. serving files on \ref USER_HTTPD
+- \ref USER_HTML    (user_html.c)    a simple HTML templating system
+- \ref USER_HTTPD   (user_httpd.c)   a HTTP webserver
+- \ref USER_STATUS  (user_status.c)  a status LED with different blink patterns
+- \ref USER_STUFF   (user_stuff.c)   various utility functions, buffered non-blocking (using interrupts) debug output on serial console, and more
+- \ref USER_TONE    (user_tone.c)    tone and melody generation
+- \ref USER_WGET    (user_wget.c)    HTTP requests with authentication and query parameters
+- \ref USER_WIFI    (user_wifi.c)    WiFi station and access point functions incl. status web interface
+- \ref USER_HSV2RGB (user_hsv2rgb.c) hue, saturation, value (HSV) to red, green, blue (RGB) conversion
+- \ref USER_WS2801  (user_ws2801.c)  buffered non-blocking (using interrupts) WS2801 RGB LED driver
+- \ref USER_CONFIG  (user_config.h)  configuration for some of the above
+
 
 3rd-party code modified for ESP8266 (see source files for copyright and credits):
 
@@ -202,6 +205,11 @@ sect address  size             what
 API documentation
 
 */
+
+#ifdef __DOXYGEN__
+//! marker to put symbol into and execute from flash
+#  define ICACHE_FLASH_ATTR
+#endif
 
 #endif // __USER_DOCU_H__
 // eof

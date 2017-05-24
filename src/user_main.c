@@ -1,4 +1,20 @@
-// by Philippe Kehl <flipflip at oinkzwurgl dot org>
+/*!
+    \file
+    \brief flipflip's Tschenggins Lämpli: get things going (see \ref USER_APP)
+
+    - Copyright (c) 2017 Philippe Kehl (flipflip at oinkzwurgl dot org),
+      https://oinkzwurgl.org/projaeggd/tschenggins-laempli
+
+    \defgroup USER_MAIN MAIN
+    \ingroup USER
+
+    This gets things going.
+
+    Configuration:
+    - #USER_MAIN_MON_PERIOD
+
+    @{
+*/
 
 #include "user_stuff.h"
 #include "user_status.h"
@@ -132,7 +148,7 @@ static void ICACHE_FLASH_ATTR sStartFunc(void *pArg)
     static os_timer_t sMonitorTimer;
     os_timer_disarm(&sMonitorTimer);
     os_timer_setfn(&sMonitorTimer, (os_timer_func_t *)sMonitorTimerCb, NULL);
-    os_timer_arm(&sMonitorTimer, 5000, 1); // fire every 5s
+    os_timer_arm(&sMonitorTimer, USER_MAIN_MON_PERIOD, 1); // fire every 5s
 
     // start wifi and httpd
     wifiStart(true, true);
@@ -183,5 +199,5 @@ bool ICACHE_FLASH_ATTR check_memleak_debug_enable(void)
 
 
 /* *********************************************************************************************** */
-
+//@}
 // eof

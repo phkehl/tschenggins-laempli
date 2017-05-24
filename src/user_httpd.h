@@ -2,7 +2,7 @@
     \file
     \brief flipflip's Tschenggins Lämpli: xxx (see \ref USER_HTTPD)
 
-    - Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+    - Copyright (c) 2017 Philippe Kehl (flipflip at oinkzwurgl dot org),
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
     \defgroup USER_HTTPD HTTPD
@@ -10,12 +10,20 @@
 
     This implements a HTTP server.
 
+    Configuration:
+    - #USER_HTTP_NUMPARAM
+    - #USER_HTTPD_REQUESTCB_NUM
+    - #USER_HTTPD_CONN_NUM
+    - #USER_HTTPD_USER_LEN_MAX
+    - #USER_HTTPD_PASS_LEN_MAX
+
     @{
 */
 #ifndef __USER_HTTPD_H__
 #define __USER_HTTPD_H__
 
 #include "user_stuff.h"
+#include "user_config.h"
 
 
 //! initialise HTTP server
@@ -36,9 +44,6 @@ typedef enum HTTPD_AUTH_LEVEL_e
 
 } HTTPD_AUTH_LEVEL_t;
 
-//! the maximum number of GET/POST parameters that are handled
-#define HTTP_NUMPARAM 25
-
 //! http server request callback information
 typedef struct HTTPD_REQCB_INFO_s
 {
@@ -50,8 +55,8 @@ typedef struct HTTPD_REQCB_INFO_s
 
     // query parameters
     int                numKV;                //!< number of query parameters in request
-    const char        *keys[HTTP_NUMPARAM];  //!< list of query parameter names (length \c numKV)
-    const char        *vals[HTTP_NUMPARAM];  //!< list of query parameter values (length \c numKV)
+    const char        *keys[USER_HTTP_NUMPARAM];  //!< list of query parameter names (length \c numKV)
+    const char        *vals[USER_HTTP_NUMPARAM];  //!< list of query parameter values (length \c numKV)
 
 } HTTPD_REQCB_INFO_t;
 
@@ -66,9 +71,6 @@ typedef bool (HTTPD_REQCB_FUNC_t)(struct espconn *pConn, const HTTPD_REQCB_INFO_
     \returns true on success, false otherwise (list full, see #HTTPD_REQUESTCB)
 */
 bool httpdRegisterRequestCb(const char *path, const HTTPD_AUTH_LEVEL_t authLevel, HTTPD_REQCB_FUNC_t reqCb);
-
-//! maximum number of http server paths that can be registered
-#define HTTPD_REQUESTCB_NUM 20
 
 //! http server connection callback user data
 typedef struct HTTPD_CONN_DATA_s
@@ -102,23 +104,14 @@ typedef bool (HTTPD_CONNCB_FUNC_t)(struct espconn *pConn, HTTPD_CONN_DATA_t *pDa
 */
 void httpdRegisterConnCb(struct espconn *pConn, const HTTPD_CONN_DATA_t *pkTempl, HTTPD_CONNCB_FUNC_t connCb);
 
-//! maximum number of connections we can maintain in parallel
-#define HTTPD_CONN_NUM 10
-
 //! set authentication information for the given level (public or admin)
 /*!
     \param[in] authLevel  authentication level to set credentials for (#HTTPD_AUTH_USER or #HTTPD_AUTH_ADMIN)
-    \param[in] username   username (see #HTTPD_USER_LEN_MAX)
-    \param[in] password   password (see #HTTPD_PASS_LEN_MAX)
+    \param[in] username   username (see #USER_HTTPD_USER_LEN_MAX)
+    \param[in] password   password (see #USER_HTTPD_PASS_LEN_MAX)
 
 */
 bool httpdSetAuth(const HTTPD_AUTH_LEVEL_t authLevel, const char *username, const char *password);
-
-//! maximum username length
-#define HTTPD_USER_LEN_MAX 16
-//! maximum password length
-#define HTTPD_PASS_LEN_MAX 16
-
 
 //! send generic http response
 /*!

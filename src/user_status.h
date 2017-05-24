@@ -2,7 +2,7 @@
     \file
     \brief flipflip's Tschenggins Lämpli: xxx (see \ref USER_STATUS)
 
-    - Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+    - Copyright (c) 2017 Philippe Kehl (flipflip at oinkzwurgl dot org),
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
     \defgroup USER_STATUS STATUS
