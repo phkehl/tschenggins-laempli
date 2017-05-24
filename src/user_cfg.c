@@ -7,6 +7,8 @@
 
     \addtogroup USER_CFG
 
+    \todo add wifi scan in config form
+
     @{
 */
 

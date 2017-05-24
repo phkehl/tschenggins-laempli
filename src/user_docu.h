@@ -176,13 +176,9 @@ sect address  size             what
 
 \page P_TODO Todo, Ideas
 
-- stop HTTP protocol abuse when connecting to \c tschenggins-status.pl and create a separate, simple TCP server instead
+- stop HTTP protocol and webserver abuse when connecting to \c tschenggins-status.pl and create a separate, simple TCP server instead
 - ping.h, sntp.h
-- https://richard.burtons.org/2015/05/18/rboot-a-new-boot-loader-for-esp8266/, https://github.com/raburton
-- https://github.com/SuperHouse/esp-open-rtos/blob/master/core/esp_iomux.c
-- https://github.com/Spritetm/libesphttpd, https://github.com/Spritetm/esphttpd
-- https://github.com/espressif/esp-gdbstub
-- wifi scan in config form
+- https://richard.burtons.org/2015/05/18/rboot-a-new-boot-loader-for-esp8266/ , https://github.com/raburton
 
 
 \page P_DOXYGEN Doxygen

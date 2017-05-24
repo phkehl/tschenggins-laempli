@@ -14,6 +14,8 @@
     Also, this header file includes most of the ESP8266 SDK and some useful c standard library
     interfaces.
 
+    \todo can we use this in parallel? https://github.com/espressif/esp-gdbstub
+
     @{
 */
 #ifndef __USER_STUFF_H__
@@ -263,6 +265,8 @@ int sprintf_PP(char *str, const char *fmt, ...);
 
 /*!
     \name NodeMCU / ESP8266 Pins
+
+    \todo look into https://github.com/SuperHouse/esp-open-rtos/blob/master/core/esp_iomux.c
     @{
 */
 
