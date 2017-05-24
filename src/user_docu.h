@@ -77,37 +77,39 @@ Other 3rd-party stuff:
            |                       |
            |      ..antenna..      |
            |                       |
-           o A0        **GPIO16 D0 o--(WAKE)--
+           O A0        **GPIO16 D0 o--(WAKE)--
            |                       |
-           o G            GPIO5 D1 o--(out)--> sound effect (Chewie) (1)
+           o G            GPIO5 D1 O--(out)--> sound effect (Chewie) (1)
            |                       |
-           o VU           GPIO4 D2 o--(out)--> speaker (2)
+           o VU           GPIO4 D2 O--(out)--> speaker (2)
            |                       |
-           o S3          *GPIO0 D3 o<--(in)--- built-in flash button (3)
+           o S3          *GPIO0 D3 O<--(in)--- built-in flash button (3)
            |                       |
-           o S2          *GPIO2 D4 o--(out)--> built-in blue LED (4)
+           o S2          *GPIO2 D4 O--(out)--> built-in blue LED (4)
            |                       |
            o S1      LoLin      3V o
            |        NodeMCU        |
            o SC      ESP12       G o
            |                       |
-           o SO          GPIO14 D5 o--(out)--(HSCLK)--> WS2801 CI (clock in)  \
+           o SO          GPIO14 D5 O--(out)--(HSCLK)--> WS2801 CI (clock in)  \
            |                       |                                          |
-           o SK          GPIO12 D6 o<--(in)--(HMISO)--- not connected         |
+           o SK          GPIO12 D6 O<--(in)--(HMISO)--- not connected         |
            |                       |                                           > HSPI (5)
-           o G           GPIO13 D7 o--(out)--(HMOSI)--> WS2801 DI (data in)   |
+           o G           GPIO13 D7 O--(out)--(HMOSI)--> WS2801 DI (data in)   |
            |                       |                                          |
-           o 3V         *GPIO15 D8 o--(out)--(HCS)----> not connected         /
+           o 3V         *GPIO15 D8 O--(out)--(HCS)----> not connected         /
            |                       |
-           o EN           GPIO3 RX o<--(in)--(RXD0)---- not connected  \
+           o EN           GPIO3 RX O<--(in)--(RXD0)---- not connected  \
            |                       |                                    > UART0
-           o RST          GPIO1 TX o--(out)--(TXD0)---> debug tx (6)   /
+           O RST          GPIO1 TX O--(out)--(TXD0)---> debug tx (6)   /
            |                       |
            o G                   G o
            |                       |
            o VIN                3V o
            |          USB          |
            +---------/===\---------+
+
+O = pins also available on Wemos D1 mini and clones
 
 * boot mode related:
   GPIO15/D8 must be low

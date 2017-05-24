@@ -26,6 +26,33 @@
 
 //---------------------------------------------------------------------------------------------------
 
+#ifdef __DOXYGEN__
+//! the number of LEDs
+#  define USER_APP_NUM_LEDS 8
+//! the arrangement of the LEDs (index of the LED in the box -> index of the LED on the chain)
+#  define USER_APP_LED_MAP { 0, 1, 2, 3, 4, 5, 6, 7 }
+#endif
+
+
+// ----- model 1 - the original with Chewie -----
+#if (FF_MODEL == 1)
+#  define USER_APP_NUM_LEDS 8
+#  define USER_APP_LED_MAP { 7, 0, 6, 1, 5, 2, 4, 3 } // box setup vertically ("portrait")
+
+// ----- model 2 - given to A. -----
+#elif (FF_MODEL == 2)
+#  define USER_APP_NUM_LEDS 3
+#  define USER_APP_LED_MAP { 0, 1, 2 }
+
+// ----- model 3 - the tiny one -----
+#elif (FF_MODEL == 3)
+#  define USER_APP_NUM_LEDS 3
+#  define USER_APP_LED_MAP { 0, 1, 2 }
+#  define USER_WS2801_ORDER 123
+#endif
+
+//---------------------------------------------------------------------------------------------------
+
 //! number of LEDs to drive
 #define USER_WS2801_NUMLEDS 8
 
@@ -40,8 +67,10 @@
 */
 #define USER_HSV2RGB_METHOD 2
 
+#ifndef USER_WS2801_ORDER
 //! LED colour ordering (123 = RGB, 213 = GRB, 231 = GBR, etc.)
-#define USER_WS2801_ORDER 231
+#  define USER_WS2801_ORDER 231
+#endif
 
 //---------------------------------------------------------------------------------------------------
 
@@ -83,37 +112,6 @@
 
 //! maximum password length
 #define USER_HTTPD_PASS_LEN_MAX 16
-
-
-//---------------------------------------------------------------------------------------------------
-
-#ifdef __DOXYGEN__
-//! the number of LEDs
-#  define USER_APP_NUM_LEDS 8
-//! the arrangement of the LEDs (index of the LED in the box -> index of the LED on the chain)
-#  define USER_APP_LED_MAP { 0, 1, 2, 3, 4, 5, 6, 7 }
-#endif
-
-
-
-#if (FF_MODEL == 1)
-
-//! the number of LEDs in the Tschenggins Lämpli Model 1
-#  define USER_APP_NUM_LEDS 8
-
-//! the arrangement of the LEDs (index of the LED in the box -> index of the LED on the chain)
-#  define USER_APP_LED_MAP { 7, 0, 6, 1, 5, 2, 4, 3 } // box setup vertically ("portrait")
-//#  define USER_APP_LED_MAP { 0, 1, 2, 3, 7, 6, 5, 4 } // box setup horizontally ("landscape")
-
-#elif (FF_MODEL == 2)
-
-//! the number of LEDs in the Tschenggins Lämpli Model 2
-#  define USER_APP_NUM_LEDS 3
-
-//! the arrangement of the LEDs (index of the LED in the box -> index of the LED on the chain)
-#  define USER_APP_LED_MAP { 0, 1, 2 }
-
-#endif
 
 //---------------------------------------------------------------------------------------------------
 

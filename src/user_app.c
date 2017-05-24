@@ -24,9 +24,7 @@
 #include "html_gen.h"
 
 // check config
-#if (FF_MODEL == 1) || (FF_MODEL == 2)
-// okay..
-#else
+#ifndef FF_MODEL
 #  error Illegal value for FF_MODEL
 #endif
 
