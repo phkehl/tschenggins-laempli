@@ -42,7 +42,7 @@ void htmlInit(void);
 
     Example:
 \code{.c}
-const char *pkTemplate = "foo %BAR% %BAZ%baz %GUGUS% bla";
+const char *pkTemplate = PSTR("foo %BAR% %BAZ%baz %GUGUS% bla");
 char html[30];
 const char *keys[] = { PSTR("BAR"), PSTR("BAZ") };
 const char *vals[] = { PSTR("11"), PSTR("22222") };
@@ -51,9 +51,9 @@ const int htmlLen = htmlRender(pkTemplate, html, sizeof(html), keys, vals, NUMOF
 \endcode
 And since \c template and \c html can be the same buffer:
 \code{.c}
-const char *pkTemplate = "foo %BAR% %BAZ%baz %GUGUS% bla";
+const char *pkTemplate = PSTR("foo %BAR% %BAZ%baz %GUGUS% bla");
 char html[30];
-strcpy_P(html, pkTemplate);
+strcpy_P(html, pkTemplate); // or from elsewhere
 const char *keys[] = { PSTR("BAR"), PSTR("BAZ") };
 const char *vals[] = { PSTR("11"), PSTR("22222") };
 const int htmlLen = htmlRender(html, html, sizeof(html), keys, vals, NUMOF(keys), true);
