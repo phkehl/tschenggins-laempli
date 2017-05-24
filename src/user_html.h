@@ -10,8 +10,8 @@
 
     This implements a simple HTML template system.
 
-    It also comes with the \c tools/html2c.pl that translates html files into string literals can be
-    used as input templates (or otherwise).
+    It also comes with the \c tools/html2c.pl that translates html files into string literals that
+    can be used as input templates (or otherwise). See html_gen.h.
 
     @{
 */
