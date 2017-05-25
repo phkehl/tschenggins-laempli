@@ -132,8 +132,8 @@ bool wgetRequest(WGET_STATE_t *pState, const char *url, WGET_REQCB_t respCb, voi
     the individual parts. Optional login credentials are converted to a HTTP basic auth token, which
     is placed at the end of the buffer. See examples below.
 
-    Suported URLs have the format "prot://user:pass@host/path?query" where "prot" can be http or
-    https and the "user:pass@", "/path" and "?query" parts are optional.
+    Suported URLs have the format "prot://user:pass@host:port/path?query" where "prot" can be http or
+    https and the "user:pass@", ":port", "/path" and "?query" parts are optional.
 
     \param[in]  url       the URL to check, can be ROM string (see PSTR())
     \param[out] buf       buffer to put the parts into (may be same as \c url)
@@ -142,8 +142,8 @@ bool wgetRequest(WGET_STATE_t *pState, const char *url, WGET_REQCB_t respCb, voi
     \param[out] path      pointer to query path part
     \param[out] query     pointer to query parameters part
     \param[out] auth      pointer to HTTP basic auth token
-    \param[out] https     pointer to boolean to indicate https (true) or http (false) protocol
-    \param[out] port      pointer to port number
+    \param[out] https     boolean to indicate https (true) or http (false) protocol
+    \param[out] port      port number
     \returns 0 on error, and otherwise the length of the buffer used (not including the auth token)
 
 Examples:
@@ -172,7 +172,7 @@ int wgetReqParamsFromUrl(const char *url, char *buf, const int bufSize,
     const char **host, const char **path, const char **query, const char **auth, bool *https, uint16_t *port);
 
 
-//void wgetTest(void);
+void wgetTest(void);
 
 
 #endif // __USER_WGET_H__

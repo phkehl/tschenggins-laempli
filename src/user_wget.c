@@ -635,7 +635,7 @@ int ICACHE_FLASH_ATTR wgetReqParamsFromUrl(const char *url, char *buf, const int
     }
     //DEBUG("pParse=%s", pParse);
 
-    // hostname
+    // hostname, port
     {
         char *endOfHost = strstr_P(pParse, PSTR("/"));
         if (endOfHost == NULL)
@@ -650,6 +650,24 @@ int ICACHE_FLASH_ATTR wgetReqParamsFromUrl(const char *url, char *buf, const int
             return false;
         }
         *host = pParse;
+
+        // port
+        char *startOfPort = strstr_P(pParse, PSTR(":"));
+        if (startOfPort != NULL)
+        {
+            *startOfPort = '\0';
+            startOfPort++;
+            const int iPort = atoi(startOfPort);
+            if ( (iPort < 1) || (iPort > 65535) )
+            {
+                WARNING("wget: illegal port '%s' (%d)", startOfPort, port);
+            }
+            else
+            {
+                *port = (uint16_t)iPort;
+            }
+        }
+
         pParse = endOfHost + 1;
     }
     //DEBUG("pParse=%s", pParse);
@@ -704,7 +722,7 @@ static void ICACHE_FLASH_ATTR sWgetTestCb(const WGET_RESPONSE_t *pkResp, void *p
 
 void ICACHE_FLASH_ATTR wgetTest(void)
 {
-#  if 0
+#  if 1
     char buf[1000];
     const char *host;
     const char *path;
@@ -712,18 +730,27 @@ void ICACHE_FLASH_ATTR wgetTest(void)
     const char *auth;
     bool https;
     uint16_t port;
-    PRINT("------------");
-    wgetReqParamsFromUrl(PSTR("http://foo.com/"),
-        buf, sizeof(buf), &host, &path, &query, &auth, &https, &port);
-    PRINT("--> host=%s path=%s query=%s auth=%s https=%d port=%d", host, path, query, auth, https, port);
-    PRINT("------------");
-    wgetReqParamsFromUrl(PSTR("http://user:pass@foo.com/path?foo=bar"),
-        buf, sizeof(buf), &host, &path, &query, &auth, &https, &port);
-    PRINT("--> host=%s path=%s query=%s auth=%s https=%d port=%d", host, path, query, auth, https, port);
+    static const char *urls[] =
+    {
+        "http://foo.com",
+        "https://foo.com/",
+        "http://foo.com:1234",
+        "https://foo.com:1234/",
+        "http://user:pass@foo.com/path?foo=bar",
+        "http://user:pass@foo.com:1234/path?foo=bar",
+    };
+    for (int ix = 0; ix < (int)NUMOF(urls); ix++)
+    {
+        PRINT("------------");
+        PRINT("%s", urls[ix]);
+        wgetReqParamsFromUrl(urls[ix],
+            buf, sizeof(buf), &host, &path, &query, &auth, &https, &port);
+        PRINT("--> host=%s path=%s query=%s auth=%s https=%d port=%d", host, path, query, auth, https, port);
+    }
     while (1) {}
 #  endif
 
-#  if 1
+#  if 0
     const bool online = wifiIsOnline();
     DEBUG("wgetTest() online=%d", online);
     if (!online)

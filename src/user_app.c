@@ -737,7 +737,7 @@ static void ICACHE_FLASH_ATTR sAppConnectCb(void *arg)
         pSH->pkAuth != NULL ? pSH->pkAuth : PSTR(""),
         PSTR(FF_PROJECT), PSTR(FF_BUILDVER));
 #else
-    // make HTTP GET request
+    // make HTTP POST request
     char req[pSH->urlLen + 128];
     sprintf_PP(req,
         PSTR("POST /%s HTTP/1.1\r\n"      // HTTP POST request
@@ -753,6 +753,7 @@ static void ICACHE_FLASH_ATTR sAppConnectCb(void *arg)
         PSTR(FF_PROJECT), PSTR(FF_BUILDVER),
         os_strlen(pSH->pkQuery),
         pSH->pkQuery);
+    //DEBUG("req: %s", req);
 #endif
 
     // send request
@@ -775,7 +776,8 @@ static void ICACHE_FLASH_ATTR sAppReconnectCb(void *arg, sint8 err)
     struct espconn *pConn = (struct espconn *)arg;
     STATUS_HELP_t *pSH = (STATUS_HELP_t *)pConn;
 
-    WARNING("app: connect to "IPSTR":%u error %d", IP2STR(&pSH->hostip), pSH->port, err);
+    WARNING("app: connect to "IPSTR":%u error: %s", IP2STR(&pSH->hostip), pSH->port,
+        espconnErrStr(err));
 
     TRIGGER_UPDATE(UPDATE_FAIL, 1000);
 }
