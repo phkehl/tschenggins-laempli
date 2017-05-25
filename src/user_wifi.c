@@ -340,6 +340,9 @@ void ICACHE_FLASH_ATTR wifiStart(const bool sta, const bool ap)
         wifi_station_dhcpc_stop();
     }
 
+    // this won't actually enter modem sleep mode if SoftAP is enabled
+    wifi_set_sleep_type(MODEM_SLEEP_T);
+
     DEBUG("wifiStart(%d, %d) %ums", sta, ap, toc(0)); // FIXME: the measured time doesn't seem right (WTF?!)
 }
 
