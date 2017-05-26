@@ -34,7 +34,7 @@
 #endif
 
 
-// ----- model 1 - the original with Chewie -----
+// ----- model 1 - the original, with Chewie -----
 #if (FF_MODEL == 1)
 #  define USER_APP_NUM_LEDS 8
 #  define USER_APP_LED_MAP { 7, 0, 6, 1, 5, 2, 4, 3 } // box setup vertically ("portrait")
@@ -47,7 +47,7 @@
 // ----- model 3 - the tiny one -----
 #elif (FF_MODEL == 3)
 #  define USER_APP_NUM_LEDS 3
-#  define USER_APP_LED_MAP { 0, 1, 2 }
+#  define USER_APP_LED_MAP { 2, 1, 0 }
 #  define USER_WS2801_ORDER 123
 #endif
 

@@ -464,7 +464,7 @@ progfs: $(FSIMG) $(ESPPORT)
 
 # factory reset
 .PHONY: progall
-progall: fw $(ESPPORT) $(FWFILE1) $(FWFILE2) deriv
+progall: firmware $(ESPPORT) deriv
 	$(V)$(ESPTOOL) $(ESPTOOLARGS) erase_flash
 	$(V)$(ESPTOOL) $(ESPTOOLARGS) write_flash $(ESPTOOLARGS_WRITE_FLASH) \
 	    0x3fc000 $(SDKDIR)/bin/esp_init_data_default.bin \
