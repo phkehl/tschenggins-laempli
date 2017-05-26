@@ -268,6 +268,8 @@ $(OBJDIR)/.dummy: $(SDKDIR)
 	$(V)$(TOUCH) $@
 
 
+
+
 # trigger generation of version_gen.h if necessary
 ifneq ($(BUILDVER),$(BUILDVEROLD))
 $(shell $(MKDIR) -p $(OBJDIR); $(TOUCH) $(OBJDIR)/.version_gen.h)
@@ -497,7 +499,7 @@ what:
 .PHONY: help
 help:
 	@echo
-	@echo "Usage: make ... [VERBOSE=0|1] [MODEL=1|...] [...=...]"
+	@echo "Usage: make ... [VERBOSE=0|1] [MODEL=...] [CFGFILE=...] [...=...]"
 	@echo
 	@echo "Possible targets are:"
 	@echo
