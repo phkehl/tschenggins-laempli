@@ -854,7 +854,7 @@ sub _gui
 
     do
     {
-        foreach my $clientId (@{$db->{_clientIds}})
+        foreach my $clientId (sort { $db->{clients}->{$a}->{name} cmp $db->{clients}->{$b}->{name} } @{$db->{_clientIds}})
         {
             my $cl = $db->{clients}->{$clientId};
             push(@html,
