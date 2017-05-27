@@ -156,6 +156,7 @@ GDB           := $(XTENSAPREFIX)gdb
 ESPTOOL       := esptool.py
 ESPTOOLARGS   := --port $(ESPPORT) --baud $(ESPBAUD)
 #ESPTOOLARGS_WRITE_FLASH := --compress
+ESPTOOLARGS_WRITE_FLASH := --flash_mode dout
 
 
 ###############################################################################
@@ -476,6 +477,10 @@ progall: firmware $(ESPPORT) deriv
 		$(FWADDR2) $(FWFILE2) \
 		$(FSADDR) $(FSIMG)
 
+# flash info
+.PHONY: flashinfo
+flashinfo: $(ESPPORT)
+	$(V)$(ESPTOOL) $(ESPTOOLARGS) flash_id
 
 # clear configuration
 .PHONY: clearcfg
