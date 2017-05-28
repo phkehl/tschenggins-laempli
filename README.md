@@ -1,4 +1,4 @@
-# Tschenggins Lämpli (ESP8266 IoT Jenkins Lights/Beacon)
+# Tschenggins Lämpli (ESP8266 IoT Jenkins CI Lights/Beacon/Build Status Indicator)
 
 by Philippe Kehl <flipflip at oinkzwurgl dot org>,
 https://oinkzwurgl.org/projaeggd/tschenggins-laempli
