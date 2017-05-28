@@ -50,9 +50,9 @@ void ICACHE_FLASH_ATTR toneStart(const uint32_t freq, const uint32_t dur)
 
 #define TONE_MELODY_N 50
 
-static uint32_t sToneMelodyTimervals[TONE_MELODY_N + 1];
-static int16_t sToneMelodyTogglecnts[TONE_MELODY_N + 1];
-static volatile int16_t svToneMelodyIx;
+static volatile uint32_t svToneMelodyTimervals[TONE_MELODY_N + 1];
+static volatile int16_t  svToneMelodyTogglecnts[TONE_MELODY_N + 1];
+static volatile int16_t  svToneMelodyIx;
 
 #define PAUSE_FREQ 1000
 
@@ -62,8 +62,8 @@ void ICACHE_FLASH_ATTR toneMelody(const int16_t *pkFreqDur)
     uint32_t totalDur = 0;
     uint16_t nNotes = 0;
 
-    os_memset(sToneMelodyTimervals, 0, sizeof(sToneMelodyTimervals));
-    os_memset(sToneMelodyTogglecnts, 0, sizeof(sToneMelodyTogglecnts));
+    os_memset(svToneMelodyTimervals, 0, sizeof(svToneMelodyTimervals));
+    os_memset(svToneMelodyTogglecnts, 0, sizeof(svToneMelodyTogglecnts));
     svToneMelodyIx = 0;
 
     for (int16_t ix = 0; ix < TONE_MELODY_N; ix++)
@@ -80,8 +80,8 @@ void ICACHE_FLASH_ATTR toneMelody(const int16_t *pkFreqDur)
             // number of times to toggle the PIO
             const int16_t togglecnt = 2 * _freq * dur / 1000;
 
-            sToneMelodyTimervals[ix]  = timerval;
-            sToneMelodyTogglecnts[ix] = freq != TONE_PAUSE ? togglecnt : -togglecnt;
+            svToneMelodyTimervals[ix]  = timerval;
+            svToneMelodyTogglecnts[ix] = freq != TONE_PAUSE ? togglecnt : -togglecnt;
 
             totalDur += dur;
             nNotes++;
@@ -118,8 +118,8 @@ static void sToneStart(void) // RAM func
 {
     GPIO_OUT_CLR(PIN_D2);
 
-    const int32_t timerval  = sToneMelodyTimervals[svToneMelodyIx];
-    const int16_t togglecnt = sToneMelodyTogglecnts[svToneMelodyIx];
+    const int32_t timerval  = svToneMelodyTimervals[svToneMelodyIx];
+    const int16_t togglecnt = svToneMelodyTogglecnts[svToneMelodyIx];
     svToneMelodyIx++;
 
     if (togglecnt)
