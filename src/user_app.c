@@ -137,21 +137,37 @@ static JENKINS_RESULT_t ICACHE_FLASH_ATTR sStrToResult(const char *str)
 /* ***** LED animations ************************************************************************** */
 
 // colours for different results
-#define UNKNOWN_HUE     0
-#define UNKNOWN_SAT     0
-#define UNKNOWN_VAL   150
-#define SUCCESS_HUE    85
-#define SUCCESS_SAT   255
-#define SUCCESS_VAL   200
-#define UNSTABLE_HUE   38
-#define UNSTABLE_SAT  255
-#define UNSTABLE_VAL  200
-#define FAILURE_HUE     0
-#define FAILURE_SAT   255
-#define FAILURE_VAL   200
-
+#if (FF_MODEL == 3)
+#  define UNKNOWN_HUE     0
+#  define UNKNOWN_SAT     0
+#  define UNKNOWN_VAL   100
+#  define SUCCESS_HUE    85
+#  define SUCCESS_SAT   255
+#  define SUCCESS_VAL   150
+#  define UNSTABLE_HUE   38
+#  define UNSTABLE_SAT  255
+#  define UNSTABLE_VAL  150
+#  define FAILURE_HUE     0
+#  define FAILURE_SAT   255
+#  define FAILURE_VAL   150
 // minimal brightness, also brightness for unknown state
-#define MIN_VAL        30
+#  define MIN_VAL        30
+#else
+#  define UNKNOWN_HUE     0
+#  define UNKNOWN_SAT     0
+#  define UNKNOWN_VAL   150
+#  define SUCCESS_HUE    85
+#  define SUCCESS_SAT   255
+#  define SUCCESS_VAL   200
+#  define UNSTABLE_HUE   38
+#  define UNSTABLE_SAT  255
+#  define UNSTABLE_VAL  200
+#  define FAILURE_HUE     0
+#  define FAILURE_SAT   255
+#  define FAILURE_VAL   200
+// minimal brightness, also brightness for unknown state
+#  define MIN_VAL        30
+#endif
 
 #define NUM_STEPS     100
 
