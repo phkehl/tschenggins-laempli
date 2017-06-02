@@ -862,7 +862,7 @@ bool ICACHE_FLASH_ATTR httpdSendError(struct espconn *pConn,
 
         if (xtraHeaders == NULL)
         {
-            xtraHeaders = "";
+            xtraHeaders = PSTR("");
         }
 
         char head[256];

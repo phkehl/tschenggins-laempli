@@ -26,6 +26,7 @@
 
 // forward declaration
 static bool sCfgRequestCb(struct espconn *pConn, const HTTPD_REQCB_INFO_t *pkInfo);
+static bool sCfgListRequestCb(struct espconn *pConn, const HTTPD_REQCB_INFO_t *pkInfo);
 
 // active configuration
 static USER_CFG_t sUserCfg;
@@ -107,6 +108,7 @@ void ICACHE_FLASH_ATTR cfgInit(const bool reset)
     cfgDebug(&sUserCfg);
 
     httpdRegisterRequestCb(PSTR("/config"), HTTPD_AUTH_ADMIN, sCfgRequestCb);
+    httpdRegisterRequestCb(PSTR("/list"), HTTPD_AUTH_ADMIN, sCfgListRequestCb);
 }
 
 
@@ -689,6 +691,17 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
 
     return res;
 }
+
+/* *********************************************************************************************** */
+
+// /list request callback
+static bool ICACHE_FLASH_ATTR sCfgListRequestCb(struct espconn *pConn, const HTTPD_REQCB_INFO_t *pkInfo)
+{
+    //const struct _esp_tcp *pkTcp = pConn->proto.tcp;
+
+    return httpdSendError(pConn, pkInfo->path, 503, NULL, PSTR("hoihoi..."));
+}
+
 
 
 /* *********************************************************************************************** */
