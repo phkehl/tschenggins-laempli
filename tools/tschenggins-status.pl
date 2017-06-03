@@ -30,6 +30,8 @@ use Data::Dumper;
 $Data::Dumper::Sortkeys = 1;
 $Data::Dumper::Terse = 1;
 use Pod::Usage;
+use IO::Handle;
+use Time::HiRes;
 
 my $q = CGI->new();
 
@@ -90,6 +92,9 @@ do
 
 =item * C<led> -- (multiple) job ID for the LEDs
 
+=item * C<chunked> -- use "Transfer-Encoding: chunked" with given chunk size
+        (default 0, i.e. not chunked), only for JSON output (e.g. cmd=list)
+
 =back
 
 =cut
@@ -110,6 +115,7 @@ do
     my $name     = $q->param('name')     || '';
     my $staip    = $q->param('staip')    || '';
     my $version  = $q->param('version')  || '';
+    my $chunked  = $q->param('chunked')  || 0;
     my @states   = (); # $q->multi_param('states');
     my @ch       = $q->multi_param('ch');
 
@@ -135,6 +141,8 @@ do
     }
     $q->param('debug', $debug);
     DEBUG("cmd=%s user=%s", $cmd, $ENV{'REMOTE_USER'} || 'anonymous');
+    $chunked = 0 if ($chunked !~ m{^\d+$}); # positive integers only
+
 
     ##### output is HTML, JSON or text #####
 
@@ -509,16 +517,37 @@ Returns info for a client given one or more job IDs. Endless connection with rea
     {
         $data->{debug} = \@DEBUGSTRS if ($debug );
         $data->{res} = 0 unless ($data->{res});
+        $data->{aaa} = $chunked;
         my $json = JSON::PP->new()->ascii($ascii ? 1 : 0)->utf8($ascii ? 0 : 1)->canonical(1)->pretty($debug ? 1 : 0)->encode($data);
-        print(
-              $q->header( -type => 'text/json', -expires => 'now', charset => ($ascii ? 'US-ASCII' : 'UTF-8'),
-                          # avoid "Transfer-Encoding: chunked" by specifying the actual content length
-                          # so that the raw output will be exactly and only the json string
-                          # (i.e. no https://en.wikipedia.org/wiki/Chunked_transfer_encoding markers)
-                          '-Content-Length' => length($json), '-Access-Control-Allow-Origin' => '*'
-                        ),
-              $json
-             );
+        if (!$chunked)
+        {
+            print(
+                  $q->header( -type => 'text/json', -expires => 'now', charset => ($ascii ? 'US-ASCII' : 'UTF-8'),
+                              # avoid "Transfer-Encoding: chunked" by specifying the actual content length
+                              # so that the raw output will be exactly and only the json string
+                              # (i.e. no https://en.wikipedia.org/wiki/Chunked_transfer_encoding markers)
+                              '-Content-Length' => length($json), '-Access-Control-Allow-Origin' => '*'
+                            ),
+                  $json
+                 );
+        }
+        else
+        {
+            print(
+                  $q->header( -type => 'text/json', -expires => 'now', charset => ($ascii ? 'US-ASCII' : 'UTF-8'),
+                              #'-Transfer-Encoding' => 'chunked',
+                              '-Access-Control-Allow-Origin' => '*'
+                            )
+                 );
+            STDOUT->autoflush(1);
+            for (my $offs = 0; $offs < length($json); $offs += $chunked)
+            {
+                print(substr($json, $offs, $chunked));
+                #STDOUT->flush();
+                Time::HiRes::usleep(1e3); # FIXME: is this the right way to force the chunk to be sent?
+            }
+
+        }
     }
     else
     {
