@@ -299,6 +299,15 @@ static uint16_t ICACHE_FLASH_ATTR sCfgChecksum(const uint8_t *pkData, int size)
 
 // -------------------------------------------------------------------------------------------------
 
+#if 1
+#  warning REQ_DEBUG is on
+#  define REQ_DEBUG(...) DEBUG(__VA_ARGS__)
+#  define IF_REQ_DEBUG(...) __VA_ARGS__
+#else
+#  define REQ_DEBUG(...) /* nothing */
+#  define IF_REQ_DEBUG(...) /* nothing */
+#endif
+
 
 static const char skCfgFormHtml[] PROGMEM = USER_CFG_FORM_HTML_STR;
 
@@ -694,14 +703,68 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
 
 /* *********************************************************************************************** */
 
+static bool sCfgListConnCb(struct espconn *pConn, HTTPD_CONN_DATA_t *pData, const HTTPD_CONNCB_t reason);
+
 // /list request callback
 static bool ICACHE_FLASH_ATTR sCfgListRequestCb(struct espconn *pConn, const HTTPD_REQCB_INFO_t *pkInfo)
 {
     //const struct _esp_tcp *pkTcp = pConn->proto.tcp;
 
+    // construct request URL for getting the list of available jobs
+
+    const USER_CFG_t *pkCfg = cfgGetPtr();
+    if (os_strlen(pkCfg->statusUrl) < 1)
+    {
+        return httpdSendError(pConn, pkInfo->path, 503, NULL, PSTR("no config"));
+    }
+
+
+    /*
+    char statusUrl[sizeof(pkCfg->statusUrl) + 100];
+    sprintf_PP(sStatusUrl,
+        PSTR("%s?cmd=list;chunked=512"), pkCfg->statusUrl);
+
+    const int urlLen = wgetReqParamsFromUrl(statusUrl, statusUrl, sizeof(statusUrl),
+        &pSH->pkHost, &pSH->pkPath, &pSH->pkQuery, &pSH->pkAuth, &pSH->https, &pSH->port);
+    DEBUG("sUpdateTimerFunc() connect %d / %s / %s ? %s / %s / %d / %u",
+                urlLen, pSH->pkHost, pSH->pkPath, pSH->pkQuery, pSH->pkAuth, pSH->https, pSH->port);
+            if (urlLen <= 0)
+            {
+                ERROR("app: fishy status url configured");
+                TRIGGER_UPDATE(UPDATE_CHECK, APP_STATUS_RETRY_INTERVAL);
+            }
+
+    */
+
+
+    HTTPD_CONN_DATA_t templ; // httpdRegisterSentCb() will copy templ, so it's okay on the stack
+    templ.p = 0;
+    templ.i = -42;
+    templ.u = 42;
+    httpdRegisterConnCb(pConn, &templ, sCfgListConnCb);
+
     return httpdSendError(pConn, pkInfo->path, 503, NULL, PSTR("hoihoi..."));
 }
 
+
+static bool ICACHE_FLASH_ATTR sCfgListConnCb(struct espconn *pConn, HTTPD_CONN_DATA_t *pData, const HTTPD_CONNCB_t reason)
+{
+    switch (reason)
+    {
+        case HTTPD_CONNCB_ABORT:
+            REQ_DEBUG("sCfgListConnCb(%p, %p) abort", pConn, pData);
+            break;
+
+        case HTTPD_CONNCB_CLOSE:
+            REQ_DEBUG("sCfgListConnCb(%p, %p) close", pConn, pData);
+            break;
+
+        case HTTPD_CONNCB_SENT:
+            REQ_DEBUG("sCfgListConnCb(%p, %p) sent", pConn, pData);
+            break;
+    }
+    return true;
+}
 
 
 /* *********************************************************************************************** */
