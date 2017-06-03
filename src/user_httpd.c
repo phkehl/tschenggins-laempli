@@ -38,6 +38,7 @@ typedef struct HTTPD_CONN_DATA_STORE_s
     uint32_t             remote_ip;
     int                  remote_port;
     bool                 requestDone;
+    __PAD(3);
     HTTPD_CONNCB_FUNC_t *connCb;
     HTTPD_CONN_DATA_t    data;
 } HTTPD_CONN_DATA_STORE_t;
