@@ -180,10 +180,9 @@ static bool sFsConnCb(struct espconn *pConn, HTTPD_CONN_DATA_t *pData, const HTT
     switch (reason)
     {
         // not interested
-        case HTTPD_CONNCB_CONNECT:
-        case HTTPD_CONNCB_RECEIVED:
-            return true;
-            break;
+        //case HTTPD_CONNCB_RECEIVED:
+        //    return true;
+        //    break;
 
         // free memory
         case HTTPD_CONNCB_ABORT:
