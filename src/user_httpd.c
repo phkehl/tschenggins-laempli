@@ -7,6 +7,8 @@
 
     \addtogroup USER_HTTPD
 
+    \todo add multiple receive events, and pass data to user callback
+
     @{
 */
 
@@ -35,6 +37,7 @@ typedef struct HTTPD_CONN_DATA_STORE_s
 {
     uint32_t             remote_ip;
     int                  remote_port;
+    bool                 requestDone;
     HTTPD_CONNCB_FUNC_t *connCb;
     HTTPD_CONN_DATA_t    data;
 } HTTPD_CONN_DATA_STORE_t;
@@ -269,18 +272,6 @@ static void ICACHE_FLASH_ATTR sHttpdConnectCb(void *pArg)
     espconn_regist_recvcb(pConn, sHttpdRecvCb);
     espconn_regist_reconcb(pConn, sHttpdReconCb);
     espconn_regist_disconcb(pConn, sHttpdDisconCb);
-
-    // call user callback
-    HTTPD_CONN_DATA_STORE_t *pDataStore = sHttpdConnDataGet(pConn);
-    if ( (pDataStore != NULL) && (pDataStore->connCb != NULL) )
-    {
-        if (!pDataStore->connCb(pConn, &pDataStore->data, HTTPD_CONNCB_CONNECT))
-        {
-            ERROR("httpd: conncb connect fail");
-            espconn_abort(pConn);
-        }
-        return;
-    }
 }
 
 static void ICACHE_FLASH_ATTR sHttpdRecvCb(void *pArg, char *data, uint16_t size)
@@ -299,33 +290,48 @@ static void ICACHE_FLASH_ATTR sHttpdRecvCb(void *pArg, char *data, uint16_t size
     REQ_DEBUG("sHttpdRecvCb(%p) "IPSTR":%u size=%u data=%s",
         pConn, IP2STR(&pkTcp->remote_ip), pkTcp->remote_port, size, data);
 
-    // dispatch
-    if (size)
+
+    HTTPD_CONN_DATA_STORE_t *pDataStore = sHttpdConnDataGet(pConn);
+    if (pDataStore == NULL)
     {
-        REQ_DEBUG("sHttpdRecvCb(%p) "IPSTR":%u size=%u",
-            pConn, IP2STR(&pkTcp->remote_ip), pkTcp->remote_port, size);
-        if (!sHttpdHandleRequest(pConn, data, size))
-        {
-            ERROR("httpd: fail handle request");
-            espconn_abort(pConn);
-        }
-    }
-    else
-    {
-        WARNING("http: empty request "IPSTR":%u",
-            IP2STR(&pkTcp->remote_ip), pkTcp->remote_port);
+        ERROR("httpd: connection slot lost");
+        espconn_abort(pConn);
+        return;
     }
 
-    // call user callback
-    HTTPD_CONN_DATA_STORE_t *pDataStore = sHttpdConnDataGet(pConn);
-    if ( (pDataStore != NULL) && (pDataStore->connCb != NULL) )
+    // first data must be the request, dispatch it
+    if (!pDataStore->requestDone)
     {
-        if (!pDataStore->connCb(pConn, &pDataStore->data, HTTPD_CONNCB_RECEIVED))
+        if (size)
         {
-            ERROR("httpd: conncb received fail");
-            espconn_abort(pConn);
+            REQ_DEBUG("sHttpdRecvCb(%p) "IPSTR":%u size=%u",
+                pConn, IP2STR(&pkTcp->remote_ip), pkTcp->remote_port, size);
+            if (!sHttpdHandleRequest(pConn, data, size))
+            {
+                ERROR("httpd: fail handle request");
+                espconn_abort(pConn);
+            }
         }
+        else
+        {
+            WARNING("http: empty request "IPSTR":%u",
+                IP2STR(&pkTcp->remote_ip), pkTcp->remote_port);
+        }
+        pDataStore->requestDone = true;
     }
+    // call user callback
+    //else
+    //{
+    //    if (pDataStore->connCb != NULL)
+    //    {
+    //        // FIXME: pass data!
+    //        if (!pDataStore->connCb(pConn, &pDataStore->data, HTTPD_CONNCB_RECEIVED))
+    //        {
+    //            ERROR("httpd: conncb received fail");
+    //            espconn_abort(pConn);
+    //        }
+    //    }
+    //}
 }
 
 static void ICACHE_FLASH_ATTR sHttpdSentCb(void *pArg)
@@ -338,9 +344,16 @@ static void ICACHE_FLASH_ATTR sHttpdSentCb(void *pArg)
         IP2STR(&pkTcp->local_ip), pkTcp->local_port,
         IP2STR(&pkTcp->remote_ip), pkTcp->remote_port);
 
-    // call user callback
     HTTPD_CONN_DATA_STORE_t *pDataStore = sHttpdConnDataGet(pConn);
-    if ( (pDataStore != NULL) && (pDataStore->connCb != NULL) )
+    if (pDataStore == NULL)
+    {
+        ERROR("httpd: connection slot lost");
+        espconn_abort(pConn);
+        return;
+    }
+
+    // call user callback
+    if (pDataStore->connCb != NULL)
     {
         if (!pDataStore->connCb(pConn, &pDataStore->data, HTTPD_CONNCB_SENT))
         {

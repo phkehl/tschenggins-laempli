@@ -69,6 +69,9 @@ typedef bool (HTTPD_REQCB_FUNC_t)(struct espconn *pConn, const HTTPD_REQCB_INFO_
     \param[in] authLevel  required authentication level
     \param[in] reqCb      callback function to handle the request
     \returns true on success, false otherwise (list full, see #HTTPD_REQUESTCB)
+
+    The callback can use httpdRegisterConnCb() to register another callback for the current connection,
+    e.g. to handle sending data in multiple chunks (see \ref USER_FS for example).
 */
 bool httpdRegisterRequestCb(const char *path, const HTTPD_AUTH_LEVEL_t authLevel, HTTPD_REQCB_FUNC_t reqCb);
 
@@ -83,8 +86,7 @@ typedef struct HTTPD_CONN_DATA_s
 //! http server connection callback states
 typedef enum HTTPD_CONNCB_e
 {
-    HTTPD_CONNCB_CONNECT,  //!< called after client connected
-    HTTPD_CONNCB_RECEIVED, //!< called (every time) client data has been received
+    //HTTPD_CONNCB_RECEIVED, //!< called (every time) client data has been received
     HTTPD_CONNCB_SENT,     //!< called (every time) data has been sent to the client
     HTTPD_CONNCB_ABORT,    //!< called on connection abort
     HTTPD_CONNCB_CLOSE     //!< called on connection termination
