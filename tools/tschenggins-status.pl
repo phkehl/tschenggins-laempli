@@ -517,7 +517,6 @@ Returns info for a client given one or more job IDs. Endless connection with rea
     {
         $data->{debug} = \@DEBUGSTRS if ($debug );
         $data->{res} = 0 unless ($data->{res});
-        $data->{aaa} = $chunked;
         my $json = JSON::PP->new()->ascii($ascii ? 1 : 0)->utf8($ascii ? 0 : 1)->canonical(1)->pretty($debug ? 1 : 0)->encode($data);
         if (!$chunked)
         {
