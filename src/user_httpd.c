@@ -257,8 +257,8 @@ static void ICACHE_FLASH_ATTR sHttpdConnectCb(void *pArg)
     sActiveConnCnt++;
 
     struct espconn *pConn = pArg; // not the same as &sHttpdConn
-    IF_REQ_DEBUG( const struct _esp_tcp *pkTcp = pConn->proto.tcp );
-    REQ_DEBUG("sHttpdConnectCb(%p) "IPSTR":%u -> "IPSTR":%u", pConn,
+    /*IF_REQ_DEBUG( */const struct _esp_tcp *pkTcp = pConn->proto.tcp/* )*/;
+    /*REQ_*/DEBUG("sHttpdConnectCb(%p) "IPSTR":%u -> "IPSTR":%u", pConn,
         IP2STR(&pkTcp->remote_ip), pkTcp->remote_port,
         IP2STR(&pkTcp->local_ip), pkTcp->local_port);
 
