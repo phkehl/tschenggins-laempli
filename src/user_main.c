@@ -155,7 +155,7 @@ static void ICACHE_FLASH_ATTR sStartFunc(void *pArg)
     httpdStart();
 
     // then we start the main user application
-    appStart();
+//    appStart();
 }
 
 

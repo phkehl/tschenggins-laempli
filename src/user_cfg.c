@@ -9,6 +9,8 @@
 
     \todo add wifi scan in config form
 
+    \todo handle tschenggins-status.pl?cmd=list;chunked=... chunked response so that we can handle very long lists
+
     @{
 */
 
@@ -16,6 +18,7 @@
 #include "user_httpd.h"
 #include "user_wifi.h"
 #include "user_app.h"
+#include "user_wget.h"
 #include "user_config.h"
 #include "html_gen.h"
 #include "cfg_gen.h"
@@ -34,13 +37,13 @@ static USER_CFG_t sUserCfg;
 // forward declarations
 static uint16_t sCfgChecksum(const uint8_t *pkData, int size);
 
-typedef struct USER_CFG_STORE_s
+typedef struct CFG_STORE_s
 {
     uint32_t   magic;
     USER_CFG_t cfg;
     uint16_t   checksum;
     __PAD(2);
-} USER_CFG_STORE_t;
+} CFG_STORE_t;
 
 
 #define CFG_ADDR FF_CFGADDR
@@ -56,7 +59,7 @@ void ICACHE_FLASH_ATTR cfgInit(const bool reset)
     bool cfgOk = false;
     if (!reset)
     {
-        USER_CFG_STORE_t store;
+        CFG_STORE_t store;
         if (system_param_load(CFG_SECTOR, 0, &store, sizeof(store)))
         {
             // verify checksum
@@ -218,7 +221,7 @@ void ICACHE_FLASH_ATTR cfgDefault(USER_CFG_t *pCfg)
 
 bool ICACHE_FLASH_ATTR cfgSet(const USER_CFG_t *pkCfg)
 {
-    USER_CFG_STORE_t store;
+    CFG_STORE_t store;
     os_memset(&store, 0, sizeof(store));
     store.magic = CFG_MAGIC;
     os_memcpy(&store.cfg, pkCfg, sizeof(store.cfg));
@@ -299,7 +302,6 @@ static uint16_t ICACHE_FLASH_ATTR sCfgChecksum(const uint8_t *pkData, int size)
 
 // -------------------------------------------------------------------------------------------------
 
-
 static const char skCfgFormHtml[] PROGMEM = USER_CFG_FORM_HTML_STR;
 
 #define CFG_FORM_SIZE (sizeof(USER_CFG_FORM_HTML_STR) + 512)
@@ -321,7 +323,7 @@ static void ICACHE_FLASH_ATTR sWifiChangeTimerFunc(void *pArg)
 // wifi config web interface (/cfg)
 static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_REQCB_INFO_t *pkInfo)
 {
-    const struct _esp_tcp *pkTcp = pConn->proto.tcp;
+    //const struct _esp_tcp *pkTcp = pConn->proto.tcp;
 
     USER_CFG_t userCfg;
     cfgGet(&userCfg);
@@ -625,28 +627,24 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
 
     strcpy_P(pResp, skCfgFormHtml);
 
-
     // get current config
-    const char *emptyStr = PSTR("");
+    const char *emptyStr   = PSTR("");
+    const char *checkedStr = PSTR("checked");
     const char *staSsid    = userCfg.staSsid;
-    const char *staPass    = userCfg.staPass[0]    ? dummyPass : emptyStr;
+    const char *staPass    = userCfg.staPass[0]    ? dummyPass  : emptyStr;
     const char *staName    = userCfg.staName;
-    const char *userPw     = userCfg.userPass[0]   ? dummyPass : emptyStr;
-    const char *adminPw    = userCfg.adminPass[0]  ? dummyPass : emptyStr;
+    const char *userPw     = userCfg.userPass[0]   ? dummyPass  : emptyStr;
+    const char *adminPw    = userCfg.adminPass[0]  ? dummyPass  : emptyStr;
     const char *apSsid     = userCfg.apSsid;
-    const char *apPass     = userCfg.apPass[0]     ? dummyPass : emptyStr;
+    const char *apPass     = userCfg.apPass[0]     ? dummyPass  : emptyStr;
     const char *statusUrl  = userCfg.statusUrl;
-    const char *haveChewie = userCfg.haveChewie    ? PSTR("checked") : emptyStr;
-    const char *beNoisy    = userCfg.beNoisy       ? PSTR("checked") : emptyStr;
+    const char *haveChewie = userCfg.haveChewie    ? checkedStr : emptyStr;
+    const char *beNoisy    = userCfg.beNoisy       ? checkedStr : emptyStr;
 
     char staIp[16];
     struct ip_info ipinfo;
     wifi_get_ip_info(STATION_IF, &ipinfo);
     os_sprintf(staIp, IPSTR, IP2STR(&ipinfo.ip));
-
-    const char *sysId = getSystemId();
-    const char *onStaNet = wifiIsApNet(pkTcp->remote_ip) ? PSTR("0") : PSTR("1");
-    const char *wifiOnline = wifiIsOnline() ? PSTR("1") : PSTR("0");
 
     char ledIds[USER_APP_NUM_LEDS * 9 + 1];
     ledIds[0] = 0;
@@ -669,7 +667,7 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
         PSTR("USERPW"), PSTR("ADMINPW"),
         PSTR("STATUSURL"),
         PSTR("HAVECHEWIE"), PSTR("BENOISY"),
-        PSTR("SYSID"), PSTR("ONSTANET"), PSTR("WIFIONLINE"), PSTR("LEDIDS")
+        PSTR("LEDIDS")
     };
     const char *formVals[] =
     {
@@ -678,7 +676,7 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
         userPw, adminPw,
         statusUrl,
         haveChewie, beNoisy,
-        sysId, onStaNet, wifiOnline, ledIds
+        ledIds
     };
 
     const int htmlLen = htmlRender(
@@ -694,12 +692,93 @@ static bool ICACHE_FLASH_ATTR sCfgRequestCb(struct espconn *pConn, const HTTPD_R
 
 /* *********************************************************************************************** */
 
+static void sCfgListWgetCb(const WGET_RESPONSE_t *pkResp, void *pUser);
+
+typedef struct CFGLIST_HELP_s
+{
+    struct espconn *pRespConn;
+    WGET_STATE_t wgetState;
+
+} CFGLIST_HELP_t;
+
+
 // /list request callback
 static bool ICACHE_FLASH_ATTR sCfgListRequestCb(struct espconn *pConn, const HTTPD_REQCB_INFO_t *pkInfo)
 {
     //const struct _esp_tcp *pkTcp = pConn->proto.tcp;
 
-    return httpdSendError(pConn, pkInfo->path, 503, NULL, PSTR("hoihoi..."));
+    // construct request URL for getting the list of available jobs
+
+    const USER_CFG_t *pkCfg = cfgGetPtr();
+    if (os_strlen(pkCfg->statusUrl) < 1)
+    {
+        return httpdSendError(pConn, pkInfo->path, 503, NULL, PSTR("no config"));
+    }
+
+    char listUrl[sizeof(pkCfg->statusUrl) + 20];
+    sprintf_PP(listUrl, PSTR("%s?cmd=list"), pkCfg->statusUrl);
+
+    CFGLIST_HELP_t *pHelp = memAlloc(sizeof(CFGLIST_HELP_t));
+    if (pHelp == NULL)
+    {
+        return httpdSendError(pConn, pkInfo->path, 500, NULL, PSTR("malloc fail"));
+    }
+
+    pHelp->pRespConn = pConn;
+    if (!wgetRequest(&pHelp->wgetState, listUrl, sCfgListWgetCb, pHelp, USER_CFG_LIST_RESP_MAX_LEN, 0))
+    {
+        memFree(pHelp);
+        return httpdSendError(pConn, pkInfo->path, 500, NULL, PSTR("wget req fail"));
+    }
+
+    return true;
+}
+
+static void ICACHE_FLASH_ATTR sCfgListWgetCb(const WGET_RESPONSE_t *pkResp, void *pUser)
+{
+    DEBUG("sCfgListWgetCb(%p, %p) error=%d status=%d contentType=%s bodyLen=%d (%d)" /* " body=[%s]"*/,
+        pkResp, pUser, pkResp->error, pkResp->status, pkResp->contentType, pkResp->bodyLen,
+        pkResp->body ? os_strlen(pkResp->body) : 0/*, pkResp->body*/);
+
+    CFGLIST_HELP_t *pHelp = (CFGLIST_HELP_t *)pUser;
+
+    // error?
+    if ( (pkResp->error != WGET_OK) || (pkResp->status != 200) )
+    {
+        httpdSendError(pHelp->pRespConn, PSTR("/list"), 500, NULL, PSTR("wget resp fail"));
+    }
+    // forward response
+    else
+    {
+        // minimal response header
+        char head[256];
+        sprintf_PP(head, PSTR("HTTP/1.1 200 OK\r\n"
+                "Content-Length: %d\r\n"
+                "Content-Type: %s\r\n"
+                "%s\r\n"), pkResp->bodyLen, pkResp->contentType);
+        const int headLen = os_strlen(head);
+
+        // can we fit that in front of the body?  (nasty memory saving hack that we can do because
+        // we know that pkResp->body is in pHelp->wgetState.buf)
+        const int headSpace = pkResp->body - pHelp->wgetState.buf;
+        if (headSpace >= headLen)
+        {
+            char *pResp = &pHelp->wgetState.buf[ headSpace - headLen ];
+            head[headLen - 1] = '\0';
+            os_strcpy(pResp, head);
+            pResp[headLen - 1] = '\n';
+            if (!httpdSendData(pHelp->pRespConn, (uint8_t *)pResp, headLen + pkResp->bodyLen))
+            {
+                httpdSendError(pHelp->pRespConn, PSTR("/list"), 500, NULL, PSTR("send fail"));
+            }
+        }
+        else
+        {
+            httpdSendError(pHelp->pRespConn, PSTR("/list"), 500, NULL, PSTR("ouch"));
+        }
+    }
+
+    memFree(pHelp);
 }
 
 

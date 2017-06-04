@@ -494,7 +494,7 @@ Returns info for a client given one or more job IDs. Endless connection with rea
 
         print(
               $q->header( -type => 'text/html', -expires => 'now', charset => 'UTF-8',
-                          '-Access-Control-Allow-Origin' => '*' ),
+                          #'-Access-Control-Allow-Origin' => '*' ),
               $q->start_html(-title => $TITLE,
                              -head => [ '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>' ],
                              -style => { -code => $css }),
@@ -509,7 +509,9 @@ Returns info for a client given one or more job IDs. Endless connection with rea
         my $content = "$text" . ($#DEBUGSTRS > -1 ? "\n\n" . join('', map { "$_\n" } @DEBUGSTRS) : '');
         print(
               $q->header( -type => 'text/plain', -expires => 'now', charset => ($ascii ? 'US-ASCII' : 'UTF-8'),
-                          '-Content-Length' => length($content), '-Access-Control-Allow-Origin' => '*' ),
+                          '-Content-Length' => length($content),
+                          #'-Access-Control-Allow-Origin' => '*'
+                        ),
               $content
              );
     }
@@ -525,7 +527,8 @@ Returns info for a client given one or more job IDs. Endless connection with rea
                               # avoid "Transfer-Encoding: chunked" by specifying the actual content length
                               # so that the raw output will be exactly and only the json string
                               # (i.e. no https://en.wikipedia.org/wiki/Chunked_transfer_encoding markers)
-                              '-Content-Length' => length($json), '-Access-Control-Allow-Origin' => '*'
+                              '-Content-Length' => length($json),
+                              #'-Access-Control-Allow-Origin' => '*'
                             ),
                   $json
                  );
@@ -535,7 +538,7 @@ Returns info for a client given one or more job IDs. Endless connection with rea
             print(
                   $q->header( -type => 'text/json', -expires => 'now', charset => ($ascii ? 'US-ASCII' : 'UTF-8'),
                               #'-Transfer-Encoding' => 'chunked',
-                              '-Access-Control-Allow-Origin' => '*'
+                              #'-Access-Control-Allow-Origin' => '*'
                             )
                  );
             STDOUT->autoflush(1);
@@ -554,7 +557,8 @@ Returns info for a client given one or more job IDs. Endless connection with rea
         my $content = "400 Bad Request: $error\n\n" . join('', map { "$_\n" } @DEBUGSTRS);
         print(
               $q->header(-type => 'text/plain', -expires => 'now', charset => ($ascii ? 'US-ASCII' : 'UTF-8'),
-                         -status => 400, '-Access-Control-Allow-Origin' => '*',
+                         -status => 400,
+                         #'-Access-Control-Allow-Origin' => '*',
                          '-Content-Length' => length($content)),
               $content
              );

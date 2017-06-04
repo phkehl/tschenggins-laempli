@@ -5,25 +5,25 @@ AddHandler perl-script .pl
 
 DirectoryIndex tschenggins-status.pl
 
-<LimitExcept OPTIONS>
+#<LimitExcept OPTIONS>
     #<FilesMatch "tschenggins-status.pl">
         AuthType basic
         AuthName "Teschenggins Laempli"
         AuthUserFile "/path/to/.htpasswd"
         Require valid-user
     #</FilesMatcH>
-</LimitExcept>
+#</LimitExcept>
 
 # say "200 OK" for any OPTIONS request (for some reason this is required, too)
-RewriteEngine On
-RewriteCond %{REQUEST_METHOD} OPTIONS
-RewriteRule ^(.*)$ blank.html [QSA,L]
+#RewriteEngine On
+#RewriteCond %{REQUEST_METHOD} OPTIONS
+#RewriteRule ^(.*)$ blank.html [QSA,L]
 
 # and this as well...
-Header always set Access-Control-Allow-Headers "Authorization,Origin,Credentials,Content-Type"
-Header always set Access-Control-Allow-Credentials true
-Header always set Access-Control-Allow-Origin *
-Header always set Access-Control-Allow-Methods "POST, GET, PUT, OPTIONS"
+#Header always set Access-Control-Allow-Headers "Authorization,Origin,Credentials,Content-Type"
+#Header always set Access-Control-Allow-Credentials true
+#Header always set Access-Control-Allow-Origin *
+#Header always set Access-Control-Allow-Methods "POST, GET, PUT, OPTIONS"
 
 
 

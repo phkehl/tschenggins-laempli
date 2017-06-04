@@ -1,4 +1,4 @@
-<div class="cfg" data-sysid="%SYSID%" data-onstanet="%ONSTANET%" data-wifionline="%WIFIONLINE%" data-ledids="%LEDIDS%" data-staip="%STAIP%">
+<div class="cfg">
   <form method="POST" action="/config">
 
     <h2>Station</h2>
@@ -38,7 +38,7 @@
     <input type="checkbox" name="benoisy" value="1" %BENOISY%/>
 
     <h2>LEDs</h2>
-    <div class="leds"></div>
+    <div class="leds" data-ledids="%LEDIDS%"></div>
 
     <h2>Apply</h2>
 
