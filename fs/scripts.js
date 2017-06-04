@@ -30,97 +30,60 @@ $( document ).ready(function()
     var divCfg = $('div.cfg');
     if (divCfg.length)
     {
-        var divLeds     = $('div.cfg div.leds');
-        var onStaNet    = divCfg.data('onstanet') == '1' ? true : false;
-        var wifiOnline  = divCfg.data('wifionline') == '1' ? true : false;
-        var statusUrl   = $('input[id=statusurl]').val();
-        var staSsid     = $('input[id=stassid]').val();
-        var staName     = $('input[id=staname]').val();
-        var ledIds      = divCfg.data('ledids').split(' ');/*.map(function (s) { return parseInt(s, 16); });*/
+        var divLeds = $('div.cfg div.leds');
+        var ledIds = divLeds.data('ledids').split(' ');/*.map(function (s) { return parseInt(s, 16); });*/
         var ledTmpl = '<label for="ID">LED NN</label><select name="ID" id="ID" autocomplete="off">SS</select><br/>';
-        if (!divCfg.length || !divLeds.length)
+        divLeds.html('<label>Loading&hellip;</label>');
+        var maxProgress = 50;
+        var progressInt = setInterval(function ()
         {
-            // not on /config page
-        }
-        else if (!onStaNet)
-        {
-            var html = '<div class="cfgmsg warning">Not online.<br/>LEDs configuration not available.';
-            if (wifiOnline)
+            if (maxProgress-- > 0)
             {
-                var staIp = divCfg.data('staip');
-                html += '<br/>Connect to <em>' + staSsid + '</em> WiFi and<br/>go to '
-                    + '<a href="http://' + staName + '/config">http://' + staName + '/config</a> or '
-                    + '<a href="http://' + staIp + '/config">http://' + staIp + '/config</a>.';
+                divLeds.append('.');
             }
-            html += '</div>';
-            divLeds.html(html);
-        }
-        else if (!statusUrl)
-        {
-            divLeds.html('<div class="cfgmsg warning">No status URL configured.<br/>LEDs configuration not available.</div>');
-        }
-        else
-        {
-            divLeds.html('<label>Loading&hellip;</label>');
-            var maxProgress = 50;
-            var progressInt = setInterval(function ()
+            else
             {
-                if (maxProgress-- > 0)
-                {
-                    divLeds.append('.');
-                }
-                else
-                {
-                    clearInterval(progressInt);
-                }
-            }, 300);
-            var m = statusUrl.match(/^(https?:\/\/)(?:(.[^:]+:[^:]+)@)(.*)/);
-            var headers = {};
-            if (m && (m.length == 4))
-            {
-                headers['Authorization'] = 'Basic ' + btoa(m[2]);
-                statusUrl = m[1] + m[3];
+                clearInterval(progressInt);
             }
-            DEBUG('ajax', [ statusUrl, headers ]);
-            $.ajax(
+        }, 300);
+
+        $.ajax(
+        {
+            url: '/list', timeout: 15000, type: 'GET',
+            complete: function(jqXHR, textStatus)
             {
-                url: statusUrl + '?cmd=list', timeout: 15000, type: 'GET',
-                headers: headers,
-                complete: function(jqXHR, textStatus)
+                clearInterval(progressInt);
+            },
+            success: function(data, textStatus, jqXHR )
+            {
+                divLeds.empty().hide();
+                var options = '<option value="00000000"></option>';
+                //DEBUG(data);
+                data.list.forEach(function (a)
                 {
-                    clearInterval(progressInt);
-                },
-                success: function(data, textStatus, jqXHR )
+                    options += '<option value="' + a[0] + '">' + a[1] +'</option>';
+                });
+                ledIds.forEach(function (jobId, ix)
                 {
-                    divLeds.empty().hide();
-                    var options = '<option value="00000000"></option>';
-                    DEBUG(data);
-                    data.list.forEach(function (a)
-                    {
-                        options += '<option value="' + a[0] + '">' + a[1] +'</option>';
-                    });
-                    ledIds.forEach(function (jobId, ix)
-                    {
-                        var html = ledTmpl
-                            .replace(/NN/g, (ix + 1))
-                            .replace(/ID/g, 'led' + ('0' + ix).substr(-2))
-                            .replace(/SS/, options);
-                        divLeds.append(html);
-                    });
-                    ledIds.forEach(function (jobId, ix)
-                    {
-                        var select = divLeds.find('select[id=led' + ('0' + ix).substr(-2) + ']');
-                        select.val(jobId);
-                    });
-                    divLeds.show();
-                },
-                error: function(jqXHR, textStatus, errorThrown )
+                    var html = ledTmpl
+                        .replace(/NN/g, (ix + 1))
+                        .replace(/ID/g, 'led' + ('0' + ix).substr(-2))
+                        .replace(/SS/, options);
+                    divLeds.append(html);
+                });
+                ledIds.forEach(function (jobId, ix)
                 {
-                    divLeds.html('<div class="cfgmsg error">Error: ' + textStatus +
-                                 ' (' + errorThrown + ').</br>LEDs configuration not available.' + '</div>');
-                }
-            });
-        }
+                    var select = divLeds.find('select[id=led' + ('0' + ix).substr(-2) + ']');
+                    select.val(jobId);
+                });
+                divLeds.show();
+            },
+            error: function(jqXHR, textStatus, errorThrown )
+            {
+                divLeds.html('<div class="cfgmsg error">Error: ' + textStatus +
+                             ' (' + errorThrown + ').</br>LEDs configuration not available.' + '</div>');
+            }
+        });
 
         $('input[id=statusurl]').on('keyup', function (e)
         {

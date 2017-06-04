@@ -70,7 +70,7 @@ typedef struct WGET_STATE_s
     bool            complete;
     bool            cbDone;
     uint16_t        timeout;
-    void *pUser;
+    void           *pUser;
 } WGET_STATE_t;
 
 //! http GET request on url with given parameters
