@@ -34,7 +34,7 @@ $( document ).ready(function()
         var ledIds = divLeds.data('ledids').split(' ');/*.map(function (s) { return parseInt(s, 16); });*/
         var ledTmpl = '<label for="ID">LED NN</label><select name="ID" id="ID" autocomplete="off">SS</select><br/>';
         divLeds.html('<label>Loading&hellip;</label>');
-        var maxProgress = 50;
+        var maxProgress = 67;
         var progressInt = setInterval(function ()
         {
             if (maxProgress-- > 0)
@@ -49,7 +49,7 @@ $( document ).ready(function()
 
         $.ajax(
         {
-            url: '/list', timeout: 15000, type: 'GET',
+            url: '/list', timeout: 20000, type: 'GET',
             complete: function(jqXHR, textStatus)
             {
                 clearInterval(progressInt);
