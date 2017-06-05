@@ -32,7 +32,7 @@ HAVECHEWIE 1
 # be noisy? (0 or 1)
 BENOISY 1
 
-# LEDs asignement
+# LEDs assignement
 LED01 0x00000000
 LED02 0x00000000
 LED03 0x00000000

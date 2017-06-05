@@ -512,7 +512,7 @@ help:
 	@echo "        compile   -- compile sources"
 	@echo "        link      -- link objects into executable (.elf) file"
 	@echo "        deriv     -- create derivatives (listing file, symbol tables, etc.)"
-	@echo "        firmware  -- make firmware imagee files"
+	@echo "        firmware  -- make firmware image files"
 	@echo "        doc       -- generate documentation (using Doxygen)"
 	@echo
 	@echo "    prog -- program (flash) firmware files, or individual files:"
