@@ -88,6 +88,8 @@ do
 
 =item * C<staip> -- client station IP address
 
+=item * C<stassid> -- client station SSID
+
 =item * C<version> -- client software version
 
 =item * C<led> -- (multiple) job ID for the LEDs
@@ -114,6 +116,7 @@ do
     my $strlen   = $q->param('strlen')   || 256;
     my $name     = $q->param('name')     || '';
     my $staip    = $q->param('staip')    || '';
+    my $stassid  = $q->param('stassid')  || '';
     my $version  = $q->param('version')  || '';
     my $chunked  = $q->param('chunked')  || 0;
     my @states   = (); # $q->multi_param('states');
@@ -405,11 +408,11 @@ Remove client info.
 
 =pod
 
-=head3 C<< cmd=leds client=<clientid> name=<client name> staip=<client station IP> version=<client sw version> ch=<jobid> ... strlen=<number> >>
+=head3 C<< cmd=leds client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> ch=<jobid> ... strlen=<number> >>
 
 Returns info for a client given one or more job IDs.
 
-=head3 C<< cmd=realtime client=<clientid> name=<client name> staip=<client station IP> version=<client sw version> ch=<jobid> ... strlen=<number> >>
+=head3 C<< cmd=realtime client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> ch=<jobid> ... strlen=<number> >>
 
 Returns info for a client given one or more job IDs. Endless connection with real-time update as things happen.
 
@@ -418,13 +421,13 @@ Returns info for a client given one or more job IDs. Endless connection with rea
     # LEDs results for client
     elsif ($cmd eq 'leds')
     {
-        ($data, $error) = _leds($db, $client, $strlen, { name => $name, staip => $staip, version => $version }, @ch);
+        ($data, $error) = _leds($db, $client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version }, @ch);
     }
     # special mode: realtime status change notification
     elsif ($cmd eq 'realtime')
     {
         # first like cmd=leds to update the client info and then below dispatch to real-time monitoring
-        ($data, $error) = _leds($db, $client, $strlen, { name => $name, staip => $staip, version => $version }, @ch);
+        ($data, $error) = _leds($db, $client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version }, @ch);
 
         # save pid so that previous instances can terminate in case they're still running
         # and haven't noticed yet that the Lämpli is gone (Apache waiting "forever" for TCP timeout)
@@ -462,7 +465,7 @@ Returns info for a client given one or more job IDs. Endless connection with rea
 
     if ( !$error && ($cmd eq 'realtime') )
     {
-        _realtime($client, $strlen, { name => $name, staip => $staip, version => $version}, @ch); # this doesn't return
+        _realtime($client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version }, @ch); # this doesn't return
         exit(0);
     }
 
@@ -494,7 +497,8 @@ Returns info for a client given one or more job IDs. Endless connection with rea
 
         print(
               $q->header( -type => 'text/html', -expires => 'now', charset => 'UTF-8',
-                          #'-Access-Control-Allow-Origin' => '*' ),
+                          #'-Access-Control-Allow-Origin' => '*'
+                        ),
               $q->start_html(-title => $TITLE,
                              -head => [ '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>' ],
                              -style => { -code => $css }),
@@ -895,6 +899,7 @@ sub _gui
                            $q->Tr(
                                   $q->th('Last connect:'), $q->td(sprintf('%.1f hours ago', (time() - $cl->{ts}) / 3600.0)),
                                   $q->th('Station IP:'), $q->td($cl->{staip}),
+                                  $q->th('Station SSID:'), $q->td($cl->{stassid}),
                                   $q->th('Version:'), $q->td($cl->{version})
                                  ),
                           ),
@@ -930,7 +935,7 @@ sub _gui_results
 
 sub _realtime
 {
-    my ($client, $strlen, $info, $staip, $version, @ch) = @_;
+    my ($client, $strlen, $info, @ch) = @_;
     print($q->header(-type => 'text/plain', -expires => 'now', charset => 'US-ASCII'));
     my $n = 0;
     my $lastTs = 0;
@@ -1007,7 +1012,7 @@ sub _realtime
                 }
 
                 # same as cmd=led to get the data but we won't store the database (this updates $db->{clients}->{$client})
-                my ($data, $error) = _leds($db, $client, $strlen, $info, $staip, $version, @ch);
+                my ($data, $error) = _leds($db, $client, $strlen, $info, @ch);
                 if ($error)
                 {
                     print("error $error\r\n");

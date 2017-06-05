@@ -455,7 +455,8 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
     static char sStatusUrl[
         sizeof(sUserCfg.statusUrl) +
         sizeof(sUserCfg.staName) +
-        64 + 8 +
+        sizeof(sUserCfg.staSsid) +
+        64 + 8 + 4 +
         (NUMOF(sUserCfg.leds) * 15) +
         64 +
         64];
@@ -546,8 +547,8 @@ static void ICACHE_FLASH_ATTR sUpdateTimerFunc(void *pArg)
             struct ip_info ipinfo;
             wifi_get_ip_info(STATION_IF, &ipinfo);
             sprintf_PP(sStatusUrl,
-                PSTR("%s?cmd=realtime;ascii=1;client=%s;name=%s;staip="IPSTR";version="FF_BUILDVER";strlen=" STRINGIFY(APP_STATUS_REQ_STRLEN)),
-                sUserCfg.statusUrl, getSystemId(), sUserCfg.staName,
+                PSTR("%s?cmd=realtime;ascii=1;client=%s;name=%s;stassid=%s;staip="IPSTR";version="FF_BUILDVER";strlen=" STRINGIFY(APP_STATUS_REQ_STRLEN)),
+                sUserCfg.statusUrl, getSystemId(), sUserCfg.staName, sUserCfg.staSsid,
                 IP2STR(&ipinfo.ip));
             for (int ledIx = 0; ledIx < (int)NUMOF(sUserCfg.leds); ledIx++)
             {
