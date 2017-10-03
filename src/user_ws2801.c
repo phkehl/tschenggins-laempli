@@ -147,7 +147,7 @@ void ICACHE_FLASH_ATTR ws2801Init(void)
     // based on https://github.com/MetalPhreak/ESP8266_SPI_Driver
 
     // initialise GPIO pins for HSPI
-	// spi_init_gpio(spi_no, SPI_CLK_USE_DIV);
+    // spi_init_gpio(spi_no, SPI_CLK_USE_DIV);
 
     WRITE_PERI_REG(  PERIPHS_IO_MUX_CONF_U, 0x105 ); // FIXME: why 0x105 (0b 0001 0000 0101) ?
     // from driver_lib/driver/spi.c:
@@ -172,7 +172,7 @@ void ICACHE_FLASH_ATTR ws2801Init(void)
     CLEAR_PERI_REG_MASK( SPI_USER(HSPI), SPI_WR_BYTE_ORDER ); // low to high: 0x12345678 -> 0x78 0x56 0x34 0x12
 
     // use and hold CS (FIXME: what does that mean?)
-	SET_PERI_REG_MASK(   SPI_USER(HSPI), SPI_CS_SETUP | SPI_CS_HOLD );
+    SET_PERI_REG_MASK(   SPI_USER(HSPI), SPI_CS_SETUP | SPI_CS_HOLD );
 
     // not flash mode (FIXME: ???)
     CLEAR_PERI_REG_MASK( SPI_USER(HSPI), SPI_FLASH_MODE );
