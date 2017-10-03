@@ -8,9 +8,9 @@
 // takes a https://en.wikipedia.org/wiki/Ring_Tone_Transfer_Language melody,
 // (s.a. http://merwin.bespin.org/t4a/specs/nokia_rtttl.txt)
 // and fills in a list of frequency and duration pairs
-const char *rtttlBuiltinMelody(const char *name);
-
 void rtttlMelody(const char *melodyStr, int16_t *pFreqDur, const int nFreqDur);
+
+const char *rtttlBuiltinMelody(const char *name);
 
 
 // tone frequencies, from Arduino's "toneMelody" example's pitches.h
