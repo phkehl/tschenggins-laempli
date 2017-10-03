@@ -59,7 +59,7 @@
 #  define USER_WS2801_ORDER 312
 
 // ----- model 5 - like 4 but with different RGB order, given to colleagues (s/n 0006) -----
-#elif (FF_MODEL == 4)
+#elif (FF_MODEL == 5)
 #  define USER_APP_NUM_LEDS 2
 #  define USER_APP_LED_MAP { 0, 1 }
 #  define USER_WS2801_ORDER 321
