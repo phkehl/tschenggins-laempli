@@ -52,11 +52,17 @@
 #  define USER_APP_LED_MAP { 2, 1, 0 }
 #  define USER_WS2801_ORDER 123
 
-// ----- model 4 - ali style, given to colleagues (s/n 0004, 0005, 0006, 0007, 0008) -----
+// ----- model 4 - ali style, given to colleagues (s/n 0004, 0005, 0007, 0008) -----
 #elif (FF_MODEL == 4)
 #  define USER_APP_NUM_LEDS 2
 #  define USER_APP_LED_MAP { 0, 1 }
 #  define USER_WS2801_ORDER 312
+
+// ----- model 5 - like 4 but with different RGB order, given to colleagues (s/n 0006) -----
+#elif (FF_MODEL == 4)
+#  define USER_APP_NUM_LEDS 2
+#  define USER_APP_LED_MAP { 0, 1 }
+#  define USER_WS2801_ORDER 321
 #endif
 
 //---------------------------------------------------------------------------------------------------
@@ -94,7 +100,9 @@
 //---------------------------------------------------------------------------------------------------
 
 //! enable access point
-#define USER_WIFI_USE_AP 1
+#ifndef USER_WIFI_USE_AP
+#  define USER_WIFI_USE_AP 0
+#endif
 
 //---------------------------------------------------------------------------------------------------
 

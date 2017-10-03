@@ -38,6 +38,9 @@ PROJLINK    := https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 # model of the Lämpli
 MODEL       := 1
 
+# use access point functionality?
+USEAP       := 1
+
 # pre-defined configuration, see cfg-sample.txt
 CFGFILE     :=
 
@@ -299,6 +302,7 @@ $(OBJDIR)/version_gen.h: $(OBJDIR)/.dummy $(OBJDIR)/.version_gen.h Makefile
 	$(V)echo "#define FF_FSADDR $(FSADDR)" >> $@.tmp
 	$(V)echo "#define FF_MODEL $(MODEL)" >> $@.tmp
 	$(V)echo "#define FF_MODEL_STR \"$(MODEL)\"" >> $@.tmp
+	$(V)echo "#define USER_WIFI_USE_AP $(USEAP)" >> $@.tmp
 	$(V)echo "#endif" >> $@.tmp
 	$(V)$(MV) $@.tmp $@
 

@@ -298,7 +298,9 @@ void ICACHE_FLASH_ATTR wifiStatus(void)
 
 // forward declarations
 static void sWifiEventCb(System_Event_t *evt);
+#if (USER_WIFI_USE_AP > 0)
 static void sWifiStartAp(void);
+#endif
 static void sWifiStartSta(void);
 
 // start wifi networking
@@ -607,6 +609,12 @@ bool ICACHE_FLASH_ATTR wifiIsApNet(const uint8_t ip[4])
     return res;
 }
 
+#else
+bool ICACHE_FLASH_ATTR wifiIsApNet(const uint8_t ip[4])
+{
+    UNUSED(ip);
+    return false;
+}
 #endif
 
 /* ***** configuration ************************************************************************** */
@@ -665,6 +673,7 @@ static bool ICACHE_FLASH_ATTR sWifiStatusRequestCb(struct espconn *pConn, const 
     // ap status
     char apStatus[256];
     apStatus[0] = '\0';
+#if (USER_WIFI_USE_AP > 0)
     struct softap_config apCfg;
     if (wifi_softap_get_config(&apCfg))
     {
@@ -702,6 +711,7 @@ static bool ICACHE_FLASH_ATTR sWifiStatusRequestCb(struct espconn *pConn, const 
         }
         wifi_softap_free_station_info();
     }
+#endif
 
 
     // render html
