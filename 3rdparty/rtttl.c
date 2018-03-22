@@ -16,7 +16,7 @@
 //-------------------------------------------------------------------------------------------------------------
 
 /*
-http://merwin.bespin.org/t4a/specs/nokia_rtttl.txt:
+http://merwin.bespin.org/t4a/specifications.html / http://merwin.bespin.org/t4a/specs/nokia_rtttl.txt:
 RTTTL Format Specifications
 
 RTTTL (RingTone Text Transfer Language) is the primary format used to distribute
