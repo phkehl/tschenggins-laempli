@@ -121,8 +121,8 @@ void user_init(void)
             break;
     }
 
-    xTaskCreate(blinkenTask, "foo", 256, NULL, 20, NULL);
-    //xTaskCreate(blaTask, "bar", 256, NULL, 2, NULL);
+    xTaskCreate(blinkenTask, "ff_foo", 256, NULL, 2, NULL);
+    xTaskCreate(blaTask, "ff_bar", 256, NULL, 2, NULL);
     //xTaskCreate(blinkenRegisterTask, "blinkenRegisterTask", 256, NULL, 2, NULL);
     NOTICE("here we go...");
 }
