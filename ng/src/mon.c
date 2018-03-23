@@ -162,7 +162,6 @@ void monInit(void)
     DEBUG("monInit()");
 
     xTaskCreate(sMonTask, "mon", 320, NULL, 5, NULL);
-
 }
 
 // eof

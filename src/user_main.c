@@ -59,7 +59,7 @@ void ICACHE_FLASH_ATTR user_init(void)
     DEBUG("SDK %s, Chip 0x%08x", system_get_sdk_version(), system_get_chip_id());
     DEBUG("GCC " FF_GCCVERSION);
     DEBUG("Boot ver: %u, mode: %u", system_get_boot_version(), system_get_boot_mode());
-    DEBUG("Frequency: %u", system_get_cpu_freq()); // MHz
+    DEBUG("Frequency: %uMHz", system_get_cpu_freq()); // MHz
     static const char flashMap[][10] PROGMEM =
     {
         { "4M_256\0" }, { "2M\0" }, { "8M_512\0" }, { "16M_512\0" },
