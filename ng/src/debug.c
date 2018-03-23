@@ -127,7 +127,32 @@ static void IRAM sUartISR(void *pArg) // RAM function
 #endif // (TXBUF_SIZE <= 0)
 
 
-//! initialise debugging output
+void debugMonStatus(void)
+{
+#if (TXBUF_SIZE > 0)
+    uint16_t size, peak, drop;
+    CS_ENTER;
+    size = svDebugBufSize;
+    peak = svDebugBufPeak;
+    drop = svDebugBufDrop;
+    svDebugBufPeak = 0;
+    svDebugBufDrop = 0;
+    CS_LEAVE;
+    uint16_t percPeak = ((peak * 8 * 100 / sizeof(svDebugBuf)) + 4) >> 3;
+    if (drop)
+    {
+        WARNING("mon: debug: size=%u/%u peak=%u (%u%%) drop=%u",
+            size, sizeof(svDebugBuf), peak, percPeak, drop);
+    }
+    else
+    {
+        DEBUG("mon: debug: size=%u/%u peak=%u (%u%%) drop=%u",
+            size, sizeof(svDebugBuf), peak, percPeak, drop);
+    }
+#endif
+}
+
+
 void debugInit(void)
 {
     // 115200 8N1

@@ -21,6 +21,8 @@
 //! initialise debugging output
 void debugInit(void);
 
+void debugMonStatus(void);
+
 //! print an error message \hideinitializer
 #define ERROR(fmt, ...)   printf("E: " fmt "\n", ## __VA_ARGS__)
 

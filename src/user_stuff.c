@@ -962,7 +962,7 @@ void ICACHE_FLASH_ATTR stuffStatus(void)
     svDebugBufDrop = 0;
     CS_LEAVE;
     uint16_t percPeak = ((peak * 8 * 100 / sizeof(svDebugBuf)) + 4) >> 3;
-    if (svDebugBufDrop)
+    if (drop)
     {
         WARNING("mon: debug: size=%u/%u peak=%u/%u%%drop=%u", // SDK bug: %% produces "% " (a space too many)
             size, sizeof(svDebugBuf), peak, percPeak, drop);

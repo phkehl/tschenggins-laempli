@@ -9,9 +9,12 @@
 #include <malloc.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include <FreeRTOS.h>
 #include <task.h>
+
+#include <espressif/esp_system.h>
 
 #include <esp/rtc_regs.h>
 
@@ -58,7 +61,6 @@ static void sMonTask(void *pArg)
         // wait until it's time to dump the status
         static uint32_t sTick;
         vTaskDelayUntil(&sTick, MS2TICK(MON_PERIOD));
-        PRINT("mon: msss=%u heap=%u", TICKS2MS(sTick), xPortGetFreeHeapSize());
 
         const int nTasks = uxTaskGetNumberOfTasks();
         if (nTasks > MAX_TASKS)
@@ -128,10 +130,22 @@ static void sMonTask(void *pArg)
             totalRuntime = totalRuntimeTasks;
         }
 
-        // print ISR load (as far as we know)
-        PRINT("mon: isr=%u (%.2fkHz, %.1f%%)", isrCount,
+        // RTC
+        static uint32_t sLastRtc;
+        const uint32_t msss = sdk_system_get_time() / 1000; // ms
+        const uint32_t thisRtc = sdk_system_get_rtc_time();
+        const uint32_t drtc = /*roundl*/( (double)(sLastRtc ? thisRtc - sLastRtc : 0)
+            * (1.0/1000.0/4096.0) * sdk_system_rtc_clock_cali_proc() ); // us -> ms
+        sLastRtc = thisRtc;
+
+        // print monitor info
+        DEBUG("--------------------------------------------------------------------------------");
+        DEBUG("mon: sys: ticks=%u msss=%u drtc=%u heap=%u isr=%u (%.2fkHz, %.1f%%)",
+            sTick, msss, drtc, xPortGetFreeHeapSize(),
+            isrCount,
             (double)isrCount / ((double)MON_PERIOD / 1000.0) / 1000.0,
             (double)isrTime * 100.0 / (double)isrTotalRuntime);
+        debugMonStatus();
 
         // print tasks info
         for (int ix = 0; ix < nTasks; ix++)
@@ -147,12 +161,13 @@ static void sMonTask(void *pArg)
                 case eDeleted:   state = 'D'; break;
                 case eInvalid:   state = 'I'; break;
             }
-            PRINT("mon: %02d %-16s %c %2i-%2i %4u %5.1f%%",
+            DEBUG("mon: tsk: %02d %-16s %c %2i-%2i %4u %5.1f%%",
                 (int)pkTask->xTaskNumber, pkTask->pcTaskName, state,
                 (int)pkTask->uxCurrentPriority, (int)pkTask->uxBasePriority,
                 pkTask->usStackHighWaterMark,
                 (double)pkTask->ulRunTimeCounter * 100.0 / (double)totalRuntimeTasks);
         }
+        DEBUG("--------------------------------------------------------------------------------");
         //PRINT("runtime: %u %u %u, %u", totalRuntime, totalRuntimeTasks, totalRuntime - totalRuntimeTasks, isrTotalRuntime);
     }
 }
