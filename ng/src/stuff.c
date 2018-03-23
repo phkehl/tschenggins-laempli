@@ -7,10 +7,12 @@
 
 */
 
+#include "debug.h"
 #include "stuff.h"
 
 void stuffInit(void)
 {
+    DEBUG("stuffInit()");
 }
 
 

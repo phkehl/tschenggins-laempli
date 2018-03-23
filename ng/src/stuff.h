@@ -13,6 +13,8 @@
 #ifndef __STUFF_H__
 #define __STUFF_H__
 
+#include <FreeRTOS.h>
+#include <task.h>
 
 //! initialise stuff
 void stuffInit(void);
@@ -74,16 +76,22 @@ void stuffInit(void);
 #define __NAKED               __attribute__((naked))                 //!< naked function \hideinitializer
 //@}
 
-/* ***** critical sections *********************************************************************** */
+/* ***** OS helpers ****************************************************************************** */
 
 /*!
-    \name Critical Sections
+    \name OS helpers
     @{
 */
+
 //! enter a critical section, asserting that interrupts are off \hideinitializer
 #define CS_ENTER do { taskENTER_CRITICAL();
+
 //! leave a critical section, re-enabling the interrupts if necessary \hideinitializer
-#define CS_LEAVE taskLEAVE_CRITICAL } while (0)
+#define CS_LEAVE taskEXIT_CRITICAL(); } while (0)
+
+//! sleep
+#define osSleep(ms)  vTaskDelay((ms) / portTICK_PERIOD_MS)
+
 //@}
 
 
