@@ -13,8 +13,9 @@
 #include <esp/uart.h>
 #include <esp/interrupts.h>
 
-#include "debug.h"
 #include "stuff.h"
+#include "mon.h"
+#include "debug.h"
 
 #define UART_NUM 0
 #define TXBUF_SIZE 4096
@@ -87,6 +88,8 @@ static ssize_t sWriteStdoutFunc(struct _reent *r, int fd, const void *ptr, size_
 // flushs buffered debug data to the tx fifo
 static void IRAM sUartISR(void *pArg) // RAM function
 {
+    monIsrEnter();
+
     //UNUSED(pArg);
 
     // is it the tx fifo empty interrupt?
@@ -117,6 +120,8 @@ static void IRAM sUartISR(void *pArg) // RAM function
         UART(UART_NUM).INT_CLEAR = UART_INT_CLEAR_TXFIFO_EMPTY;
     }
     // else if (...) // handle other sources of this interrupt
+
+    monIsrLeave();
 }
 
 #endif // (TXBUF_SIZE <= 0)

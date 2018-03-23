@@ -29,19 +29,19 @@ debug:
 	$(Q)$(PERL) ../tools/debug.pl $(ESPPORT):115200
 
 $(BUILD_DIR)$(PROGRAM).sym_iram: $(PROGRAM_OUT) ../tools/symbols.pl
-	$(vecho) "G  $@"
+	$(vecho) "GEN $@"
 	$(Q)$(OBJDUMP) -t $< | $(PERL) ../tools/symbols.pl iRAM 0x40100000 0x8000 > $@
 
 $(BUILD_DIR)$(PROGRAM).sym_irom: $(PROGRAM_OUT) ../tools/symbols.pl
-	$(vecho) "G  $@"
+	$(vecho) "GEN $@"
 	$(Q)$(OBJDUMP) -t $< | $(PERL) ../tools/symbols.pl iROM 0x40200000 0x5c000 > $@
 
 $(BUILD_DIR)$(PROGRAM).sym_dram: $(PROGRAM_OUT) ../tools/symbols.pl
-	$(vecho) "G  $@"
+	$(vecho) "GEN $@"
 	$(Q)$(OBJDUMP) -t $< | $(PERL) ../tools/symbols.pl dRAM 0x3ffe8000 0x14000 > $@
 
 $(BUILD_DIR)$(PROGRAM).size: $(PROGRAM_OUT) $(BUILD_DIR)$(PROGRAM).sym_iram $(BUILD_DIR)$(PROGRAM).sym_irom  $(BUILD_DIR)$(PROGRAM).sym_dram
-	$(vecho) "G  $@"
+	$(vecho) "GEN $@"
 	$(Q)$(SIZE) -Ax $< > $@
 	$(Q)$(SIZE) -Bd $< >> $@
 	$(Q)$(SIZE) -Bx $< >> $@

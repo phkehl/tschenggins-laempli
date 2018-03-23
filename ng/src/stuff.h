@@ -89,8 +89,14 @@ void stuffInit(void);
 //! leave a critical section, re-enabling the interrupts if necessary \hideinitializer
 #define CS_LEAVE taskEXIT_CRITICAL(); } while (0)
 
+//! convert ms to ticks
+#define MS2TICK(ms) ((ms) / portTICK_PERIOD_MS)
+
+//! convert ticks to ms
+#define TICKS2MS(ticks) ((ticks) * portTICK_PERIOD_MS)
+
 //! sleep
-#define osSleep(ms)  vTaskDelay((ms) / portTICK_PERIOD_MS)
+#define osSleep(ms)  vTaskDelay(MS2TICK(ms))
 
 //@}
 

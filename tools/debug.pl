@@ -165,10 +165,14 @@ sub parse
 
         # try parse: ERROR/WARNING/NOTICE/PRINT/DEBUG message
         #if ($$bufRef =~ m/^(\n*([EWNPD]): ([[:print:]]+)\r?\n+)/)
-        if ($$bufRef =~ m/^(\n*([EWNPD]): ([[:print:]\p{Alnum}]+)\r?\n+)/)
+        if ($$bufRef =~ m/^(\n*([EWNPD]): ([[:print:]\p{Alnum}\t]+)\r?\n+)/)
         {
+            my ($raw, $type, $str) = ($1, $2, $3);
+            $str =~ s/\r/\\r/g; # ..removing some non-printable stuff
+            $str =~ s/\n/\\n/g;
+            $str =~ s/\t/\\t/g;
             my %map = ( E => 'ERROR', W => 'WARNING', N => 'NOTICE', P => 'PRINT', D => 'DEBUG' );
-            $msg = { _name => $map{$2}, _size => length($1), _raw => $1, _str => "$2: $3" };
+            $msg = { _name => $map{$type}, _size => length($1), _raw => $raw, _str => "$type: $str" };
         }
         # try parse: ASCII data followed by CRLF or LF
         elsif ($$bufRef =~ m/^([[:print:]]*\r*\n+)/)
