@@ -12,12 +12,39 @@ TODO:
 - cflags for our files only? -Wunused etc.
 
 - FreeRTOS API reference https://www.freertos.org/a00106.html
+
+
+
 */
 
+// standard library (libc/xtensa-lx106-elf/include/)
+#include <stdlib.h>
+#include <math.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include <stdbool.h>
+#include <ctype.h>
+#include <stdarg.h>
+#include <stddef.h>
+
+// ESP SDK (include/)
+#include <espressif/esp_common.h>
+
+// FreeRTOS (FreeRTOS/Source/include/)
+#include <FreeRTOS.h>
+#include <task.h>
+
+// open RTOS (core/include/)
+#include <common_macros.h>
+#include <esp/registers.h>
+#include <esp/interrupts.h>
+#include <esp/iomux.h>
+#include <esp/gpio.h>
+#include <esp/timer.h>
+
 #include "stuff.h"
+#include "debug.h"
 
-
-static int ucount;
 
 const int gpio = 2;
 
@@ -32,7 +59,7 @@ void blinkenTask(void *pvParameters)
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         gpio_write(gpio, 0);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-        printf("blink %u %i\n", portTICK_PERIOD_MS, ucount);
+        PRINT("blink %u", portTICK_PERIOD_MS);
     }
 }
 
@@ -41,7 +68,7 @@ void blaTask(void *pvParameters)
     static int count;
     while(1) {
         vTaskDelay(100 / portTICK_PERIOD_MS);
-        printf("blaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa %i\n", count++);
+        DEBUG("bla %i", count++);
     }
 }
 
@@ -49,13 +76,12 @@ void blaTask(void *pvParameters)
 
 void user_init(void)
 {
+    debugInit();
     stuffInit();
 
     xTaskCreate(blinkenTask, "blinkenTask", 256, NULL, 2, NULL);
     xTaskCreate(blaTask, "blaTask", 256, NULL, 2, NULL);
     //xTaskCreate(blinkenRegisterTask, "blinkenRegisterTask", 256, NULL, 2, NULL);
-    printf("here we go...\n");
+    NOTICE("here we go...");
 
-
-    printf("here we go again...\n");
 }

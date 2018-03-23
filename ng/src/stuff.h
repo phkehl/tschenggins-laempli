@@ -1,15 +1,9 @@
 /*!
     \file
-    \brief flipflip's Tschenggins Lämpli: debugging output and other handy stuff (see \ref FF_STUFF)
+    \brief flipflip's Tschenggins Lämpli: handy stuff (see \ref FF_STUFF)
 
     - Copyright (c) 2018 Philippe Kehl (flipflip at oinkzwurgl dot org),
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
-
-    This implements a debugging output and other handy stuff. The debugging output is buffered and
-    non-blocking (uses interrupts and the UART hardware FIFO, drops output if the buffer is full).
-
-    Also, this header file includes most of the ESP8266 SDK and some useful c standard library
-    interfaces.
 
     \defgroup FF_STUFF STUFF
     \ingroup FF
@@ -19,63 +13,9 @@
 #ifndef __STUFF_H__
 #define __STUFF_H__
 
-// standard library (libc/xtensa-lx106-elf/include/)
-#include <stdlib.h>
-#include <math.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <stdbool.h>
-#include <ctype.h>
-#include <stdarg.h>
-#include <stddef.h>
-
-// ESP SDK (include/)
-#include <espressif/esp_common.h>
-
-// FreeRTOS (FreeRTOS/Source/include/)
-#include <FreeRTOS.h>
-#include <task.h>
-
-// open RTOS (core/include/)
-#include <common_macros.h>
-#include <esp/registers.h>
-#include <esp/interrupts.h>
-#include <esp/iomux.h>
-#include <esp/gpio.h>
-#include <esp/timer.h>
-
 
 //! initialise stuff
 void stuffInit(void);
-
-
-/* ***** debug helpers *************************************************************************** */
-
-/*!
-    \name Debug Output
-    @{
-
-    The \c tools/debug.pl script can be used to receiver and display this debug output (in colours!).
-*/
-//! print an error message \hideinitializer
-#define ERROR(fmt, ...)   printf("E: " fmt "\n", ## __VA_ARGS__)
-
-//! print a warning message \hideinitializer
-#define WARNING(fmt, ...) printf("W: " fmt "\n", ## __VA_ARGS__)
-
-//! print a notice \hideinitializer
-#define NOTICE(fmt, ...)  printf("N: " fmt "\n", ## __VA_ARGS__)
-
-//! print a normal message \hideinitializer
-#define PRINT(fmt, ...)   printf("P: " fmt "\n", ## __VA_ARGS__)
-
-//! print a debug message \hideinitializer
-#define DEBUG(fmt, ...)   printf("D: " fmt "\n", ## __VA_ARGS__)
-
-//! hex dump data
-void HEXDUMP(const void *pkData, int size);
-
-//@}
 
 
 /* ***** handy macros **************************************************************************** */
