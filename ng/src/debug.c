@@ -42,9 +42,8 @@ static volatile uint16_t svDebugBufSize;               // size of buffered data
 static volatile uint16_t svDebugBufPeak;               // peak output buffer size
 static volatile uint16_t svDebugBufDrop;               // number of dropped bytes
 
-
 // add stdio output data to buffer
-IRAM static ssize_t sWriteStdoutFunc(struct _reent *r, int fd, const void *ptr, size_t len)
+static ssize_t sWriteStdoutFunc(struct _reent *r, int fd, const void *ptr, size_t len)
 {
     CS_ENTER;
 
@@ -86,7 +85,7 @@ IRAM static ssize_t sWriteStdoutFunc(struct _reent *r, int fd, const void *ptr, 
 
 // interrupt handler (for *any* UART interrupt of *any* UART peripheral)
 // flushs buffered debug data to the tx fifo
-IRAM static void sUartISR(void *pArg) // RAM function
+static void IRAM sUartISR(void *pArg) // RAM function
 {
     //UNUSED(pArg);
 
@@ -131,10 +130,10 @@ void debugInit(void)
     uart_set_parity_enabled(UART_NUM, false);
     uart_set_stopbits(UART_NUM, UART_STOPBITS_1);
 
-
-#if (TXBUF_SIZE > 0)
     printf("..................................................\n");
     osSleep(250);
+
+#if (TXBUF_SIZE > 0)
 
     // clear tx fifo
     uart_clear_txfifo(UART_NUM);
@@ -157,11 +156,12 @@ void debugInit(void)
     _xt_isr_unmask(BIT(INUM_UART));
 
 #else
+
     DEBUG("debugInit() (blocking, unbuffered)");
     //sdk_os_install_putc1(sPutcFunc); // nope!
     set_write_stdout(sWriteStdoutFunc);
-#endif
 
+#endif
 }
 
 
