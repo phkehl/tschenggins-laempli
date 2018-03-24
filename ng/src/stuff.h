@@ -13,6 +13,8 @@
 #ifndef __STUFF_H__
 #define __STUFF_H__
 
+#include <espressif/esp_wifi.h>
+
 #include <FreeRTOS.h>
 #include <task.h>
 
@@ -100,7 +102,17 @@ void stuffInit(void);
 
 //@}
 
+/* ***** SDK enumeration stringifications ******************************************************** */
 
+/*!
+    \name SDK Enum Stringification
+    @{
+*/
+
+const char *sdkAuthModeStr(const AUTH_MODE authmode);
+
+
+//@}
 
 /* *********************************************************************************************** */
 

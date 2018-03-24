@@ -23,7 +23,7 @@
 #include "mon.h"
 
 
-#define MON_PERIOD 2500
+#define MON_PERIOD 5000
 #define MAX_TASKS 10
 
 

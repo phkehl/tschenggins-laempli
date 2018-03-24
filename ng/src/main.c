@@ -16,6 +16,7 @@
 #include "debug.h"
 #include "mon.h"
 #include "led.h"
+#include "wifi.h"
 #include "version_gen.h"
 
 //void vApplicationIdleHook(void)
@@ -23,16 +24,8 @@
 //    // sdk_wifi_set_sleep_type(WIFI_SLEEP_MODEM);
 //}
 
-void user_init(void)
+static void sMainHello(void)
 {
-    // initialise stuff
-    debugInit();
-    stuffInit();
-    monInit();
-
-    sdk_wifi_set_sleep_type(WIFI_SLEEP_MODEM);
-
-    // say hello
     NOTICE("------------------------------------------------------------------------------------------");
     NOTICE("Tschenggins Lämpli NG ("FF_BUILDVER" "FF_BUILDDATE")");
     NOTICE("Copyright (c) 2018 Philippe Kehl & flipflip industries <flipflip at oinkzwurgl dot org>");
@@ -45,15 +38,15 @@ void user_init(void)
     DEBUG("GCC " FF_GCCVERSION);
     DEBUG("Boot ver: %u, mode: %u", sdk_system_get_boot_version(), sdk_system_get_boot_mode());
     DEBUG("Frequency: %uMHz", sdk_system_get_cpu_freq()); // MHz
-    //static const char flashMap[][10] =
+    //static const char const flashMap[][10] =
     //{
     //    { "4M_256\0" }, { "2M\0" }, { "8M_512\0" }, { "16M_512\0" },
     //   { "32M_512\0" }, { "16M_1024\0" }, { "32M_1024\0" }
     //};
     //DEBUG("Flash: %s", flashMap[sdk_system_get_flash_size_map()]);
-    static const char resetReason[][10] =
+    static const char * const resetReason[] =
     {
-        { "default\0" }, { "watchdog\0" }, { "exception\0" }, { "soft\0" }
+        [DEFAULT_RST] = "default", [WDT_RST] = "watchdog", [EXCEPTION_RST] = "exception", [SOFT_RST] = "soft"
     };
     const struct sdk_rst_info *pkResetInfo = sdk_system_get_rst_info();
     switch ((enum sdk_rst_reason)pkResetInfo->reason)
@@ -86,11 +79,24 @@ void user_init(void)
             WARNING("Reset: %u",pkResetInfo->reason);
             break;
     }
+}
+
+
+void user_init(void)
+{
+    // initialise stuff
+    debugInit();
+    stuffInit();
+    monInit();
+
+    // say hello
+    sMainHello();
 
     NOTICE("here we go...");
 
     // start stuff
     ledInit();
+    wifiInit();
 }
 
 // eof

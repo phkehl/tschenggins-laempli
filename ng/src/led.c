@@ -24,7 +24,7 @@ static void sLedTask(void *pArg)
 {
     while (true)
     {
-        PRINT("blink...");
+        PRINT("led: blink...");
         gpio_write(LED_GPIO, 1);
         osSleep(500);
         gpio_write(LED_GPIO, 0);

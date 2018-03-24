@@ -31,16 +31,45 @@ include $(RTOSBASE)/common.mk
 
 ###############################################################################
 
-GREP  := grep
-PERL  := perl
-TEE   := tee
-SED   := sed
-DATE  := date
-HEAD  := head
-TOUCH := touch
-MKDIR := mkdir
-RM    := rm
-MV    := mv
+GREP    := grep
+PERL    := perl
+TEE     := tee
+SED     := sed
+DATE    := date
+HEAD    := head
+TOUCH   := touch
+MKDIR   := mkdir
+RM      := rm
+MV      := mv
+AWK     := awk
+FIND    := find
+SORT    := sort
+CSCOPE  := cscope
+
+CSCOPEDIRS := $(PROGRAM_SRC_DIR) $(PROGRAM_INC_DIR) \
+	$(RTOSBASE)/libc/xtensa-lx106-elf/include/ $(RTOSBASE)/include $(RTOSBASE)/open_esplibs \
+	$(RTOSBASE)/FreeRTOS/Source $(RTOSBASE)/core $(RTOSBASE)/extras $(RTOSBASE)/lwip
+
+cscope.files: Makefile
+	$(vecho) "GEN $@"
+	$(Q)$(FIND) $(CSCOPEDIRS) \
+        \( -type d \( -name .git -o -name .svn -o -false \) -prune \) \
+        -o \( -iname '*.[ch]' -o -false \) -and \( -type f -o -type l \) -print \
+		| $(SORT) -u > $@
+
+cscope.out: cscope.files
+	$(vecho) "GEN $@"
+	$(Q)$(RM) -f cscope.out*
+	$(Q)$(CSCOPE) -f $@ -b -k
+
+cscope: cscope.out
+clean: cscope-clean
+cscope-clean:
+	$(Q)$(RM) -f cscope.*
+
+all: cscope
+
+###############################################################################
 
 # show debug output
 .PHONY: debug
@@ -103,4 +132,31 @@ $(PROGRAM_OBJ_DIR)version_gen.h: $(PROGRAM_OBJ_DIR).version_gen.h Makefile | $(P
 	$(Q)$(MV) $@.tmp $@
 
 # all source file may need this
-$(PROGRAM_OBJ_DIR)/src/main.o: $(PROGRAM_OBJ_DIR)version_gen.h
+$(PROGRAM_OBJ_FILES): $(PROGRAM_OBJ_DIR)version_gen.h
+
+###############################################################################
+
+CFGFILE :=
+
+CFGFILEOLD := $(shell $(SED) -n '/predefined config from /s/.*predefined config from //p' $(PROGRAM_OBJ_DIR)cfg_gen.h 2>/dev/null || echo nocfg)
+
+# trigger generation of version_gen.h if necessary
+ifneq ($(CFGFILE),$(CFGFILEOLD))
+$(shell $(MKDIR) -p $(PROGRAM_OBJ_DIR); $(TOUCH) $(PROGRAM_OBJ_DIR).cfg_gen.h)
+endif
+
+$(PROGRAM_OBJ_DIR)cfg_gen.h: Makefile $(PROGRAM_OBJ_DIR).cfg_gen.h $(CFGFILE) | $(PROGRAM_OBJ_DIR)
+	$(vecho) "GEN $@"
+	$(Q)$(RM) -f $@
+	$(Q)echo "#ifndef __CFG_GEN_H__" >> $@.tmp
+	$(Q)echo "#define __CFG_GEN_H__" >> $@.tmp
+ifneq ($(CFGFILE),)
+	$(Q)echo "// predefined config from $(CFGFILE)" >> $@.tmp
+	$(Q)$(AWK) '!/^\s*#/ && !/^\s*$$/ { print "#define FF_CFG_"$$1" "$$2 }' $(CFGFILE) >> $@.tmp
+endif
+	$(Q)echo "#endif" >> $@.tmp
+	$(Q)$(MV) $@.tmp $@
+
+# all source file may need this
+$(PROGRAM_OBJ_FILES): $(PROGRAM_OBJ_DIR)cfg_gen.h
+
