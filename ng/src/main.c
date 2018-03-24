@@ -18,6 +18,10 @@
 #include "led.h"
 #include "version_gen.h"
 
+//void vApplicationIdleHook(void)
+//{
+//    // sdk_wifi_set_sleep_type(WIFI_SLEEP_MODEM);
+//}
 
 void user_init(void)
 {
@@ -25,6 +29,8 @@ void user_init(void)
     debugInit();
     stuffInit();
     monInit();
+
+    sdk_wifi_set_sleep_type(WIFI_SLEEP_MODEM);
 
     // say hello
     NOTICE("------------------------------------------------------------------------------------------");
