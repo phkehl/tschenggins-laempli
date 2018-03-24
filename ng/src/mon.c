@@ -6,20 +6,12 @@
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 */
 
-#include <malloc.h>
-#include <string.h>
-#include <stdlib.h>
-#include <math.h>
-
-#include <FreeRTOS.h>
-#include <task.h>
-
-#include <espressif/esp_system.h>
-
+#include "stdinc.h"
 #include <esp/rtc_regs.h>
 
 #include "debug.h"
 #include "stuff.h"
+#include "wifi.h"
 #include "mon.h"
 
 
@@ -46,6 +38,7 @@ static int sTaskSortFunc(const void *a, const void *b)
 {
     return (int)((const TaskStatus_t *)a)->xTaskNumber - (int)((const TaskStatus_t *)b)->xTaskNumber;
 }
+
 
 static void sMonTask(void *pArg)
 {
@@ -140,12 +133,13 @@ static void sMonTask(void *pArg)
 
         // print monitor info
         DEBUG("--------------------------------------------------------------------------------");
-        DEBUG("mon: sys: ticks=%u msss=%u drtc=%u heap=%u isr=%u (%.2fkHz, %.1f%%)",
-            sTick, msss, drtc, xPortGetFreeHeapSize(),
+        DEBUG("mon: sys: ticks=%u msss=%u drtc=%u heap=%u isr=%u (%.2fkHz, %.1f%%) mhz=%u",
+            sTick, msss, drtc, /*xPortGetFreeHeapSize(), */sdk_system_get_free_heap_size(),
             isrCount,
             (double)isrCount / ((double)MON_PERIOD / 1000.0) / 1000.0,
-            (double)isrTime * 100.0 / (double)isrTotalRuntime);
+            (double)isrTime * 100.0 / (double)isrTotalRuntime, sdk_system_get_cpu_freq());
         debugMonStatus();
+        wifiMonStatus();
 
         // print tasks info
         for (int ix = 0; ix < nTasks; ix++)

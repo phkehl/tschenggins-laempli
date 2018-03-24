@@ -6,8 +6,7 @@
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 */
 
-#include <unistd.h>
-#include <stdint.h>
+#include "stdinc.h"
 
 #include <stdout_redirect.h>
 #include <esp/uart.h>

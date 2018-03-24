@@ -22,7 +22,7 @@ PROGRAM_INC_DIR = ./src $(PROGRAM_OBJ_DIR)
 ESPPORT         = /dev/ttyUSB0
 ESPBAUD         = 1500000
 FLASH_MODE      = dout
-FLASH_SIZE      = 16
+FLASH_SIZE      = 32
 FLASH_SPEED     = 40
 
 # TODO: add program_CFLAGS !!
@@ -138,6 +138,11 @@ $(PROGRAM_OBJ_FILES): $(PROGRAM_OBJ_DIR)version_gen.h
 
 CFGFILE :=
 
+ifeq ($(CFGFILE),)
+$(PROGRAM_OBJ_DIR)cfg_gen.h: | $(PROGRAM_OBJ_DIR)
+	$(vecho) "GEN $@ (dummy)"
+	$(Q)$(TOUCH) $@
+else
 CFGFILEOLD := $(shell $(SED) -n '/predefined config from /s/.*predefined config from //p' $(PROGRAM_OBJ_DIR)cfg_gen.h 2>/dev/null || echo nocfg)
 
 # trigger generation of version_gen.h if necessary
@@ -146,7 +151,7 @@ $(shell $(MKDIR) -p $(PROGRAM_OBJ_DIR); $(TOUCH) $(PROGRAM_OBJ_DIR).cfg_gen.h)
 endif
 
 $(PROGRAM_OBJ_DIR)cfg_gen.h: Makefile $(PROGRAM_OBJ_DIR).cfg_gen.h $(CFGFILE) | $(PROGRAM_OBJ_DIR)
-	$(vecho) "GEN $@"
+	$(vecho) "GEN $@ ($(CFGFILE))"
 	$(Q)$(RM) -f $@
 	$(Q)echo "#ifndef __CFG_GEN_H__" >> $@.tmp
 	$(Q)echo "#define __CFG_GEN_H__" >> $@.tmp
@@ -156,7 +161,7 @@ ifneq ($(CFGFILE),)
 endif
 	$(Q)echo "#endif" >> $@.tmp
 	$(Q)$(MV) $@.tmp $@
+endif
 
 # all source file may need this
 $(PROGRAM_OBJ_FILES): $(PROGRAM_OBJ_DIR)cfg_gen.h
-

@@ -13,6 +13,8 @@
 #ifndef __MON_H__
 #define __MON_H__
 
+#include "stdinc.h"
+
 //! initialise system monitor
 void monInit(void);
 

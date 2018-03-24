@@ -13,10 +13,7 @@
 #ifndef __STUFF_H__
 #define __STUFF_H__
 
-#include <espressif/esp_wifi.h>
-
-#include <FreeRTOS.h>
-#include <task.h>
+#include "stdinc.h"
 
 //! initialise stuff
 void stuffInit(void);
@@ -110,9 +107,29 @@ void stuffInit(void);
 */
 
 const char *sdkAuthModeStr(const AUTH_MODE authmode);
-
+const char *sdkStationConnectStatusStr(const uint8_t status);
+const char *sdkWifiOpmodeStr(const uint8_t opmode);
+const char *sdkDhcpStatusStr(const enum sdk_dhcp_status status);
+const char *sdkWifiPhyModeStr(const enum sdk_phy_mode mode);
+const char *sdkWifiSleepTypeStr(const enum sdk_sleep_type type);
 
 //@}
+
+
+/* ***** Allencheibs ***************************************************************************** */
+
+/*!
+    \name Allencheibs
+    @{
+*/
+
+const char *getSystemId(void);
+uint8_t getSystemName(char *name, const uint8_t size);
+
+//@}
+
+
+
 
 /* *********************************************************************************************** */
 

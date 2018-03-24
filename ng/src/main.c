@@ -6,11 +6,9 @@
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 */
 
-#include <stdbool.h>
-#include <stdint.h>
+#include "stdinc.h"
 
-#include <espressif/esp_system.h>
-#include <espressif/user_interface.h>
+#include <lwip/init.h>
 
 #include "stuff.h"
 #include "debug.h"
@@ -35,7 +33,8 @@ static void sMainHello(void)
 
     // print some system information
     DEBUG("SDK %s, Chip 0x%08x", sdk_system_get_sdk_version(), sdk_system_get_chip_id());
-    DEBUG("GCC " FF_GCCVERSION);
+    DEBUG("GCC "FF_GCCVERSION);
+    DEBUG("LwIP "LWIP_VERSION_STRING", FreeRTOS " tskKERNEL_VERSION_NUMBER ", Newlib "_NEWLIB_VERSION);
     DEBUG("Boot ver: %u, mode: %u", sdk_system_get_boot_version(), sdk_system_get_boot_mode());
     DEBUG("Frequency: %uMHz", sdk_system_get_cpu_freq()); // MHz
     //static const char const flashMap[][10] =
@@ -44,6 +43,8 @@ static void sMainHello(void)
     //   { "32M_512\0" }, { "16M_1024\0" }, { "32M_1024\0" }
     //};
     //DEBUG("Flash: %s", flashMap[sdk_system_get_flash_size_map()]);
+    DEBUG("Flash: id=0x%08x size=%u (%uKiB)",
+        sdk_spi_flash_get_id(), sdk_flashchip.chip_size, sdk_flashchip.chip_size >> 10);
     static const char * const resetReason[] =
     {
         [DEFAULT_RST] = "default", [WDT_RST] = "watchdog", [EXCEPTION_RST] = "exception", [SOFT_RST] = "soft"

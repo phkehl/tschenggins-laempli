@@ -6,11 +6,7 @@
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 */
 
-#include <stdbool.h>
-#include <stdint.h>
-
-#include <FreeRTOS.h>
-#include <task.h>
+#include "stdinc.h"
 
 #include <esp/gpio.h>
 
@@ -24,17 +20,18 @@ static void sLedTask(void *pArg)
 {
     while (true)
     {
-        PRINT("led: blink...");
-        gpio_write(LED_GPIO, 1);
-        osSleep(500);
-        gpio_write(LED_GPIO, 0);
-        osSleep(500);
+        DEBUG("led: blink...");
+        gpio_write(LED_GPIO, 0); // on
+        osSleep(250);
+        gpio_write(LED_GPIO, 1); // off
+        osSleep(1750);
     }
 }
 
 void ledInit(void)
 {
     DEBUG("ledInit()");
+
     gpio_enable(LED_GPIO, GPIO_OUTPUT);
 
     xTaskCreate(sLedTask, "ff_led", 320, NULL, 2, NULL);
