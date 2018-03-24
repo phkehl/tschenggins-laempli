@@ -6,6 +6,7 @@
 #define configMAX_TASK_NAME_LEN                    16
 #define configGENERATE_RUN_TIME_STATS              1
 #define configMINIMAL_STACK_SIZE                   256
+//#define configUSE_IDLE_HOOK                        1
 
 #define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()   /* nothing */
 #define portGET_RUN_TIME_COUNTER_VALUE()           RTC.COUNTER

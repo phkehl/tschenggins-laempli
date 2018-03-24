@@ -1,62 +1,22 @@
-/*
-TODO:
-- setup cscope
+/*!
+    \file
+    \brief flipflip's Tschenggins Lämpli: main program and startup
 
+    - Copyright (c) 2018 Philippe Kehl (flipflip at oinkzwurgl dot org),
+      https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 */
 
-// ESP SDK (include/)
-#include <espressif/esp_common.h>
-#include <espressif/user_interface.h>
+#include <stdbool.h>
+#include <stdint.h>
+
 #include <espressif/esp_system.h>
-
-// FreeRTOS (FreeRTOS/Source/include/)
-#include <FreeRTOS.h>
-#include <task.h>
-
-// open RTOS (core/include/)
-#include <esp/iomux.h>
-#include <esp/gpio.h>
+#include <espressif/user_interface.h>
 
 #include "stuff.h"
 #include "debug.h"
 #include "mon.h"
+#include "led.h"
 #include "version_gen.h"
-
-const int gpio = 2;
-
-/* This task uses the high level GPIO API (esp_gpio.h) to blink an LED.
- *
- */
-void blinkenTask(void *pvParameters)
-{
-    gpio_enable(gpio, GPIO_OUTPUT);
-    while (true)
-    {
-        gpio_write(gpio, 1);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        gpio_write(gpio, 0);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        PRINT("blink %u", portTICK_PERIOD_MS);
-
-        uint32_t foo = 10000000;
-        uint32_t bar = 0;
-        while (foo--)
-        {
-            bar++;
-        }
-        PRINT("bar=%u", bar);
-    }
-}
-
-void blaTask(void *pvParameters)
-{
-    static int count;
-    while(1) {
-        vTaskDelay(100 / portTICK_PERIOD_MS);
-        DEBUG("bla %i", count++);
-    }
-}
-
 
 
 void user_init(void)
@@ -121,8 +81,10 @@ void user_init(void)
             break;
     }
 
-    xTaskCreate(blinkenTask, "ff_foo", 256, NULL, 2, NULL);
-    xTaskCreate(blaTask, "ff_bar", 256, NULL, 2, NULL);
-    //xTaskCreate(blinkenRegisterTask, "blinkenRegisterTask", 256, NULL, 2, NULL);
     NOTICE("here we go...");
+
+    // start stuff
+    ledInit();
 }
+
+// eof
