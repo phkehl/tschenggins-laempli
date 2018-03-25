@@ -42,11 +42,11 @@ static const char *sWifiStateStr(const WIFI_STATE_t state)
 {
     switch (state)
     {
-        case WIFI_STATE_UNKNOWN: return "UNKNOWN";
-        case WIFI_STATE_OFFLINE: return "OFFLINE";
-        case WIFI_STATE_ONLINE: return "ONLINE";
+        case WIFI_STATE_UNKNOWN:    return "UNKNOWN";
+        case WIFI_STATE_OFFLINE:    return "OFFLINE";
+        case WIFI_STATE_ONLINE:     return "ONLINE";
         case WIFI_STATE_CONNECTED:  return "CONNECTED";
-        case WIFI_STATE_FAIL:    return "FAIL";
+        case WIFI_STATE_FAIL:       return "FAIL";
     }
     return "???";
 }
@@ -141,6 +141,12 @@ static bool sWifiConnect(void)
 
     return connected;
 }
+
+static void sWifiConnectBackend(void)
+{
+//    int err = getaddrinfo(WEB_SERVER, "80", &hints, &res);
+}
+
 
 static void sWifiTask(void *pArg)
 {
