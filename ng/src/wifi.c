@@ -63,14 +63,14 @@ static bool sWifiInit(void)
             return false;
         }
     }
-    if (sdk_wifi_get_opmode() != ONLINE_MODE)
+    if (sdk_wifi_get_opmode() != STATION_MODE)
     {
-        if (!sdk_wifi_set_opmode(ONLINE_MODE))
+        if (!sdk_wifi_set_opmode(STATION_MODE))
         {
             ERROR("wifi: sdk_wifi_set_opmode() fail!");
             return false;
         }
-        if (!sdk_wifi_set_opmode_current(ONLINE_MODE))
+        if (!sdk_wifi_set_opmode_current(STATION_MODE))
         {
             ERROR("wifi: sdk_wifi_set_opmode_current() fail!");
             return false;
@@ -107,7 +107,7 @@ static bool sWifiConnect(void)
     getSystemName(name, sizeof(name));
     //sdk_wifi_station_set_hostname(sStaName);
 #if LWIP_NETIF_HOSTNAME
-    struct netif *netif = sdk_system_get_netif(ONLINE_IF);
+    struct netif *netif = sdk_system_get_netif(STATION_IF);
     netif_set_hostname(netif, name);
 #endif
 
@@ -126,11 +126,11 @@ static bool sWifiConnect(void)
         {
             const uint8_t status = sdk_wifi_station_get_connect_status();
             struct ip_info ipinfo;
-            sdk_wifi_get_ip_info(ONLINE_IF, &ipinfo);
+            sdk_wifi_get_ip_info(STATION_IF, &ipinfo);
             DEBUG("wifi: status=%s ip="IPSTR" mask="IPSTR" gw="IPSTR,
                 sdkStationConnectStatusStr(status),
                 IP2STR(&ipinfo.ip), IP2STR(&ipinfo.netmask), IP2STR(&ipinfo.gw));
-            if ( (status == ONLINE_GOT_IP) && (ipinfo.ip.addr != 0) )
+            if ( (status == STATION_GOT_IP) && (ipinfo.ip.addr != 0) )
             {
                 connected = true;
                 break;
@@ -142,10 +142,10 @@ static bool sWifiConnect(void)
     return connected;
 }
 
-static void sWifiConnectBackend(void)
-{
+//static void sWifiConnectBackend(void)
+//{
 //    int err = getaddrinfo(WEB_SERVER, "80", &hints, &res);
-}
+//}
 
 
 static void sWifiTask(void *pArg)
@@ -298,14 +298,14 @@ void wifiMonStatus(void)
     const char *sleep  = sdkWifiSleepTypeStr( sdk_wifi_get_sleep_type() );
     const uint8_t ch   = sdk_wifi_get_channel();
     uint8_t mac[6];
-    sdk_wifi_get_macaddr(ONLINE_IF, mac);
+    sdk_wifi_get_macaddr(STATION_IF, mac);
     DEBUG("mon: wifi: mode=%s status=%s dhcp=%s phy=%s sleep=%s ch=%u mac="MACSTR,
         mode, status, dhcp, phy, sleep, ch, MAC2STR(mac));
 
     struct ip_info ipinfo;
-    sdk_wifi_get_ip_info(ONLINE_IF, &ipinfo);
+    sdk_wifi_get_ip_info(STATION_IF, &ipinfo);
 #if LWIP_NETIF_HOSTNAME
-    struct netif *netif = sdk_system_get_netif(ONLINE_IF);
+    struct netif *netif = sdk_system_get_netif(STATION_IF);
     const char *name   = netif_get_hostname(netif);
 #else
     const char *name   = "???";
