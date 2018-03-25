@@ -1,6 +1,6 @@
 /*!
     \file
-    \brief flipflip's Tschenggins Lämpli: wifi things (see \ref FF_WIFI)
+    \brief flipflip's Tschenggins Lämpli: wifi and network things (see \ref FF_WIFI)
 
     - Copyright (c) 2018 Philippe Kehl (flipflip at oinkzwurgl dot org),
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli

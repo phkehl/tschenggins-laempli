@@ -136,7 +136,7 @@ $(PROGRAM_OBJ_FILES): $(PROGRAM_OBJ_DIR)version_gen.h
 
 ###############################################################################
 
-CFGFILE :=
+CFGFILE ?=
 
 ifeq ($(CFGFILE),)
 $(PROGRAM_OBJ_DIR)cfg_gen.h: | $(PROGRAM_OBJ_DIR)

@@ -2,4 +2,7 @@ firmware
 build
 cfg-*
 cscope.*
+local.mk
+esp-open-rtos
+
 

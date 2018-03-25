@@ -97,6 +97,9 @@ void stuffInit(void);
 //! sleep
 #define osSleep(ms)  vTaskDelay(MS2TICK(ms))
 
+//! get time
+#define osTime() (TICKS2MS(xTaskGetTickCount()))
+
 //@}
 
 /* ***** SDK enumeration stringifications ******************************************************** */
