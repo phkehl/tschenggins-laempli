@@ -9,6 +9,10 @@
 
 #include "stdinc.h"
 
+#include <lwip/err.h>
+
+#include "base64.h"
+
 #include "debug.h"
 #include "stuff.h"
 
@@ -108,6 +112,187 @@ const char *sdkWifiSleepTypeStr(const enum sdk_sleep_type type)
     }
     return "???";
 }
+
+int reqParamsFromUrl(const char *url, char *buf, const int bufSize,
+    const char **host, const char **path, const char **query, const char **auth, bool *https, uint16_t *port)
+{
+    // TODO: url encode query string!
+
+    *host = NULL;
+    *path = NULL;
+    *query = NULL;
+    *https = false;
+    *port = 0;
+
+    // determine protocol, hostname and query
+    const int urlLen = strlen(url);
+    if (urlLen > (bufSize - 1))
+    {
+        WARNING("reqParamsFromUrl() url too long (%d > %d)", urlLen, (bufSize - 1));
+        return 0;
+    }
+
+    if (url != buf)
+    {
+        strcpy(buf, url);
+    }
+    // buf is now something like
+    // "http://foo.com"
+    // "http://foo.com/"
+    // "http://foo.com/query?with=parameters"
+    // "http://user:pass@foo.com/query?with=parameters"
+    char *pParse = buf;
+    //DEBUG("pParse=%s", pParse);
+
+    // protocol
+    {
+        char *endOfProt = strstr(pParse, "://");
+        if (endOfProt == NULL)
+        {
+            WARNING("reqParamsFromUrl() missing protocol:// in %s", url);
+            return 0;
+        }
+        *endOfProt = '\0';
+        //DEBUG("prot=%s", pParse);
+        if (strcmp(pParse, "http") == 0)
+        {
+            *https = false;
+            *port = 80;
+        }
+        else if (strcmp(pParse, "https") == 0)
+        {
+            *https = true;
+            *port = 443;
+        }
+        else
+        {
+            WARNING("reqParamsFromUrl() illegal protocol %s://", buf);
+            return false;
+        }
+        pParse = endOfProt + 3; // "://"
+    }
+    //DEBUG("pParse=%s", pParse);
+
+    // user:pass@
+    int authLen = 0;
+    {
+        char *end = strstr(pParse, "/");
+        if (end == NULL)
+        {
+            end = &buf[urlLen];
+        }
+        char *monkey = strstr(pParse, "@");
+        //DEBUG("pParse=%p monkey=%p (%d) end=%p (%d)",
+        //    pParse, monkey, monkey - pParse, end, end - pParse);
+        if ( (monkey != NULL) && (monkey < (end - 3)) )
+        {
+            *monkey = '\0';
+            char *userpass = pParse;
+            const int userpassLen = strlen(userpass);
+            //DEBUG("userpass=%s (%d)", userpass, userpassLen);
+            pParse += userpassLen + 1; // "@"
+
+            // base64 encoded auth token
+            authLen = BASE64_ENCLEN(userpassLen);
+
+            // put it at the end of buffer, compare sWgetDoRequest()
+            const int authPos = bufSize - authLen - 1;
+            char *pAuth = &buf[authPos];
+            if ( (authPos < (urlLen + 1)) || !base64enc(userpass, pAuth, authLen))
+            {
+                WARNING("reqParamsFromUrl() buf error (%d, %d)", authPos, urlLen + 1);
+                return false;
+            }
+            *auth = pAuth;
+            //DEBUG("auth=%s", *auth);
+        }
+    }
+    //DEBUG("pParse=%s", pParse);
+
+    // hostname, port
+    {
+        char *endOfHost = strstr(pParse, "/");
+        if (endOfHost == NULL)
+        {
+            endOfHost = &buf[urlLen];
+        }
+        *endOfHost = '\0';
+        //DEBUG("host=%s", pParse);
+        if (strlen(pParse) < 3)
+        {
+            WARNING("reqParamsFromUrl() illegal host '%s'", *host);
+            return false;
+        }
+        *host = pParse;
+
+        // port
+        char *startOfPort = strstr(pParse, ":");
+        if (startOfPort != NULL)
+        {
+            *startOfPort = '\0';
+            startOfPort++;
+            const int iPort = atoi(startOfPort);
+            if ( (iPort < 1) || (iPort > 65535) )
+            {
+                WARNING("reqParamsFromUrl() illegal port '%s' (%d)", startOfPort, iPort);
+            }
+            else
+            {
+                *port = (uint16_t)iPort;
+            }
+        }
+
+        pParse = endOfHost + 1;
+    }
+    //DEBUG("pParse=%s", pParse);
+
+    // path
+    {
+        char *endOfPath = strstr(pParse, "?");
+        if (endOfPath == NULL)
+        {
+            endOfPath = &buf[urlLen];
+        }
+        *endOfPath = '\0';
+        *path = pParse;
+        pParse = endOfPath + 1;
+        //DEBUG("path=%s", *path);
+    }
+
+    // query
+    {
+        *query = pParse;
+        //DEBUG("query=%s", *query);
+    }
+
+    return urlLen + 1; // + (authLen ? authLen + 1 : 0);
+}
+
+const char *lwipErrStr(const int8_t error)
+{
+    switch (error)
+    {
+        case ERR_OK:         return "OK";
+        case ERR_MEM:        return "MEM";
+        case ERR_BUF:        return "BUF";
+        case ERR_TIMEOUT:    return "TIMEOUT";
+        case ERR_RTE:        return "RTE";
+        case ERR_INPROGRESS: return "INPROGRESS";
+        case ERR_VAL:        return "VAL";
+        case ERR_WOULDBLOCK: return "WOULDBLOCK";
+        case ERR_USE:        return "USE";
+        case ERR_ALREADY:    return "ALREADY";
+        case ERR_ISCONN:     return "ISCONN";
+        case ERR_CONN:       return "CONN";
+        case ERR_IF:         return "IF";
+        case ERR_ABRT:       return "ABRT";
+        case ERR_RST:        return "RST";
+        case ERR_CLSD:       return "CLSD";
+        case ERR_ARG:        return "ARG";
+    }
+    return "???";
+}
+
 
 void stuffInit(void)
 {

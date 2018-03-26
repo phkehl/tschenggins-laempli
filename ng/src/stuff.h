@@ -129,6 +129,55 @@ const char *sdkWifiSleepTypeStr(const enum sdk_sleep_type type);
 const char *getSystemId(void);
 uint8_t getSystemName(char *name, const uint8_t size);
 
+//! verify URL for consistency and split into parts
+/*!
+    Takes an URL, copies it to the output buffer and adds NULs ('\0') appropriately to split it into
+    the individual parts. Optional login credentials are converted to a HTTP basic auth token, which
+    is placed at the end of the buffer. See examples below.
+
+    Suported URLs have the format "prot://user:pass@host:port/path?query" where "prot" can be http or
+    https and the "user:pass@", ":port", "/path" and "?query" parts are optional.
+
+    \param[in]  url       the URL to check, can be ROM string (see PSTR())
+    \param[out] buf       buffer to put the parts into (may be same as \c url)
+    \param[out] bufSize   buffer size
+    \param[out] host      pointer to hostname part
+    \param[out] path      pointer to query path part
+    \param[out] query     pointer to query parameters part
+    \param[out] auth      pointer to HTTP basic auth token
+    \param[out] https     boolean to indicate https (true) or http (false) protocol
+    \param[out] port      port number
+    \returns 0 on error, and otherwise the length of the buffer used (not including the auth token)
+
+Examples:
+\code{.c}
+const char *url = PSTR("http://user:pass@foo.com/path?foo=bar");
+char buf[70];
+const char *host;
+const char *path;
+const char *query;
+const char *auth;
+bool https;
+uint16_t port;
+const int res = wgetReqParamsFromUrl(url, buf, sizeof(buf), &host, &path, &query, &auth, &https, &port);
+if (res > 0)
+{
+    // now buf looks like this (where $ indicates NUL string terminators and . indicate unused parts)
+    // 0123456789012345678901234567890123456789012345678901234567890123456789
+    // .................foo.com$path$foo=bar$...................dXNlcjpwYXNz$
+    //                  ^       ^    ^                          ^
+    // -->            *host   *path *query                    *auth      and res = 36, port = 80, https = false
+}
+// else handle errors
+\endcode
+*/
+int reqParamsFromUrl(const char *url, char *buf, const int bufSize,
+    const char **host, const char **path, const char **query, const char **auth, bool *https, uint16_t *port);
+
+
+//! lwip error stringification
+const char *lwipErrStr(const int8_t error);
+
 //@}
 
 

@@ -51,6 +51,19 @@ static const char *sWifiStateStr(const WIFI_STATE_t state)
     return "???";
 }
 
+typedef struct WIFI_BACKEND_s
+{
+    char        url[2 * sizeof(FF_CFG_BACKENDURL)];
+    const char *host;
+    const char *path;
+    const char *query;
+    const char *auth;
+    bool        https;
+    uint16_t    port;
+} WIFI_BACKEND_t;
+
+static WIFI_BACKEND_t sWifiBackend;
+
 static bool sWifiInit(void)
 {
     sdk_wifi_station_disconnect();
@@ -92,6 +105,26 @@ static bool sWifiInit(void)
             return false;
         }
     }
+
+    // check and decompose backend URL
+    memset(&sWifiBackend, 0, sizeof(sWifiBackend));
+    strcpy(sWifiBackend.url, FF_CFG_BACKENDURL);
+    DEBUG("wifi: backend url=%s", sWifiBackend.url);
+    const int res = reqParamsFromUrl(sWifiBackend.url, sWifiBackend.url, sizeof(sWifiBackend.url),
+        &sWifiBackend.host, &sWifiBackend.path, &sWifiBackend.query, &sWifiBackend.auth,
+        &sWifiBackend.https, &sWifiBackend.port);
+    if (res)
+    {
+        DEBUG("wifi: host=%s path=%s query=%s auth=%s https=%s, port=%u",
+            sWifiBackend.host, sWifiBackend.path, sWifiBackend.query, sWifiBackend.auth,
+            sWifiBackend.https ? "yes" : "no", sWifiBackend.port);
+    }
+    else
+    {
+        ERROR("wifi: fishy backend url!");
+        return false;
+    }
+
     return true;
 }
 
@@ -142,10 +175,15 @@ static bool sWifiConnect(void)
     return connected;
 }
 
-//static void sWifiConnectBackend(void)
-//{
-//    int err = getaddrinfo(WEB_SERVER, "80", &hints, &res);
-//}
+static bool sWifiConnectBackend(void)
+{
+    //int err = getaddrinfo(WEB_SERVER, "80", &hints, &res);
+    ip_addr_t hostIp;
+    DEBUG("wifi: dns query");
+    err_t err = netconn_gethostbyname(sWifiBackend.host, &hostIp);
+    DEBUG("wifi: dns result %s --> "IPSTR, lwipErrStr(err), IP2STR(&hostIp));
+    return true;
+}
 
 
 static void sWifiTask(void *pArg)
@@ -195,7 +233,14 @@ static void sWifiTask(void *pArg)
             case WIFI_STATE_ONLINE:
             {
                 PRINT("wifi: state station connected!");
-                osSleep(10000);
+                if (sWifiConnectBackend())
+                {
+                    sWifiState = WIFI_STATE_CONNECTED;
+                }
+                else
+                {
+                    sWifiState = WIFI_STATE_FAIL;
+                }
                 break;
             }
 
@@ -321,7 +366,7 @@ void wifiInit(void)
 
     //sdk_wifi_status_led_install(2, PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2);
 
-    xTaskCreate(sWifiTask, "ff_wifi", 320, NULL, 2, NULL);
+    xTaskCreate(sWifiTask, "ff_wifi", 1024, NULL, 2, NULL);
 }
 
 /* ********************************************************************************************** */

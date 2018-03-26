@@ -15,8 +15,8 @@ PATH        := $(SDKBASE)/xtensa-lx106-elf/bin:$(SDKBASE)/esptool:$(PATH)
 
 # build config
 PROGRAM         = tschenggins-laempli-ng
-PROGRAM_SRC_DIR = ./src
-PROGRAM_INC_DIR = ./src $(PROGRAM_OBJ_DIR)
+PROGRAM_SRC_DIR = ./src ./3rdparty
+PROGRAM_INC_DIR = ./src ./3rdparty $(PROGRAM_OBJ_DIR)
 
 # ESP8266 config
 ESPPORT         = /dev/ttyUSB0
