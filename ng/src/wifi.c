@@ -4,6 +4,8 @@
 
     - Copyright (c) 2018 Philippe Kehl (flipflip at oinkzwurgl dot org),
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
+
+    \todo SSL connection using mbedtls, see examples/http_get_bearssl
 */
 
 #include "stdinc.h"
