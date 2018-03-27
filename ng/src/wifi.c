@@ -53,7 +53,6 @@ static const char *sWifiStateStr(const WIFI_STATE_t state)
 }
 
 #define BACKEND_QUERY "cmd=realtime;ascii=1;client=%s;name=%s;stassid="FF_CFG_STASSID";staip="IPSTR";version="FF_BUILDVER
-//FF_BUILDVER""
 
 typedef struct WIFI_DATA_s
 {
@@ -68,6 +67,9 @@ typedef struct WIFI_DATA_s
     ip_addr_t       staIp;
     char            staName[32];
     struct netconn *conn;
+    uint32_t        lastHello;
+    uint32_t        lastHeartbeat;
+    uint32_t        bytesReceived;
 } WIFI_DATA_t;
 
 static bool sWifiInit(WIFI_DATA_t *pData)
@@ -144,26 +146,45 @@ static bool sWifiConnect(WIFI_DATA_t *pData)
     {
         const uint32_t now = osTime();
         const uint32_t timeout = now + 15000;
+        uint8_t lastStatus = 0xff;
         while (osTime() < timeout)
         {
             const uint8_t status = sdk_wifi_station_get_connect_status();
             struct ip_info ipinfo;
             sdk_wifi_get_ip_info(STATION_IF, &ipinfo);
-            DEBUG("wifi: status=%s ip="IPSTR" mask="IPSTR" gw="IPSTR,
-                sdkStationConnectStatusStr(status),
-                IP2STR(&ipinfo.ip), IP2STR(&ipinfo.netmask), IP2STR(&ipinfo.gw));
+            if (status != lastStatus)
+            {
+                switch (status)
+                {
+                    case STATION_WRONG_PASSWORD:
+                    case STATION_NO_AP_FOUND:
+                    case STATION_CONNECT_FAIL:
+                        WARNING("wifi: status=%s ip="IPSTR" mask="IPSTR" gw="IPSTR,
+                            sdkStationConnectStatusStr(status),
+                            IP2STR(&ipinfo.ip), IP2STR(&ipinfo.netmask), IP2STR(&ipinfo.gw));
+                        break;
+                    default:
+                        DEBUG("wifi: status=%s ip="IPSTR" mask="IPSTR" gw="IPSTR,
+                            sdkStationConnectStatusStr(status),
+                            IP2STR(&ipinfo.ip), IP2STR(&ipinfo.netmask), IP2STR(&ipinfo.gw));
+                }
+                lastStatus = status;
+            }
             if ( (status == STATION_GOT_IP) && (ipinfo.ip.addr != 0) )
             {
                 pData->staIp = ipinfo.ip;
                 connected = true;
                 break;
             }
-            osSleep(250);
+            osSleep(100);
         }
     }
 
     return connected;
 }
+
+// forward declaration
+static void sBackendHandleData(WIFI_DATA_t *pData, char *body);
 
 static bool sWifiConnectBackend(WIFI_DATA_t *pData)
 {
@@ -241,53 +262,215 @@ static bool sWifiConnectBackend(WIFI_DATA_t *pData)
         }
     }
 
-    // receive data
+    // receive header
+    bool backendReady = false;
+    struct netbuf *buf = NULL;
     while (true)
     {
-        struct netbuf *buf;
-        DEBUG("wifi: read..");
-        const err_t err = netconn_recv(pData->conn, &buf);
-        DEBUG("wifi: recv %s", lwipErrStr(err)); // OK -> CLSD -> CONN
-        if (err == ERR_OK)
+        const err_t errRecv = netconn_recv(pData->conn, &buf);
+        if (errRecv != ERR_OK)
         {
-            while (true)
-            {
-                void *data;
-                uint16_t len;
-                if (netbuf_data(buf, &data, &len) == ERR_OK)
-                {
-                    DEBUG("wifi: recv [%u] %s", len, (const char *)data);
-                }
-                if (netbuf_next(buf) < 0)
-                {
-                    break;
-                }
-            }
-            netbuf_free(buf);
-            osSleep(1000);
+            ERROR("wifi: read failed: %s", lwipErrStr(errRecv));
+            break;
+        }
+        // check data for HTTP response
+        // (note: not handling multiple netbufs -- should not be necessary)
+        void *data;
+        uint16_t len;
+        const err_t errData = netbuf_data(buf, &data, &len);
+        if (errData != ERR_OK)
+        {
+            ERROR("wifi: netbuf_data() failed: %s", lwipErrStr(errData));
+            break;
+        }
+        char *pParse = (char *)data;
+        //DEBUG("wifi: recv [%u] %s", len, pParse);
+        pData->bytesReceived += len;
+
+        // first line: "HTTP/1.1 200 OK\r\n"
+        char *firstLineStart = pParse;
+        char *statusCode = &pParse[9]; // "200 OK\r\n"
+        char *firstLineEnd = strstr(firstLineStart, "\r\n");
+        if ( (firstLineEnd == NULL) || (strncmp(firstLineStart, "HTTP/1.1 ", 8) != 0) )
+        {
+            ERROR("wifi: response is not HTTP/1.1");
+            break;
+        }
+        const int status = atoi(statusCode);
+        *firstLineEnd = '\0';
+        DEBUG("wifi: %s (code %d)", firstLineStart, status);
+        if (status != 200)
+        {
+            ERROR("wifi: illegal response: %s", statusCode);
+            break;
+        }
+        pParse = firstLineEnd + 2;
+
+        // seek to end of header
+        char *pBody = strstr(pParse, "\r\n\r\n");
+        if ( (pBody == NULL) || (strlen(pBody) < 10) )
+        {
+            ERROR("wifi: no response (maybe redirect?)");
+            break;
+        }
+
+        // look for "hello"
+        char *pHello = strstr(pBody, "\r\nhello ");
+        if (pHello == NULL)
+        {
+            ERROR("wifi: no hello from backend");
+            break;
+        }
+        pHello += 2;
+        char *endOfHello = strstr(pHello, "\r\n");
+        if (endOfHello)
+        {
+            *endOfHello = '\0';
+        }
+        DEBUG("wifi: %s", pHello);
+        pData->lastHello = osTime();
+
+        // handle remaining data
+        pParse = endOfHello + 2;
+        sBackendHandleData(pData, pParse);
+
+        // we should be fine...
+        backendReady = true;
+        break;
+    }
+    if (buf != NULL)
+    {
+        netbuf_free(buf);
+        netbuf_delete(buf);
+    }
+
+    if (backendReady)
+    {
+        netconn_shutdown(pData->conn, false, true); // no more tx
+        return true;
+    }
+    else
+    {
+        ERROR("wifi: no or illegal response from backend");
+        netconn_close(pData->conn);
+        netconn_delete(pData->conn);
+        return false;
+    }
+}
+
+static void sBackendHandleData(WIFI_DATA_t *pData, char *resp)
+{
+    //DEBUG("sBackendHandleData() %s", resp);
+
+    char *pStatus    = strstr(resp, "\r\nstatus ");
+    char *pHeartbeat = strstr(resp, "\r\nheartbeat ");
+
+    // "\r\nheartbeat 1491146601 25\r\n"
+    if (pHeartbeat != NULL)
+    {
+        pHeartbeat += 2;
+        char *endOfHeartbeat = strstr(pHeartbeat, "\r\n");
+        if (endOfHeartbeat != NULL)
+        {
+            *endOfHeartbeat = '\0';
+        }
+        DEBUG("wifi: heartbeat (%s)", pHeartbeat);
+        pData->lastHeartbeat = osTime(); // POSIX time: (uint32_t)atoi(&pHeartbeat[10]);
+    }
+    // "\r\nstatus 1491146576 json={"leds": ... }\r\n"
+    else if (pStatus != NULL)
+    {
+        pStatus += 2;
+        char *endOfStatus = strstr(pStatus, "\r\n");
+        if (endOfStatus != NULL)
+        {
+            *endOfStatus = '\0';
+        }
+        char *pJson = strstr(&pStatus[7], " ");
+        if (pJson != NULL)
+        {
+            *pJson = '\0';
+            pJson += 1;
+            pData->lastHeartbeat = osTime(); // POSIX: (uint32_t)atoi(&pStatus[7]);
+            const int jsonLen = strlen(pJson);
+            DEBUG("wifi: status [%d] %s", jsonLen, pJson);
         }
         else
         {
-            ERROR("wifi: read failed: %s", lwipErrStr(err));
-            break;
+            WARNING("wifi: ignoring fishy status");
         }
     }
 
-
-    //netconn_shutdown();
-    netconn_close(pData->conn);
-    netconn_delete(pData->conn);
-
-    return true;
 }
 
 
-static WIFI_STATE_t sWifiState = WIFI_STATE_UNKNOWN;
-static WIFI_DATA_t sWifiData;
+static bool sWifiHandleConnection(WIFI_DATA_t *pData)
+{
+    bool okay = true;
+    while (okay)
+    {
+        struct netbuf *buf = NULL;
+        const err_t errRecv = netconn_recv(pData->conn, &buf);
+        if (errRecv != ERR_OK)
+        {
+            ERROR("wifi: read failed: %s", lwipErrStr(errRecv));
+            okay = false;
+            break;
+        }
+        // check data for HTTP response
+        // (note: not handling multiple netbufs -- should not be necessary)
+        void *resp;
+        uint16_t len;
+        const err_t errData = netbuf_data(buf, &resp, &len);
+        if (errData != ERR_OK)
+        {
+            ERROR("wifi: netbuf_data() failed: %s", lwipErrStr(errData));
+            okay = false;
+        }
+        else
+        {
+            //DEBUG("wifi: recv [%u] %s", len, (const char *)resp);
+            pData->bytesReceived += len;
+
+            sBackendHandleData(pData, (char *)resp);
+        }
+        netbuf_free(buf);
+        netbuf_delete(buf);
+
+        // check heartbeat
+        if ( (osTime() - pData->lastHeartbeat) > 30000 )
+        {
+            ERROR("wifi: lost heartbeat");
+            okay = false;
+        }
+
+        if (okay)
+        {
+            osSleep(100);
+        }
+    }
+
+    return okay;
+}
+
+static bool sWifiIsOnline(void)
+{
+    const uint8_t status = sdk_wifi_station_get_connect_status();
+    struct ip_info ipinfo;
+    sdk_wifi_get_ip_info(STATION_IF, &ipinfo);
+    return (status == STATION_GOT_IP) && (ipinfo.ip.addr != 0) ? true : false;
+}
+
+
+// forward declaration
+static void sWifiMonStatusSet(const WIFI_STATE_t *pkState, const WIFI_DATA_t *pkData);
 
 static void sWifiTask(void *pArg)
 {
 
+    static WIFI_STATE_t sWifiState = WIFI_STATE_UNKNOWN;
+    static WIFI_DATA_t sWifiData;
+    sWifiMonStatusSet(&sWifiState, &sWifiData);
     WIFI_STATE_t oldState = WIFI_STATE_UNKNOWN;
     while (true)
     {
@@ -302,7 +485,7 @@ static void sWifiTask(void *pArg)
             // initialise
             case WIFI_STATE_UNKNOWN:
             {
-                PRINT("wifi: state unknow, initialising...");
+                PRINT("wifi: state unknown, initialising...");
                 if (!sWifiInit(&sWifiData))
                 {
                     sWifiState = WIFI_STATE_FAIL;
@@ -333,7 +516,7 @@ static void sWifiTask(void *pArg)
             // we're connected to the AP --> connect to the backend
             case WIFI_STATE_ONLINE:
             {
-                PRINT("wifi: state station connected!");
+                PRINT("wifi: state online, connecting backend...!");
                 if (sWifiConnectBackend(&sWifiData))
                 {
                     sWifiState = WIFI_STATE_CONNECTED;
@@ -347,7 +530,15 @@ static void sWifiTask(void *pArg)
 
             case WIFI_STATE_CONNECTED:
             {
-                sWifiState = WIFI_STATE_FAIL;
+                PRINT("wifi: state connected");
+                if (sWifiHandleConnection(&sWifiData))
+                {
+                    sWifiState = sWifiIsOnline() ? WIFI_STATE_ONLINE : WIFI_STATE_UNKNOWN;
+                }
+                else
+                {
+                    sWifiState = WIFI_STATE_FAIL;
+                }
                 break;
             }
 
@@ -360,18 +551,8 @@ static void sWifiTask(void *pArg)
                 PRINT("wifi: failure... waiting %ums", waitTime);
                 osSleep(waitTime);
 
-                // station still connected?
-                const uint8_t status = sdk_wifi_station_get_connect_status();
-                struct ip_info ipinfo;
-                sdk_wifi_get_ip_info(STATION_IF, &ipinfo);
-                if ( (status == STATION_GOT_IP) && (ipinfo.ip.addr != 0) )
-                {
-                    sWifiState = WIFI_STATE_UNKNOWN;
-                }
-                else
-                {
-                    sWifiState = WIFI_STATE_ONLINE;
-                }
+                sWifiState = sWifiIsOnline() ? WIFI_STATE_ONLINE : WIFI_STATE_UNKNOWN;
+
                 break;
             }
         }
@@ -449,9 +630,24 @@ static void sWifiTask(void *pArg)
 
 /* ********************************************************************************************** */
 
+static const WIFI_STATE_t *spkState;
+static const WIFI_DATA_t *spkData;
+
+static void sWifiMonStatusSet(const WIFI_STATE_t *pkState, const WIFI_DATA_t *pkData)
+{
+    spkState = pkState;
+    spkData = pkData;
+}
+
 void wifiMonStatus(void)
 {
-    DEBUG("mon: wifi: state=%s", sWifiStateStr(sWifiState));
+    if ( (spkState != NULL) && (spkData != NULL) )
+    {
+        const uint32_t now = osTime();
+        DEBUG("mon: wifi: state=%s uptime=%u heartbeat=%u bytes=%u",
+            sWifiStateStr(*spkState), now - spkData->lastHello, now - spkData->lastHeartbeat,
+            spkData->bytesReceived);
+    }
 
     const char *mode   = sdkWifiOpmodeStr( sdk_wifi_get_opmode() );
     const char *status = sdkStationConnectStatusStr( sdk_wifi_station_get_connect_status() );
