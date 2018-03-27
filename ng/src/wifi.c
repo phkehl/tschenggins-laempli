@@ -15,6 +15,7 @@
 #include "debug.h"
 #include "wifi.h"
 #include "cfg_gen.h"
+#include "version_gen.h"
 
 #if (!defined FF_CFG_STASSID || !defined FF_CFG_STAPASS || !defined FF_CFG_BACKENDURL)
 #  define HAVE_CONFIG 0
@@ -36,8 +37,6 @@ typedef enum WIFI_STATE_e
     WIFI_STATE_FAIL,      // failure (e.g. connection lost) --> initialise
 } WIFI_STATE_t;
 
-static WIFI_STATE_t sWifiState = WIFI_STATE_UNKNOWN;
-
 static const char *sWifiStateStr(const WIFI_STATE_t state)
 {
     switch (state)
@@ -51,21 +50,29 @@ static const char *sWifiStateStr(const WIFI_STATE_t state)
     return "???";
 }
 
-typedef struct WIFI_BACKEND_s
-{
-    char        url[2 * sizeof(FF_CFG_BACKENDURL)];
-    const char *host;
-    const char *path;
-    const char *query;
-    const char *auth;
-    bool        https;
-    uint16_t    port;
-} WIFI_BACKEND_t;
+#define BACKEND_QUERY "cmd=realtime;ascii=1;client=%s;name=%s;stassid="FF_CFG_STASSID";staip="IPSTR";version="FF_BUILDVER
+//FF_BUILDVER""
 
-static WIFI_BACKEND_t sWifiBackend;
-
-static bool sWifiInit(void)
+typedef struct WIFI_DATA_s
 {
+    char            url[ (2 * sizeof(FF_CFG_BACKENDURL)) + (2 * sizeof(BACKEND_QUERY)) ];
+    const char     *host;
+    const char     *path;
+    const char     *query;
+    const char     *auth;
+    bool            https;
+    uint16_t        port;
+    ip_addr_t       hostIp;
+    ip_addr_t       staIp;
+    char            staName[32];
+    struct netconn *conn;
+} WIFI_DATA_t;
+
+static bool sWifiInit(WIFI_DATA_t *pData)
+{
+    // initialise data
+    memset(pData, 0, sizeof(*pData));
+
     sdk_wifi_station_disconnect();
     sdk_wifi_station_set_auto_connect(false);
     if (sdk_wifi_station_dhcpc_status() == DHCP_STOPPED)
@@ -106,29 +113,10 @@ static bool sWifiInit(void)
         }
     }
 
-    // check and decompose backend URL
-    memset(&sWifiBackend, 0, sizeof(sWifiBackend));
-    strcpy(sWifiBackend.url, FF_CFG_BACKENDURL);
-    DEBUG("wifi: backend url=%s", sWifiBackend.url);
-    const int res = reqParamsFromUrl(sWifiBackend.url, sWifiBackend.url, sizeof(sWifiBackend.url),
-        &sWifiBackend.host, &sWifiBackend.path, &sWifiBackend.query, &sWifiBackend.auth,
-        &sWifiBackend.https, &sWifiBackend.port);
-    if (res)
-    {
-        DEBUG("wifi: host=%s path=%s query=%s auth=%s https=%s, port=%u",
-            sWifiBackend.host, sWifiBackend.path, sWifiBackend.query, sWifiBackend.auth,
-            sWifiBackend.https ? "yes" : "no", sWifiBackend.port);
-    }
-    else
-    {
-        ERROR("wifi: fishy backend url!");
-        return false;
-    }
-
     return true;
 }
 
-static bool sWifiConnect(void)
+static bool sWifiConnect(WIFI_DATA_t *pData)
 {
     struct sdk_station_config config =
     {
@@ -136,12 +124,11 @@ static bool sWifiConnect(void)
     };
     sdk_wifi_station_set_config(&config);
 
-    char name[32];
-    getSystemName(name, sizeof(name));
-    //sdk_wifi_station_set_hostname(sStaName);
+    //sdk_wifi_station_set_hostname(pData->staName);
+    getSystemName(pData->staName, sizeof(pData->staName));
 #if LWIP_NETIF_HOSTNAME
     struct netif *netif = sdk_system_get_netif(STATION_IF);
-    netif_set_hostname(netif, name);
+    netif_set_hostname(netif, pData->staName);
 #endif
 
     if (!sdk_wifi_station_connect())
@@ -165,6 +152,7 @@ static bool sWifiConnect(void)
                 IP2STR(&ipinfo.ip), IP2STR(&ipinfo.netmask), IP2STR(&ipinfo.gw));
             if ( (status == STATION_GOT_IP) && (ipinfo.ip.addr != 0) )
             {
+                pData->staIp = ipinfo.ip;
                 connected = true;
                 break;
             }
@@ -175,19 +163,129 @@ static bool sWifiConnect(void)
     return connected;
 }
 
-static bool sWifiConnectBackend(void)
+static bool sWifiConnectBackend(WIFI_DATA_t *pData)
 {
-    //int err = getaddrinfo(WEB_SERVER, "80", &hints, &res);
-    ip_addr_t hostIp;
-    DEBUG("wifi: dns query");
-    err_t err = netconn_gethostbyname(sWifiBackend.host, &hostIp);
-    DEBUG("wifi: dns result %s --> "IPSTR, lwipErrStr(err), IP2STR(&hostIp));
+    // check and decompose backend URL
+    {
+        strcpy(pData->url, FF_CFG_BACKENDURL);
+        const int urlLen = strlen(pData->url);
+
+        snprintf(&pData->url[urlLen], sizeof(pData->url) - urlLen - 1, "?"BACKEND_QUERY,
+            getSystemId(), pData->staName, IP2STR(&pData->staIp));
+        DEBUG("wifi: backend url=%s", pData->url);
+
+        const int res = reqParamsFromUrl(pData->url, pData->url, sizeof(pData->url),
+            &pData->host, &pData->path, &pData->query, &pData->auth, &pData->https, &pData->port);
+        if (res)
+        {
+            DEBUG("wifi: host=%s path=%s query=%s auth=%s https=%s, port=%u",
+                pData->host, pData->path, pData->query, pData->auth, pData->https ? "yes" : "no", pData->port);
+        }
+        else
+        {
+            ERROR("wifi: fishy backend url!");
+            return false;
+        }
+    }
+
+    // get IP of backend server
+    {
+        DEBUG("wifi: DNS lookup %s", pData->host);
+        const err_t err = netconn_gethostbyname(pData->host, &pData->hostIp);
+        if (err != ERR_OK)
+        {
+            ERROR("wifi: DNS query for %s failed: %s",
+                pData->host, lwipErrStr(err));
+            return false;
+        }
+    }
+
+    // connect to backend server
+    {
+        pData->conn = netconn_new(NETCONN_TCP);
+        DEBUG("wifi: connect "IPSTR, IP2STR(&pData->hostIp));
+        const err_t err = netconn_connect(pData->conn, &pData->hostIp, pData->port);
+        if (err != ERR_OK)
+        {
+            ERROR("wifi: connect to "IPSTR":%u failed: %s",
+                IP2STR(&pData->hostIp), pData->port, lwipErrStr(err));
+            return false;
+        }
+    }
+
+    // make HTTP POST request
+    {
+        char req[sizeof(pData->url) + 128];
+        snprintf(req, sizeof(req),
+            "POST /%s HTTP/1.1\r\n"           // HTTP POST request
+                "Host: %s\r\n"                // provide host name for virtual host setups
+                "Authorization: Basic %s\r\n" // okay to provide empty one?
+                "User-Agent: "FF_PROGRAM"/"FF_BUILDVER"\r\n"  // be nice
+                "Content-Length: %d\r\n"      // length of query parameters
+                "\r\n"                        // end of request headers
+                "%s",                         // query parameters (FIXME: urlencode!)
+            pData->path,
+            pData->host,
+            pData->auth != NULL ? pData->auth : "",
+            strlen(pData->query),
+            pData->query);
+        DEBUG("wifi: request POST /%s: %s", pData->path, pData->query);
+        const err_t err = netconn_write(pData->conn, req, strlen(req), NETCONN_COPY);
+        if (err != ERR_OK)
+        {
+            ERROR("wifi: POST /%s failed: %s", pData->path, lwipErrStr(err));
+            netconn_delete(pData->conn);
+            return false;
+        }
+    }
+
+    // receive data
+    while (true)
+    {
+        struct netbuf *buf;
+        DEBUG("wifi: read..");
+        const err_t err = netconn_recv(pData->conn, &buf);
+        DEBUG("wifi: recv %s", lwipErrStr(err)); // OK -> CLSD -> CONN
+        if (err == ERR_OK)
+        {
+            while (true)
+            {
+                void *data;
+                uint16_t len;
+                if (netbuf_data(buf, &data, &len) == ERR_OK)
+                {
+                    DEBUG("wifi: recv [%u] %s", len, (const char *)data);
+                }
+                if (netbuf_next(buf) < 0)
+                {
+                    break;
+                }
+            }
+            netbuf_free(buf);
+            osSleep(1000);
+        }
+        else
+        {
+            ERROR("wifi: read failed: %s", lwipErrStr(err));
+            break;
+        }
+    }
+
+
+    //netconn_shutdown();
+    netconn_close(pData->conn);
+    netconn_delete(pData->conn);
+
     return true;
 }
 
 
+static WIFI_STATE_t sWifiState = WIFI_STATE_UNKNOWN;
+static WIFI_DATA_t sWifiData;
+
 static void sWifiTask(void *pArg)
 {
+
     WIFI_STATE_t oldState = WIFI_STATE_UNKNOWN;
     while (true)
     {
@@ -203,7 +301,7 @@ static void sWifiTask(void *pArg)
             case WIFI_STATE_UNKNOWN:
             {
                 PRINT("wifi: state unknow, initialising...");
-                if (!sWifiInit())
+                if (!sWifiInit(&sWifiData))
                 {
                     sWifiState = WIFI_STATE_FAIL;
                 }
@@ -218,7 +316,7 @@ static void sWifiTask(void *pArg)
             case WIFI_STATE_OFFLINE:
             {
                 PRINT("wifi: state offline, connecting station...");
-                if (sWifiConnect())
+                if (sWifiConnect(&sWifiData))
                 {
                     sWifiState = WIFI_STATE_ONLINE;
                 }
@@ -230,10 +328,11 @@ static void sWifiTask(void *pArg)
                 break;
             }
 
+            // we're connected to the AP --> connect to the backend
             case WIFI_STATE_ONLINE:
             {
                 PRINT("wifi: state station connected!");
-                if (sWifiConnectBackend())
+                if (sWifiConnectBackend(&sWifiData))
                 {
                     sWifiState = WIFI_STATE_CONNECTED;
                 }
@@ -246,15 +345,31 @@ static void sWifiTask(void *pArg)
 
             case WIFI_STATE_CONNECTED:
             {
-
+                sWifiState = WIFI_STATE_FAIL;
                 break;
             }
 
             case WIFI_STATE_FAIL:
             {
-                PRINT("wifi: failure...");
-                osSleep(5000);
-                sWifiState = WIFI_STATE_UNKNOWN;
+                static uint32_t lastFail;
+                const uint32_t now = osTime();
+                const uint32_t waitTime = (now - lastFail) > 300000 ? 5000 : 60000;
+                lastFail = now;
+                PRINT("wifi: failure... waiting %ums", waitTime);
+                osSleep(waitTime);
+
+                // station still connected?
+                const uint8_t status = sdk_wifi_station_get_connect_status();
+                struct ip_info ipinfo;
+                sdk_wifi_get_ip_info(STATION_IF, &ipinfo);
+                if ( (status == STATION_GOT_IP) && (ipinfo.ip.addr != 0) )
+                {
+                    sWifiState = WIFI_STATE_UNKNOWN;
+                }
+                else
+                {
+                    sWifiState = WIFI_STATE_ONLINE;
+                }
                 break;
             }
         }

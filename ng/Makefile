@@ -123,12 +123,13 @@ endif
 $(PROGRAM_OBJ_DIR)version_gen.h: $(PROGRAM_OBJ_DIR).version_gen.h Makefile | $(PROGRAM_OBJ_DIR)
 	$(vecho) "GEN $@"
 	$(Q)$(RM) -f $@
-	$(Q)echo "#ifndef __VERSION_GEN_H__" >> $@.tmp
-	$(Q)echo "#define __VERSION_GEN_H__" >> $@.tmp
+	$(Q)echo "#ifndef __VERSION_GEN_H__"               >> $@.tmp
+	$(Q)echo "#define __VERSION_GEN_H__"               >> $@.tmp
 	$(Q)echo "#define FF_GCCVERSION \"$(GCCVERSION)\"" >> $@.tmp
-	$(Q)echo "#define FF_BUILDVER \"$(BUILDVER)\"" >> $@.tmp
-	$(Q)echo "#define FF_BUILDDATE \"$(BUILDDATE)\"" >> $@.tmp
-	$(Q)echo "#endif" >> $@.tmp
+	$(Q)echo "#define FF_BUILDVER   \"$(BUILDVER)\""   >> $@.tmp
+	$(Q)echo "#define FF_BUILDDATE  \"$(BUILDDATE)\""  >> $@.tmp
+	$(Q)echo "#define FF_PROGRAM    \"$(PROGRAM)\""    >> $@.tmp
+	$(Q)echo "#endif"                                  >> $@.tmp
 	$(Q)$(MV) $@.tmp $@
 
 # all source file may need this
