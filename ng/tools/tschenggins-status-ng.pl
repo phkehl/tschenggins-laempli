@@ -4,16 +4,16 @@
 
 =encoding utf8
 
-=head1 tschenggins-status.pl -- Tschenggins Lämpli Backend
+=head1 tschenggins-status-ng.pl -- Tschenggins Lämpli NG Backend
 
-Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+Copyright (c) 2017-2018 Philippe Kehl <flipflip at oinkzwurgl dot org>,
 L<https://oinkzwurgl.org/projaeggd/tschenggins-laempli>
 
 =head2 Usage
 
-C<< http://..../tschenggins-status.pl?param=value;param=value;... >>
+C<< http://..../tschenggins-status-ng.pl?param=value;param=value;... >>
 
-C<< ./tschenggins-status.pl param=value param=value ... >>
+C<< ./tschenggins-status-ng.pl param=value param=value ... >>
 
 =cut
 
@@ -44,7 +44,7 @@ my $UNKSTATE      = { name => 'unknown', server => 'unknown', result => 'unknown
 my $JOBNAMERE     = qr{^[-_a-zA-Z0-9]{5,50}$};
 my $JOBIDRE       = qr{^[0-9a-z]{8,8}$};
 my $DEFAULTCMD    = 'gui';
-my $DBFILE        = $ENV{'REMOTE_USER'} ? "$DATADIR/tschenggins-status-$ENV{'REMOTE_USER'}.json" : "$DATADIR/tschenggins-status.json";
+my $DBFILE        = $ENV{'REMOTE_USER'} ? "$DATADIR/tschenggins-status-ng-$ENV{'REMOTE_USER'}.json" : "$DATADIR/tschenggins-status-ng.json";
 
 #DEBUG("DATADIR=%s, VALIDRESULT=%s, VALIDSTATE=%s", $DATADIR, $VALIDRESULT, $VALIDSTATE);
 
@@ -120,7 +120,6 @@ do
     my $version  = $q->param('version')  || '';
     my $chunked  = $q->param('chunked')  || 0;
     my @states   = (); # $q->multi_param('states');
-    my @ch       = $q->multi_param('ch');
 
     # text/json
     my $contentType = $q->content_type();
@@ -160,6 +159,7 @@ do
     # open database
     my $dbHandle;
     my $db;
+    DEBUG("dbfile=$DBFILE");
     unless (open($dbHandle, '+>>', $DBFILE))
     {
         $error = "failed opening database file";
@@ -408,26 +408,26 @@ Remove client info.
 
 =pod
 
-=head3 C<< cmd=leds client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> ch=<jobid> ... strlen=<number> >>
+=head3 C<< cmd=leds client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> strlen=<number> >>
 
-Returns info for a client given one or more job IDs.
+Returns info for a client.
 
-=head3 C<< cmd=realtime client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> ch=<jobid> ... strlen=<number> >>
+=head3 C<< cmd=realtime client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> strlen=<number> >>
 
-Returns info for a client given one or more job IDs. Endless connection with real-time update as things happen.
+Returns info for a client. Endless connection with real-time update as things happen.
 
 =cut
 
     # LEDs results for client
     elsif ($cmd eq 'leds')
     {
-        ($data, $error) = _leds($db, $client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version }, @ch);
+        ($data, $error) = _leds($db, $client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version });
     }
     # special mode: realtime status change notification
     elsif ($cmd eq 'realtime')
     {
         # first like cmd=leds to update the client info and then below dispatch to real-time monitoring
-        ($data, $error) = _leds($db, $client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version }, @ch);
+        ($data, $error) = _leds($db, $client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version });
 
         # save pid so that previous instances can terminate in case they're still running
         # and haven't noticed yet that the Lämpli is gone (Apache waiting "forever" for TCP timeout)
@@ -465,7 +465,7 @@ Returns info for a client given one or more job IDs. Endless connection with rea
 
     if ( !$error && ($cmd eq 'realtime') )
     {
-        _realtime($client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version }, @ch); # this doesn't return
+        _realtime($client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version }); # this doesn't return
         exit(0);
     }
 
@@ -725,17 +725,23 @@ sub _get
 
 sub _leds
 {
-    my ($db, $client, $strlen, $info, @ch) = @_;
+    my ($db, $client, $strlen, $info) = @_;
 
-    DEBUG("_leds() $client $strlen @ch");
+    DEBUG("_leds() $client $strlen");
 
-    if ( !$client || ($#ch < 0) )
+    if ( !$client )
     {
         return undef, 'missing parameters';
     }
     my $data = { leds => [], res => 1 };
     my $now = time();
-    foreach my $jobId (@ch)
+
+    if (!$db->{clients}->{$client}->{leds})
+    {
+        $db->{clients}->{$client}->{leds} = [];
+    }
+
+    foreach my $jobId (@{$db->{clients}->{$client}->{leds}})
     {
         my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
         my $state  = $st->{state};
@@ -747,11 +753,9 @@ sub _leds
              [ substr($name, 0, $strlen), substr($server, 0, $strlen), $state, $result, $ts ]);
     }
 
-    $db->{clients}->{$client} =
-    {
-        leds => [ map { $_ =~ m{$JOBIDRE} ? $_ : 'ffffffff' } @ch ], ts => int($now + 0.5),
-    };
+    $db->{clients}->{$client}->{ts} = int($now + 0.5);
     $db->{clients}->{$client}->{$_} = $info->{$_} for (keys %{$info});
+
     $db->{_dirtiness}++;
 
     return $data, '';
@@ -935,7 +939,7 @@ sub _gui_results
 
 sub _realtime
 {
-    my ($client, $strlen, $info, @ch) = @_;
+    my ($client, $strlen, $info) = @_;
     print($q->header(-type => 'text/plain', -expires => 'now', charset => 'US-ASCII'));
     my $n = 0;
     my $lastTs = 0;
@@ -943,7 +947,7 @@ sub _realtime
     my $lastCheck = 0;
     my $startTs = time();
     $|++;
-    print("hello $client $strlen $info->{name} @ch\n");
+    print("hello $client $strlen $info->{name}\r\n");
     while (1)
     {
         sleep(1);
@@ -1012,7 +1016,7 @@ sub _realtime
                 }
 
                 # same as cmd=led to get the data but we won't store the database (this updates $db->{clients}->{$client})
-                my ($data, $error) = _leds($db, $client, $strlen, $info, @ch);
+                my ($data, $error) = _leds($db, $client, $strlen, $info);
                 if ($error)
                 {
                     print("error $error\r\n");
