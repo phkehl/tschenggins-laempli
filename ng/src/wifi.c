@@ -73,6 +73,7 @@ typedef struct WIFI_DATA_s
     uint32_t        lastHello;
     uint32_t        lastHeartbeat;
     uint32_t        bytesReceived;
+    uint32_t        connCount;
 } WIFI_DATA_t;
 
 // forward declarations
@@ -196,6 +197,8 @@ static bool sWifiConnect(WIFI_DATA_t *pData)
 // connect to backend
 static bool sWifiConnectBackend(WIFI_DATA_t *pData)
 {
+    pData->connCount++;
+
     // check and decompose backend URL
     {
         strcpy(pData->url, FF_CFG_BACKENDURL);
@@ -876,9 +879,9 @@ void wifiMonStatus(void)
     if ( (spkState != NULL) && (spkData != NULL) )
     {
         const uint32_t now = osTime();
-        DEBUG("mon: wifi: state=%s uptime=%u heartbeat=%u bytes=%u",
-            sWifiStateStr(*spkState), now - spkData->lastHello, now - spkData->lastHeartbeat,
-            spkData->bytesReceived);
+        DEBUG("mon: wifi: state=%s uptime=%u count=%u heartbeat=%u bytes=%u",
+            sWifiStateStr(*spkState), now - spkData->lastHello, spkData->connCount,
+            now - spkData->lastHeartbeat, spkData->bytesReceived);
     }
 
     const char *mode   = sdkWifiOpmodeStr( sdk_wifi_get_opmode() );

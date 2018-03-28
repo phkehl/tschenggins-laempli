@@ -155,11 +155,27 @@ static void sMonTask(void *pArg)
                 case eDeleted:   state = 'D'; break;
                 case eInvalid:   state = 'I'; break;
             }
-            DEBUG("mon: tsk: %02d %-16s %c %2i-%2i %4u %5.1f%%",
+            char perc[8];
+            if (pkTask->ulRunTimeCounter)
+            {
+                const double p = (double)pkTask->ulRunTimeCounter * 100.0 / (double)totalRuntimeTasks;
+                if (p < 0.05)
+                {
+                    strcpy(perc, "<0.1%");
+                }
+                else
+                {
+                    snprintf(perc, sizeof(perc), "%5.1f%%", p);
+                }
+            }
+            else
+            {
+                strcpy(perc, "0.0%");
+            }
+            DEBUG("mon: tsk: %02d %-16s %c %2i-%2i %4u %6s",
                 (int)pkTask->xTaskNumber, pkTask->pcTaskName, state,
                 (int)pkTask->uxCurrentPriority, (int)pkTask->uxBasePriority,
-                pkTask->usStackHighWaterMark,
-                (double)pkTask->ulRunTimeCounter * 100.0 / (double)totalRuntimeTasks);
+                pkTask->usStackHighWaterMark,perc);
         }
         DEBUG("--------------------------------------------------------------------------------");
         //PRINT("runtime: %u %u %u, %u", totalRuntime, totalRuntimeTasks, totalRuntime - totalRuntimeTasks, isrTotalRuntime);
