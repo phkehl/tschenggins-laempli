@@ -22,7 +22,7 @@
 #if (TXBUF_SIZE <= 0)
 // blocking, unbuffered
 
-static ssize_t IRAM sWriteStdoutFunc(struct _reent *r, int fd, const void *ptr, size_t len)
+IRAM static ssize_t sWriteStdoutFunc(struct _reent *r, int fd, const void *ptr, size_t len)
 {
     const char *pkBuf = (const char *)ptr;
     for (int i = 0; i < len; i++)
@@ -85,7 +85,7 @@ static ssize_t sWriteStdoutFunc(struct _reent *r, int fd, const void *ptr, size_
 
 // interrupt handler (for *any* UART interrupt of *any* UART peripheral)
 // flushs buffered debug data to the tx fifo
-static void IRAM sUartISR(void *pArg) // RAM function
+IRAM static void sUartISR(void *pArg) // RAM function
 {
     monIsrEnter();
 

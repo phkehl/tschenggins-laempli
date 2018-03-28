@@ -15,6 +15,8 @@
 #include "mon.h"
 #include "jenkins.h"
 #include "wifi.h"
+#include "tone.h"
+#include "status.h"
 #include "version_gen.h"
 
 //void vApplicationIdleHook(void)
@@ -89,6 +91,8 @@ void user_init(void)
     debugInit();
     stuffInit();
     monInit();
+    toneInit();
+    statusInit();
 
     // trigger core dump
     //*((volatile uint32_t *)0) = 0; // null pointer deref, instant crash

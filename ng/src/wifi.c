@@ -19,6 +19,7 @@
 #include "debug.h"
 #include "wifi.h"
 #include "jenkins.h"
+#include "status.h"
 #include "cfg_gen.h"
 #include "version_gen.h"
 
@@ -198,6 +199,9 @@ static bool sWifiConnect(WIFI_DATA_t *pData)
 static bool sWifiConnectBackend(WIFI_DATA_t *pData)
 {
     pData->connCount++;
+    pData->lastHeartbeat = 0;
+    pData->lastHello = 0;
+    pData->bytesReceived = 0;
 
     // check and decompose backend URL
     {
@@ -416,6 +420,9 @@ static bool sWifiHandleConnection(WIFI_DATA_t *pData)
         }
     }
 
+    pData->lastHeartbeat = 0;
+    pData->lastHello = 0;
+    pData->bytesReceived = 0;
     return okay;
 }
 
@@ -691,6 +698,9 @@ static void sWifiProcessStatusResponse(char *resp, const int respLen)
     free(pTokens);
 }
 
+/* ********************************************************************************************** */
+
+
 static bool sWifiIsOnline(void)
 {
     const uint8_t status = sdk_wifi_station_get_connect_status();
@@ -721,6 +731,8 @@ static void sWifiTask(void *pArg)
             case WIFI_STATE_UNKNOWN:
             {
                 PRINT("wifi: state unknown, initialising...");
+                statusMakeNoise(STATUS_NOISE_OTHER);
+                osSleep(100);
                 if (!sWifiInit(&sWifiData))
                 {
                     sWifiState = WIFI_STATE_FAIL;
@@ -736,6 +748,7 @@ static void sWifiTask(void *pArg)
             case WIFI_STATE_OFFLINE:
             {
                 PRINT("wifi: state offline, connecting station...");
+                statusMakeNoise(STATUS_NOISE_ABORT);
                 if (sWifiConnect(&sWifiData))
                 {
                     sWifiState = WIFI_STATE_ONLINE;
@@ -766,6 +779,7 @@ static void sWifiTask(void *pArg)
             case WIFI_STATE_CONNECTED:
             {
                 PRINT("wifi: state connected");
+                statusMakeNoise(STATUS_NOISE_ONLINE);
                 if (sWifiHandleConnection(&sWifiData))
                 {
                     sWifiState = sWifiIsOnline() ? WIFI_STATE_ONLINE : WIFI_STATE_UNKNOWN;
@@ -784,6 +798,7 @@ static void sWifiTask(void *pArg)
                 const uint32_t waitTime = (now - lastFail) > 300000 ? 5000 : 60000;
                 lastFail = now;
                 PRINT("wifi: failure... waiting %ums", waitTime);
+                statusMakeNoise(STATUS_NOISE_FAIL);
                 osSleep(waitTime);
 
                 sWifiState = sWifiIsOnline() ? WIFI_STATE_ONLINE : WIFI_STATE_UNKNOWN;
@@ -879,9 +894,10 @@ void wifiMonStatus(void)
     if ( (spkState != NULL) && (spkData != NULL) )
     {
         const uint32_t now = osTime();
-        DEBUG("mon: wifi: state=%s uptime=%u count=%u heartbeat=%u bytes=%u",
-            sWifiStateStr(*spkState), now - spkData->lastHello, spkData->connCount,
-            now - spkData->lastHeartbeat, spkData->bytesReceived);
+        DEBUG("mon: wifi: state=%s  count=%u uptime=%u heartbeat=%u bytes=%u",
+            sWifiStateStr(*spkState), spkData->connCount,
+            spkData->lastHello ? now - spkData->lastHello : 0,
+            spkData->lastHeartbeat ? now - spkData->lastHeartbeat : 0, spkData->bytesReceived);
     }
 
     const char *mode   = sdkWifiOpmodeStr( sdk_wifi_get_opmode() );

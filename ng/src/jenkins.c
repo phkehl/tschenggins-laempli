@@ -115,7 +115,7 @@ static void sJenkinsTask(void *pArg)
             const char *result = jenkinsResultToStr(jInfo.result);
             const uint32_t now = osGetPosixTime();
             const uint32_t age = now - jInfo.time;
-            PRINT("jenkins: info: %-"STRINGIFY(JENKINS_JOBNAME_LEN)"s %-"STRINGIFY(JENKINS_SERVER_LEN)"s %-7s %-8s %5.1f",
+            PRINT("jenkins: info: %-"STRINGIFY(JENKINS_JOBNAME_LEN)"s %-"STRINGIFY(JENKINS_SERVER_LEN)"s %-7s %-8s %5.1fh",
                 jInfo.job, jInfo.server, state, result, (double)age / 3600.0);
         }
         else
@@ -124,7 +124,6 @@ static void sJenkinsTask(void *pArg)
         }
     }
 }
-
 
 
 void jenkinsInit(void)
