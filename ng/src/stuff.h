@@ -100,6 +100,12 @@ void stuffInit(void);
 //! get time
 #define osTime() (TICKS2MS(xTaskGetTickCount()))
 
+//! set POSIX time
+void osSetPosixTime(const uint32_t timestamp);
+
+//! get POSIX time
+uint32_t osGetPosixTime(void);
+
 //@}
 
 /* ***** SDK enumeration stringifications ******************************************************** */

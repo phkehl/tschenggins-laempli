@@ -18,6 +18,12 @@ PROGRAM         = tschenggins-laempli-ng
 PROGRAM_SRC_DIR = ./src ./3rdparty
 PROGRAM_INC_DIR = ./src ./3rdparty $(PROGRAM_OBJ_DIR)
 
+EXTRA_COMPONENTS = extras/jsmn
+
+EXTRA_CFLAGS    = -DJSMN_PARENT_LINKS
+
+#WARNINGS_AS_ERRORS = 1
+
 # ESP8266 config
 ESPPORT         = /dev/ttyUSB0
 ESPBAUD         = 1500000
@@ -28,6 +34,7 @@ FLASH_SPEED     = 40
 # TODO: add program_CFLAGS !!
 
 include $(RTOSBASE)/common.mk
+
 
 ###############################################################################
 
@@ -105,6 +112,7 @@ $(BUILD_DIR)$(PROGRAM).size: $(PROGRAM_OUT) $(BUILD_DIR)$(PROGRAM).sym_iram $(BU
 
 # add sizes and symbol lists to the main build target
 all: $(BUILD_DIR)$(PROGRAM).size
+
 
 ###############################################################################
 

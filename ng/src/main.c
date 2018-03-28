@@ -13,7 +13,7 @@
 #include "stuff.h"
 #include "debug.h"
 #include "mon.h"
-#include "led.h"
+#include "jenkins.h"
 #include "wifi.h"
 #include "version_gen.h"
 
@@ -90,14 +90,21 @@ void user_init(void)
     stuffInit();
     monInit();
 
+    // trigger core dump
+    //*((volatile uint32_t *)0) = 0; // null pointer deref, instant crash
+    //abort();
+
     // say hello
     sMainHello();
 
     NOTICE("here we go...");
 
+    osSleep(100);
+
     // start stuff
-    ledInit();
+    jenkinsInit();
     wifiInit();
+
 }
 
 // eof

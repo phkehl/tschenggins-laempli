@@ -293,6 +293,23 @@ const char *lwipErrStr(const int8_t error)
     return "???";
 }
 
+static uint32_t sOsTimePosix;
+static uint32_t sOsTimeOs;
+
+void osSetPosixTime(const uint32_t timestamp)
+{
+    sOsTimeOs = osTime();
+    sOsTimePosix = timestamp;
+    //DEBUG("osSetPosixTime() %u %u", sOsTimePosix, sOsTimeOs);
+}
+
+uint32_t osGetPosixTime(void)
+{
+    const uint32_t now = osTime();
+    //DEBUG("osGetPosixTime() %u %u-%u=%u", sOsTimePosix, now, sOsTimeOs, now - sOsTimeOs);
+    return sOsTimePosix + ((now - sOsTimeOs) / 1000);
+}
+
 
 void stuffInit(void)
 {
