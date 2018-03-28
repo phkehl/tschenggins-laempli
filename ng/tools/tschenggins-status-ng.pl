@@ -159,7 +159,6 @@ do
     # open database
     my $dbHandle;
     my $db;
-    DEBUG("dbfile=$DBFILE");
     unless (open($dbHandle, '+>>', $DBFILE))
     {
         $error = "failed opening database file";
@@ -946,6 +945,9 @@ sub _realtime
     my $lastStatus = '';
     my $lastCheck = 0;
     my $startTs = time();
+
+    $0 = $info->{name} || "client$client";
+
     $|++;
     print("hello $client $strlen $info->{name}\r\n");
     while (1)
