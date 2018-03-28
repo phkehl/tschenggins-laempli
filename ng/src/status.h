@@ -18,6 +18,20 @@
 //! initialise
 void statusInit(void);
 
+//! status display modes
+typedef enum STATUS_LED_e
+{
+    STATUS_LED_NONE,       //!< LED off
+    STATUS_LED_HEARTBEAT,  //!< LED doing a heart beat style blinking (2 seconds period)
+    STATUS_LED_OFFLINE,    //!< one blink every two seconds
+    STATUS_LED_FAIL,       //!< bursts of five fast blinks every two seconds
+    STATUS_LED_UPDATE,     //!< fast blinking while things are updating (or so)
+
+} STATUS_LED_t;
+
+void statusSetLed(const STATUS_LED_t status);
+
+
 typedef enum STATUS_NOISE_e
 {
     STATUS_NOISE_ABORT,

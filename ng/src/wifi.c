@@ -732,6 +732,7 @@ static void sWifiTask(void *pArg)
             {
                 PRINT("wifi: state unknown, initialising...");
                 statusMakeNoise(STATUS_NOISE_OTHER);
+                statusSetLed(STATUS_LED_OFFLINE);
                 osSleep(100);
                 if (!sWifiInit(&sWifiData))
                 {
@@ -749,6 +750,7 @@ static void sWifiTask(void *pArg)
             {
                 PRINT("wifi: state offline, connecting station...");
                 statusMakeNoise(STATUS_NOISE_ABORT);
+                statusSetLed(STATUS_LED_UPDATE);
                 if (sWifiConnect(&sWifiData))
                 {
                     sWifiState = WIFI_STATE_ONLINE;
@@ -780,6 +782,7 @@ static void sWifiTask(void *pArg)
             {
                 PRINT("wifi: state connected");
                 statusMakeNoise(STATUS_NOISE_ONLINE);
+                statusSetLed(STATUS_LED_HEARTBEAT);
                 if (sWifiHandleConnection(&sWifiData))
                 {
                     sWifiState = sWifiIsOnline() ? WIFI_STATE_ONLINE : WIFI_STATE_UNKNOWN;
@@ -799,6 +802,7 @@ static void sWifiTask(void *pArg)
                 lastFail = now;
                 PRINT("wifi: failure... waiting %ums", waitTime);
                 statusMakeNoise(STATUS_NOISE_FAIL);
+                statusSetLed(STATUS_LED_FAIL);
                 osSleep(waitTime);
 
                 sWifiState = sWifiIsOnline() ? WIFI_STATE_ONLINE : WIFI_STATE_UNKNOWN;
@@ -868,7 +872,7 @@ static void sWifiTask(void *pArg)
     while (true)
     {
         static uint32_t sTick;
-        vTaskDelayUntil(&sTick, MS2TICK(WIFI_SCAN_PERIOD));
+        vTaskDelayUntil(&sTick, MS2TICKS(WIFI_SCAN_PERIOD));
         PRINT("wifi: no config -- initiating wifi scan");
         struct sdk_scan_config cfg = { .ssid = NULL, .bssid = NULL, .channel = 0, .show_hidden = true };
         sdk_wifi_station_scan(&cfg, sWifiScanDoneCb);

@@ -23,7 +23,7 @@ static void ICACHE_FLASH_ATTR sLedTimerFunc(void *arg)
 {
     (void)arg;
     static uint32_t tick = 0;
-
+    DEBUG("timer");
     if (sPeriod && sNum)
     {
         const uint8_t phase = tick % sPeriod;

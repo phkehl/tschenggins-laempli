@@ -8,10 +8,63 @@
 
 #include "stdinc.h"
 
+#include <esp8266.h>
+
 #include "debug.h"
 #include "stuff.h"
 #include "tone.h"
 #include "status.h"
+
+#define STATUS_GPIO 2
+
+static uint8_t sPeriod;
+static uint8_t sNum;
+
+static void sStatusLedTimerFunc(TimerHandle_t timer)
+{
+    static uint32_t tick = 0;
+
+    if (sPeriod && sNum)
+    {
+        const uint8_t phase = tick % sPeriod;
+        if ( phase < (2 * sNum) )
+        {
+            gpio_write(STATUS_GPIO, (phase % 2) == 0 ? false : true);
+        }
+    }
+    tick++;
+}
+
+void statusSetLed(const STATUS_LED_t status)
+{
+    gpio_write(STATUS_GPIO, false);
+    switch (status)
+    {
+        case STATUS_LED_NONE:
+            DEBUG("statusSetLed() none");
+            break;
+        case STATUS_LED_HEARTBEAT:
+            DEBUG("statusSetLed() heartbeat");
+            sPeriod = 20;
+            sNum    = 2;
+            break;
+        case STATUS_LED_OFFLINE:
+            DEBUG("statusSetLed() offline");
+            sPeriod = 20;
+            sNum    = 1;
+            break;
+        case STATUS_LED_FAIL:
+            DEBUG("statusSetLed() fail");
+            sPeriod = 20;
+            sNum    = 5;
+            break;
+        case STATUS_LED_UPDATE:
+            DEBUG("statusSetLed() update");
+            sPeriod = 2;
+            sNum    = 1;
+            break;
+    }
+}
 
 
 void statusMakeNoise(const STATUS_NOISE_t noise)
@@ -64,14 +117,21 @@ void statusMakeNoise(const STATUS_NOISE_t noise)
     }
 }
 
-
-
-
-
-
 void statusInit(void)
 {
     DEBUG("statusInit()");
+
+    gpio_enable(STATUS_GPIO, GPIO_OUTPUT);
+    gpio_write(STATUS_GPIO, true); // off, LED logic is inverted
+
+    // setup LED timer
+    TimerHandle_t timer = xTimerCreate("status_led", MS2TICKS(100), true, NULL, sStatusLedTimerFunc);
+    if ( (timer == NULL) || (xTimerStart(timer, 1000) != pdPASS) )
+    {
+        ERROR("status: timer");
+    }
+
+    statusSetLed(STATUS_LED_NONE);
 }
 
 // eof

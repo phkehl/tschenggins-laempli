@@ -53,7 +53,7 @@ static void sMonTask(void *pArg)
 
         // wait until it's time to dump the status
         static uint32_t sTick;
-        vTaskDelayUntil(&sTick, MS2TICK(MON_PERIOD));
+        vTaskDelayUntil(&sTick, MS2TICKS(MON_PERIOD));
 
         const int nTasks = uxTaskGetNumberOfTasks();
         if (nTasks > MAX_TASKS)

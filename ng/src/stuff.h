@@ -89,13 +89,13 @@ void stuffInit(void);
 #define CS_LEAVE taskEXIT_CRITICAL(); } while (0)
 
 //! convert ms to ticks
-#define MS2TICK(ms) ((ms) / portTICK_PERIOD_MS)
+#define MS2TICKS(ms) ((ms) / portTICK_PERIOD_MS)
 
 //! convert ticks to ms
 #define TICKS2MS(ticks) ((ticks) * portTICK_PERIOD_MS)
 
 //! sleep
-#define osSleep(ms)  vTaskDelay(MS2TICK(ms))
+#define osSleep(ms)  vTaskDelay(MS2TICKS(ms))
 
 //! get time
 #define osTime() (TICKS2MS(xTaskGetTickCount()))

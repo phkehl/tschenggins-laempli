@@ -84,7 +84,7 @@ const char *jenkinsResultToStr(const JENKINS_RESULT_t result)
 }
 
 
-static QueueHandle_t *sJenkinsInfoQueue;
+static QueueHandle_t sJenkinsInfoQueue;
 
 bool jenkinsAddInfo(const JENKINS_INFO_t *pkInfo)
 {
