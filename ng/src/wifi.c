@@ -434,6 +434,7 @@ static void sWifiProcessBackendResp(WIFI_DATA_t *pData, char *resp)
             *endOfHeartbeat = '\0';
         }
         DEBUG("wifi: heartbeat (%s)", pHeartbeat);
+        pData->lastHeartbeat = osTime();
         osSetPosixTime((uint32_t)atoi(&pHeartbeat[10]));
     }
     // "\r\nstatus 1491146576 json={"leds": ... }\r\n"
