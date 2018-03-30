@@ -18,8 +18,8 @@
 #include "stuff.h"
 #include "debug.h"
 #include "wifi.h"
-#include "jenkins.h"
 #include "status.h"
+#include "backend.h"
 #include "cfg_gen.h"
 #include "version_gen.h"
 
@@ -34,13 +34,14 @@
 
 #if (HAVE_CONFIG > 0)
 
+// the state of the wifi (network) connection
 typedef enum WIFI_STATE_e
 {
-    WIFI_STATE_UNKNOWN,   // don't know --> initialise
-    WIFI_STATE_OFFLINE,   // initialised, offline --> connect station
-    WIFI_STATE_ONLINE,    // station online --> connect to backend
-    WIFI_STATE_CONNECTED, // backend connected
-    WIFI_STATE_FAIL,      // failure (e.g. connection lost) --> initialise
+    WIFI_STATE_UNKNOWN = 0, // don't know --> initialise
+    WIFI_STATE_OFFLINE,     // initialised, offline --> connect station
+    WIFI_STATE_ONLINE,      // station online --> connect to backend
+    WIFI_STATE_CONNECTED,   // backend connected
+    WIFI_STATE_FAIL,        // failure (e.g. connection lost) --> initialise
 } WIFI_STATE_t;
 
 static const char *sWifiStateStr(const WIFI_STATE_t state)
@@ -56,8 +57,10 @@ static const char *sWifiStateStr(const WIFI_STATE_t state)
     return "???";
 }
 
+// query parameters for the backend
 #define BACKEND_QUERY "cmd=realtime;ascii=1;client=%s;name=%s;stassid="FF_CFG_STASSID";staip="IPSTR";version="FF_BUILDVER
 
+// wifi (network) state data
 typedef struct WIFI_DATA_s
 {
     char            url[ (2 * sizeof(FF_CFG_BACKENDURL)) + (2 * sizeof(BACKEND_QUERY)) ];
@@ -71,23 +74,20 @@ typedef struct WIFI_DATA_s
     ip_addr_t       staIp;
     char            staName[32];
     struct netconn *conn;
-    uint32_t        lastHello;
-    uint32_t        lastHeartbeat;
-    uint32_t        bytesReceived;
-    uint32_t        connCount;
 } WIFI_DATA_t;
 
-// forward declarations
-static void sWifiProcessBackendResp(WIFI_DATA_t *pData, char *body);
-static void sWifiMonStatusSet(const WIFI_STATE_t *pkState, const WIFI_DATA_t *pkData);
-static void sWifiProcessStatusResponse(char *resp, const int respLen);
+// -------------------------------------------------------------------------------------------------
+
+static WIFI_STATE_t sWifiState;
+static WIFI_DATA_t sWifiData;
 
 // initialise wifi hardware
-static bool sWifiInit(WIFI_DATA_t *pData)
+static bool sWifiInit(void)
 {
-    // initialise data
-    memset(pData, 0, sizeof(*pData));
+    // initialise (reset) data
+    memset(&sWifiData, 0, sizeof(sWifiData));
 
+    // initialise WIFI hardware
     sdk_wifi_station_disconnect();
     sdk_wifi_station_set_auto_connect(false);
     if (sdk_wifi_station_dhcpc_status() == DHCP_STOPPED)
@@ -132,7 +132,7 @@ static bool sWifiInit(WIFI_DATA_t *pData)
 }
 
 // connect to wifi
-static bool sWifiConnect(WIFI_DATA_t *pData)
+static bool sWifiConnect(void)
 {
     struct sdk_station_config config =
     {
@@ -140,11 +140,11 @@ static bool sWifiConnect(WIFI_DATA_t *pData)
     };
     sdk_wifi_station_set_config(&config);
 
-    //sdk_wifi_station_set_hostname(pData->staName);
-    getSystemName(pData->staName, sizeof(pData->staName));
+    //sdk_wifi_station_set_hostname(sWifiData.staName);
+    getSystemName(sWifiData.staName, sizeof(sWifiData.staName));
 #if LWIP_NETIF_HOSTNAME
     struct netif *netif = sdk_system_get_netif(STATION_IF);
-    netif_set_hostname(netif, pData->staName);
+    netif_set_hostname(netif, sWifiData.staName);
 #endif
 
     if (!sdk_wifi_station_connect())
@@ -184,7 +184,7 @@ static bool sWifiConnect(WIFI_DATA_t *pData)
             }
             if ( (status == STATION_GOT_IP) && (ipinfo.ip.addr != 0) )
             {
-                pData->staIp = ipinfo.ip;
+                sWifiData.staIp = ipinfo.ip;
                 connected = true;
                 break;
             }
@@ -196,28 +196,23 @@ static bool sWifiConnect(WIFI_DATA_t *pData)
 }
 
 // connect to backend
-static bool sWifiConnectBackend(WIFI_DATA_t *pData)
+static bool sWifiConnectBackend(void)
 {
-    pData->connCount++;
-    pData->lastHeartbeat = 0;
-    pData->lastHello = 0;
-    pData->bytesReceived = 0;
-
     // check and decompose backend URL
     {
-        strcpy(pData->url, FF_CFG_BACKENDURL);
-        const int urlLen = strlen(pData->url);
+        strcpy(sWifiData.url, FF_CFG_BACKENDURL);
+        const int urlLen = strlen(sWifiData.url);
 
-        snprintf(&pData->url[urlLen], sizeof(pData->url) - urlLen - 1, "?"BACKEND_QUERY,
-            getSystemId(), pData->staName, IP2STR(&pData->staIp));
-        DEBUG("wifi: backend url=%s", pData->url);
+        snprintf(&sWifiData.url[urlLen], sizeof(sWifiData.url) - urlLen - 1, "?"BACKEND_QUERY,
+            getSystemId(), sWifiData.staName, IP2STR(&sWifiData.staIp));
+        DEBUG("wifi: backend url=%s", sWifiData.url);
 
-        const int res = reqParamsFromUrl(pData->url, pData->url, sizeof(pData->url),
-            &pData->host, &pData->path, &pData->query, &pData->auth, &pData->https, &pData->port);
+        const int res = reqParamsFromUrl(sWifiData.url, sWifiData.url, sizeof(sWifiData.url),
+            &sWifiData.host, &sWifiData.path, &sWifiData.query, &sWifiData.auth, &sWifiData.https, &sWifiData.port);
         if (res)
         {
             DEBUG("wifi: host=%s path=%s query=%s auth=%s https=%s, port=%u",
-                pData->host, pData->path, pData->query, pData->auth, pData->https ? "yes" : "no", pData->port);
+                sWifiData.host, sWifiData.path, sWifiData.query, sWifiData.auth, sWifiData.https ? "yes" : "no", sWifiData.port);
         }
         else
         {
@@ -228,32 +223,32 @@ static bool sWifiConnectBackend(WIFI_DATA_t *pData)
 
     // get IP of backend server
     {
-        DEBUG("wifi: DNS lookup %s", pData->host);
-        const err_t err = netconn_gethostbyname(pData->host, &pData->hostIp);
+        DEBUG("wifi: DNS lookup %s", sWifiData.host);
+        const err_t err = netconn_gethostbyname(sWifiData.host, &sWifiData.hostIp);
         if (err != ERR_OK)
         {
             ERROR("wifi: DNS query for %s failed: %s",
-                pData->host, lwipErrStr(err));
+                sWifiData.host, lwipErrStr(err));
             return false;
         }
     }
 
     // connect to backend server
     {
-        pData->conn = netconn_new(NETCONN_TCP);
-        DEBUG("wifi: connect "IPSTR, IP2STR(&pData->hostIp));
-        const err_t err = netconn_connect(pData->conn, &pData->hostIp, pData->port);
+        sWifiData.conn = netconn_new(NETCONN_TCP);
+        DEBUG("wifi: connect "IPSTR, IP2STR(&sWifiData.hostIp));
+        const err_t err = netconn_connect(sWifiData.conn, &sWifiData.hostIp, sWifiData.port);
         if (err != ERR_OK)
         {
             ERROR("wifi: connect to "IPSTR":%u failed: %s",
-                IP2STR(&pData->hostIp), pData->port, lwipErrStr(err));
+                IP2STR(&sWifiData.hostIp), sWifiData.port, lwipErrStr(err));
             return false;
         }
     }
 
     // make HTTP POST request
     {
-        char req[sizeof(pData->url) + 128];
+        char req[sizeof(sWifiData.url) + 128];
         snprintf(req, sizeof(req),
             "POST /%s HTTP/1.1\r\n"           // HTTP POST request
                 "Host: %s\r\n"                // provide host name for virtual host setups
@@ -262,17 +257,17 @@ static bool sWifiConnectBackend(WIFI_DATA_t *pData)
                 "Content-Length: %d\r\n"      // length of query parameters
                 "\r\n"                        // end of request headers
                 "%s",                         // query parameters (FIXME: urlencode!)
-            pData->path,
-            pData->host,
-            pData->auth != NULL ? pData->auth : "",
-            strlen(pData->query),
-            pData->query);
-        DEBUG("wifi: request POST /%s: %s", pData->path, pData->query);
-        const err_t err = netconn_write(pData->conn, req, strlen(req), NETCONN_COPY);
+            sWifiData.path,
+            sWifiData.host,
+            sWifiData.auth != NULL ? sWifiData.auth : "",
+            strlen(sWifiData.query),
+            sWifiData.query);
+        DEBUG("wifi: request POST /%s: %s", sWifiData.path, sWifiData.query);
+        const err_t err = netconn_write(sWifiData.conn, req, strlen(req), NETCONN_COPY);
         if (err != ERR_OK)
         {
-            ERROR("wifi: POST /%s failed: %s", pData->path, lwipErrStr(err));
-            netconn_delete(pData->conn);
+            ERROR("wifi: POST /%s failed: %s", sWifiData.path, lwipErrStr(err));
+            netconn_delete(sWifiData.conn);
             return false;
         }
     }
@@ -282,7 +277,7 @@ static bool sWifiConnectBackend(WIFI_DATA_t *pData)
     struct netbuf *buf = NULL;
     while (true)
     {
-        const err_t errRecv = netconn_recv(pData->conn, &buf);
+        const err_t errRecv = netconn_recv(sWifiData.conn, &buf);
         if (errRecv != ERR_OK)
         {
             ERROR("wifi: read failed: %s", lwipErrStr(errRecv));
@@ -300,7 +295,6 @@ static bool sWifiConnectBackend(WIFI_DATA_t *pData)
         }
         char *pParse = (char *)data;
         //DEBUG("wifi: recv [%u] %s", len, pParse);
-        pData->bytesReceived += len;
 
         // first line: "HTTP/1.1 200 OK\r\n"
         char *firstLineStart = pParse;
@@ -329,28 +323,7 @@ static bool sWifiConnectBackend(WIFI_DATA_t *pData)
             break;
         }
 
-        // look for "hello"
-        char *pHello = strstr(pBody, "\r\nhello ");
-        if (pHello == NULL)
-        {
-            ERROR("wifi: no hello from backend");
-            break;
-        }
-        pHello += 2;
-        char *endOfHello = strstr(pHello, "\r\n");
-        if (endOfHello)
-        {
-            *endOfHello = '\0';
-        }
-        DEBUG("wifi: %s", pHello);
-        pData->lastHello = osTime();
-
-        // handle remaining data
-        pParse = endOfHello + 2;
-        sWifiProcessBackendResp(pData, pParse);
-
-        // we should be fine...
-        backendReady = true;
+        backendReady = backendConnect(pBody, (int)len - (pBody - (char *)data));
         break;
     }
     if (buf != NULL)
@@ -361,26 +334,28 @@ static bool sWifiConnectBackend(WIFI_DATA_t *pData)
 
     if (backendReady)
     {
-        netconn_shutdown(pData->conn, false, true); // no more tx
+        netconn_shutdown(sWifiData.conn, false, true); // no more tx
         return true;
     }
     else
     {
         ERROR("wifi: no or illegal response from backend");
-        netconn_close(pData->conn);
-        netconn_delete(pData->conn);
+        netconn_close(sWifiData.conn);
+        netconn_delete(sWifiData.conn);
         return false;
     }
 }
 
 // handle backend connection (wait for more data)
-static bool sWifiHandleConnection(WIFI_DATA_t *pData)
+static bool sWifiHandleConnection(void)
 {
     bool okay = true;
     while (okay)
     {
         struct netbuf *buf = NULL;
-        const err_t errRecv = netconn_recv(pData->conn, &buf);
+        const err_t errRecv = netconn_recv(sWifiData.conn, &buf);
+        // FIXME: timeout, check heartbeat!
+
         if (errRecv != ERR_OK)
         {
             ERROR("wifi: read failed: %s", lwipErrStr(errRecv));
@@ -400,19 +375,10 @@ static bool sWifiHandleConnection(WIFI_DATA_t *pData)
         else
         {
             //DEBUG("wifi: recv [%u] %s", len, (const char *)resp);
-            pData->bytesReceived += len;
-
-            sWifiProcessBackendResp(pData, (char *)resp);
+            okay = backendHandle((char *)resp, (int)len);
         }
         netbuf_free(buf);
         netbuf_delete(buf);
-
-        // check heartbeat
-        if ( (osTime() - pData->lastHeartbeat) > 30000 )
-        {
-            ERROR("wifi: lost heartbeat");
-            okay = false;
-        }
 
         if (okay)
         {
@@ -420,286 +386,12 @@ static bool sWifiHandleConnection(WIFI_DATA_t *pData)
         }
     }
 
-    pData->lastHeartbeat = 0;
-    pData->lastHello = 0;
-    pData->bytesReceived = 0;
+    backendDisconnect();
     return okay;
 }
 
-// process response from backend
-static void sWifiProcessBackendResp(WIFI_DATA_t *pData, char *resp)
-{
-    //DEBUG("sWifiProcessBackendResp() %s", resp);
 
-    char *pStatus    = strstr(resp, "\r\nstatus ");
-    char *pHeartbeat = strstr(resp, "\r\nheartbeat ");
-
-    // "\r\nheartbeat 1491146601 25\r\n"
-    if (pHeartbeat != NULL)
-    {
-        pHeartbeat += 2;
-        char *endOfHeartbeat = strstr(pHeartbeat, "\r\n");
-        if (endOfHeartbeat != NULL)
-        {
-            *endOfHeartbeat = '\0';
-        }
-        DEBUG("wifi: heartbeat (%s)", pHeartbeat);
-        pData->lastHeartbeat = osTime();
-        osSetPosixTime((uint32_t)atoi(&pHeartbeat[10]));
-    }
-    // "\r\nstatus 1491146576 json={"leds": ... }\r\n"
-    else if (pStatus != NULL)
-    {
-        pStatus += 2;
-        char *endOfStatus = strstr(pStatus, "\r\n");
-        if (endOfStatus != NULL)
-        {
-            *endOfStatus = '\0';
-        }
-        char *pJson = strstr(&pStatus[7], " ");
-        if (pJson != NULL)
-        {
-            *pJson = '\0';
-            pJson += 1;
-            pData->lastHeartbeat = osTime();
-            osSetPosixTime((uint32_t)atoi(&pStatus[7]));
-            const int jsonLen = strlen(pJson);
-            DEBUG("wifi: status [%d] %s", jsonLen, pJson);
-            sWifiProcessStatusResponse(pJson, jsonLen);
-        }
-        else
-        {
-            WARNING("wifi: ignoring fishy status");
-        }
-    }
-}
-
-#define JSON_STREQ(json, pkTok, str) (    \
-        ((pkTok)->type == JSMN_STRING) && \
-        (strlen(str) == ( (pkTok)->end - (pkTok)->start ) ) && \
-        (strncmp(&json[(pkTok)->start], str, (pkTok)->end - (pkTok)->start) == 0) )
-
-#define JSON_ANYEQ(json, pkTok, str) (    \
-        ( ((pkTok)->type == JSMN_STRING) || ((pkTok)->type == JSMN_PRIMITIVE) ) && \
-        (strlen(str) == ( (pkTok)->end - (pkTok)->start ) ) && \
-        (strncmp(&json[(pkTok)->start], str, (pkTok)->end - (pkTok)->start) == 0) )
-
-static void sWifiProcessStatusResponse(char *resp, const int respLen)
-{
-    // memory for JSON parser
-    const int maxTokens = (6 * JENKINS_MAX_CH) + 20;
-    const int tokensSize = maxTokens * sizeof(jsmntok_t);
-    jsmntok_t *pTokens = malloc(tokensSize);
-    if (pTokens == NULL)
-    {
-        ERROR("wifi: json malloc fail");
-        return;
-    }
-    memset(pTokens, 0, tokensSize);
-
-    // parse JSON response
-    jsmn_parser parser;
-    jsmn_init(&parser);
-    const int numTokens = jsmn_parse(&parser, resp, respLen, pTokens, maxTokens);
-    bool okay = true;
-    if (numTokens < 1)
-    {
-        switch (numTokens)
-        {
-            case JSMN_ERROR_NOMEM: WARNING("json: no mem");                    break;
-            case JSMN_ERROR_INVAL: WARNING("json: invalid");                   break;
-            case JSMN_ERROR_PART:  WARNING("json: partial");                   break;
-            default:               WARNING("json: too short (%d)", numTokens); break;
-        }
-        okay = false;
-    }
-    DEBUG("sAppWgetResponse() %d/%d tokens, alloc %d",
-        numTokens, maxTokens, tokensSize);
-
-#if 0
-    // debug json tokens
-    for (int ix = 0; ix < numTokens; ix++)
-    {
-        static const char * const skTypeStrs[] = { "undef", "obj", "arr", "str", "prim" };
-        const jsmntok_t *pkTok = &pTokens[ix];
-        char buf[200];
-        int sz = pkTok->end - pkTok->start;
-        if ( (sz > 0) && (sz < (int)sizeof(buf)))
-        {
-            memcpy(buf, &resp[pkTok->start], sz);
-            buf[sz] = '\0';
-        }
-        else
-        {
-            buf[0] = '\0';
-        }
-        char str[10];
-        strcpy(str, pkTok->type < NUMOF(skTypeStrs) ? skTypeStrs[pkTok->type] : "???");
-        DEBUG("json %02u: %d %-5s %03d..%03d %d <%2d %s",
-            ix, pkTok->type, str,
-            pkTok->start, pkTok->end, pkTok->size, pkTok->parent, buf);
-    }
-#endif
-
-    // process JSON data
-    while (okay)
-    {
-        if (pTokens[0].type != JSMN_OBJECT)
-        {
-            WARNING("wifi: json not obj");
-            okay = false;
-            break;
-        }
-
-        // look for response result
-        for (int ix = 0; ix < numTokens; ix++)
-        {
-            const jsmntok_t *pkTok = &pTokens[ix];
-            // top-level "res" key
-            if ( (pkTok->parent == 0) && JSON_STREQ(resp, pkTok, "res") )
-            {
-                // so the next token must point back to this (key : value pair)
-                if (pTokens[ix + 1].parent == ix)
-                {
-                    // and we want the result 1 (or "1")
-                    if (!JSON_ANYEQ(resp, &pTokens[ix+1], "1"))
-                    {
-                        resp[ pTokens[ix+1].end ] = '\0';
-                        WARNING("wifi: json res=%s", &resp[ pTokens[ix+1].start ]);
-                        okay = false;
-                    }
-                    break;
-                }
-            }
-        }
-        if (!okay)
-        {
-            break;
-        }
-
-        // look for "leds" data
-        int chArrTokIx = -1;
-        for (int ix = 0; ix < numTokens; ix++)
-        {
-            const jsmntok_t *pkTok = &pTokens[ix];
-            // top-level "leds" key
-            if ( (pkTok->parent == 0) && JSON_STREQ(resp, pkTok, "leds") )
-            {
-                //DEBUG("leds at %d", ix);
-                // so the next token must be an array and point back to this token
-                if ( (pTokens[ix + 1].type == JSMN_ARRAY) &&
-                     (pTokens[ix + 1].parent == ix) )
-                {
-                    chArrTokIx = ix + 1;
-                }
-                else
-                {
-                    WARNING("wifi: json no leds");
-                    okay = false;
-                }
-                break;
-            }
-        }
-        if (chArrTokIx < 0)
-        {
-            okay = false;
-        }
-        if (!okay)
-        {
-            break;
-        }
-        //DEBUG("chArrTokIx=%d", chArrTokIx);
-
-        // check number of array elements
-        if (pTokens[chArrTokIx].size > JENKINS_MAX_CH)
-        {
-            WARNING("wifi: json leds %d > %d", pTokens[chArrTokIx].size, JENKINS_MAX_CH);
-            okay = false;
-            break;
-        }
-
-        // parse array
-        for (int ledIx = 0; (ledIx < JENKINS_MAX_CH) && (ledIx <pTokens[chArrTokIx].size) ; ledIx++)
-        {
-            const int numFields = 5;
-            // expected start of fife element array with state and result
-            // ["CI_foo_master","devpos-thl","idle","success",9199]
-            const int arrIx = chArrTokIx + 1 + (ledIx * (numFields + 1));
-            //DEBUG("ledIx=%d arrIx=%d", ledIx, arrIx);
-            if ( (pTokens[arrIx].type != JSMN_ARRAY) || (pTokens[arrIx].size != numFields) )
-            {
-                WARNING("wifi: json leds format (arrIx=%d, type=%d, size=%d)",
-                    arrIx, pTokens[arrIx].type, pTokens[arrIx].size);
-                okay = false;
-                break;
-            }
-            const int nameIx   = arrIx + 1;
-            const int serverIx = arrIx + 2;
-            const int stateIx  = arrIx + 3;
-            const int resultIx = arrIx + 4;
-            const int timeIx   = arrIx + 5;
-            if ( (pTokens[nameIx].type   != JSMN_STRING) ||
-                 (pTokens[serverIx].type != JSMN_STRING) ||
-                 (pTokens[stateIx].type  != JSMN_STRING) ||
-                 (pTokens[resultIx].type != JSMN_STRING) ||
-                 (pTokens[timeIx].type   != JSMN_PRIMITIVE) )
-            {
-                WARNING("wifi: json leds format (%d, %d, %d, %d, %d)",
-                    pTokens[nameIx].type, pTokens[serverIx].type,
-                    pTokens[stateIx].type, pTokens[resultIx].type, pTokens[timeIx].type);
-                okay = false;
-                break;
-            }
-
-            // get data
-            resp[ pTokens[nameIx].end ] = '\0';
-            const char *nameStr    = &resp[ pTokens[nameIx].start ];
-
-            resp[ pTokens[serverIx].end ] = '\0';
-            const char *serverStr  = &resp[ pTokens[serverIx].start ];
-
-            resp[ pTokens[stateIx].end ] = '\0';
-            const char *stateStr  = &resp[ pTokens[stateIx].start ];
-
-            resp[ pTokens[resultIx].end ] = '\0';
-            const char *resultStr   = &resp[ pTokens[resultIx].start ];
-
-            resp[ pTokens[timeIx].end ] = '\0';
-            const char *timeStr     = &resp[ pTokens[timeIx].start ];
-
-            DEBUG("sAppWgetResponse() arrIx=%02d ledIx=%02d name=%s server=%s state=%s result=%s time=%s",
-                arrIx, ledIx, nameStr, serverStr, stateStr, resultStr, timeStr);
-
-            // create message to Jenkins task
-            JENKINS_INFO_t jInfo;
-            memset(&jInfo, 0, sizeof(jInfo));
-            jInfo.state  = jenkinsStrToState(stateStr);
-            jInfo.result = jenkinsStrToResult(resultStr);
-            strncpy(jInfo.job, nameStr, sizeof(jInfo.job));
-            strncpy(jInfo.server, serverStr, sizeof(jInfo.server));
-            jInfo.time = (uint32_t)atoi(timeStr);
-            jenkinsAddInfo(&jInfo);
-        }
-
-        break;
-    }
-
-    // are we happy?
-    if (okay)
-    {
-        DEBUG("wifi: json parse okay");
-    }
-    else
-    {
-        ERROR("wifi: json parse fail");
-    }
-
-    // cleanup
-    free(pTokens);
-}
-
-/* ********************************************************************************************** */
-
+// -------------------------------------------------------------------------------------------------
 
 static bool sWifiIsOnline(void)
 {
@@ -709,13 +401,8 @@ static bool sWifiIsOnline(void)
     return (status == STATION_GOT_IP) && (ipinfo.ip.addr != 0) ? true : false;
 }
 
-
 static void sWifiTask(void *pArg)
 {
-
-    static WIFI_STATE_t sWifiState = WIFI_STATE_UNKNOWN;
-    static WIFI_DATA_t sWifiData;
-    sWifiMonStatusSet(&sWifiState, &sWifiData);
     WIFI_STATE_t oldState = WIFI_STATE_UNKNOWN;
     while (true)
     {
@@ -734,7 +421,7 @@ static void sWifiTask(void *pArg)
                 statusMakeNoise(STATUS_NOISE_OTHER);
                 statusSetLed(STATUS_LED_OFFLINE);
                 osSleep(100);
-                if (!sWifiInit(&sWifiData))
+                if (!sWifiInit())
                 {
                     sWifiState = WIFI_STATE_FAIL;
                 }
@@ -751,7 +438,7 @@ static void sWifiTask(void *pArg)
                 PRINT("wifi: state offline, connecting station...");
                 statusMakeNoise(STATUS_NOISE_ABORT);
                 statusSetLed(STATUS_LED_UPDATE);
-                if (sWifiConnect(&sWifiData))
+                if (sWifiConnect())
                 {
                     sWifiState = WIFI_STATE_ONLINE;
                 }
@@ -767,7 +454,7 @@ static void sWifiTask(void *pArg)
             case WIFI_STATE_ONLINE:
             {
                 PRINT("wifi: state online, connecting backend...");
-                if (sWifiConnectBackend(&sWifiData))
+                if (sWifiConnectBackend())
                 {
                     sWifiState = WIFI_STATE_CONNECTED;
                 }
@@ -783,7 +470,7 @@ static void sWifiTask(void *pArg)
                 PRINT("wifi: state connected");
                 statusMakeNoise(STATUS_NOISE_ONLINE);
                 statusSetLed(STATUS_LED_HEARTBEAT);
-                if (sWifiHandleConnection(&sWifiData))
+                if (sWifiHandleConnection())
                 {
                     sWifiState = sWifiIsOnline() ? WIFI_STATE_ONLINE : WIFI_STATE_UNKNOWN;
                 }
@@ -814,7 +501,6 @@ static void sWifiTask(void *pArg)
         osSleep(100);
     }
 }
-
 
 
 /* ********************************************************************************************** */
@@ -884,36 +570,21 @@ static void sWifiTask(void *pArg)
 
 /* ********************************************************************************************** */
 
-static const WIFI_STATE_t *spkState;
-static const WIFI_DATA_t *spkData;
-
-static void sWifiMonStatusSet(const WIFI_STATE_t *pkState, const WIFI_DATA_t *pkData)
-{
-    spkState = pkState;
-    spkData = pkData;
-}
-
 void wifiMonStatus(void)
 {
-    if ( (spkState != NULL) && (spkData != NULL) )
-    {
-        const uint32_t now = osTime();
-        DEBUG("mon: wifi: state=%s  count=%u uptime=%u heartbeat=%u bytes=%u",
-            sWifiStateStr(*spkState), spkData->connCount,
-            spkData->lastHello ? now - spkData->lastHello : 0,
-            spkData->lastHeartbeat ? now - spkData->lastHeartbeat : 0, spkData->bytesReceived);
-    }
-
     const char *mode   = sdkWifiOpmodeStr( sdk_wifi_get_opmode() );
     const char *status = sdkStationConnectStatusStr( sdk_wifi_station_get_connect_status() );
     const char *dhcp   = sdkDhcpStatusStr( sdk_wifi_station_dhcpc_status() );
     const char *phy    = sdkWifiPhyModeStr( sdk_wifi_get_phy_mode() );
     const char *sleep  = sdkWifiSleepTypeStr( sdk_wifi_get_sleep_type() );
     const uint8_t ch   = sdk_wifi_get_channel();
-    uint8_t mac[6];
-    sdk_wifi_get_macaddr(STATION_IF, mac);
-    DEBUG("mon: wifi: mode=%s status=%s dhcp=%s phy=%s sleep=%s ch=%u mac="MACSTR,
-        mode, status, dhcp, phy, sleep, ch, MAC2STR(mac));
+    DEBUG("mon: wifi: state=%s mode=%s status=%s dhcp=%s phy=%s sleep=%s ch=%u",
+#if (HAVE_CONFIG > 0)
+        sWifiStateStr(sWifiState),
+#else
+        "n/a",
+#endif
+        mode, status, dhcp, phy, sleep, ch);
 
     struct ip_info ipinfo;
     sdk_wifi_get_ip_info(STATION_IF, &ipinfo);
@@ -923,8 +594,10 @@ void wifiMonStatus(void)
 #else
     const char *name   = "???";
 #endif
-    DEBUG("mon: wifi: name=%s ip="IPSTR" mask="IPSTR" gw="IPSTR,
-        name, IP2STR(&ipinfo.ip), IP2STR(&ipinfo.netmask), IP2STR(&ipinfo.gw));
+    uint8_t mac[6];
+    sdk_wifi_get_macaddr(STATION_IF, mac);
+    DEBUG("mon: wifi: name=%s ip="IPSTR" mask="IPSTR" gw="IPSTR" mac="MACSTR,
+        name, IP2STR(&ipinfo.ip), IP2STR(&ipinfo.netmask), IP2STR(&ipinfo.gw), MAC2STR(mac));
 }
 
 

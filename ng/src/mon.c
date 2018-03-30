@@ -12,6 +12,7 @@
 #include "debug.h"
 #include "stuff.h"
 #include "wifi.h"
+#include "backend.h"
 #include "mon.h"
 
 
@@ -140,6 +141,7 @@ static void sMonTask(void *pArg)
             (double)isrTime * 100.0 / (double)isrTotalRuntime, sdk_system_get_cpu_freq());
         debugMonStatus();
         wifiMonStatus();
+        backendMonStatus();
 
         // print tasks info
         for (int ix = 0; ix < nTasks; ix++)
@@ -186,7 +188,7 @@ void monInit(void)
 {
     DEBUG("monInit()");
 
-    xTaskCreate(sMonTask, "ff_mon", 320, NULL, 9, NULL);
+    xTaskCreate(sMonTask, "ff_mon", 384, NULL, 9, NULL);
 }
 
 // eof

@@ -17,6 +17,7 @@
 #include "wifi.h"
 #include "tone.h"
 #include "status.h"
+#include "backend.h"
 #include "version_gen.h"
 
 //void vApplicationIdleHook(void)
@@ -93,6 +94,7 @@ void user_init(void)
     monInit();
     toneInit();
     statusInit();
+    backendInit();
 
     // trigger core dump
     //*((volatile uint32_t *)0) = 0; // null pointer deref, instant crash
