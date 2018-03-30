@@ -9,6 +9,7 @@
 #include "stdinc.h"
 
 #include <stdout_redirect.h>
+#include <user_exception.h>
 #include <esp/uart.h>
 #include <esp/interrupts.h>
 
@@ -152,6 +153,25 @@ void debugMonStatus(void)
 }
 
 
+// turn off buffered output, for exceptions
+// https://github.com/SuperHouse/esp-open-rtos/wiki/Crash-Dumps
+// to test: *((volatile uint32_t *)0) = 0;
+static void sDebugResetStdout(void)
+{
+    // dump what's in the buffer
+    while (svDebugBufSize > 0)
+    {
+        const char c = svDebugBuf[svDebugBufTail];
+        svDebugBufTail += 1;
+        svDebugBufTail %= sizeof(svDebugBuf);
+        svDebugBufSize--;
+        uart_putc(0, c);
+    }
+
+    // revert back to blocking direct-to-UART stdout
+    set_write_stdout(NULL);
+}
+
 void debugInit(void)
 {
     // 115200 8N1
@@ -183,6 +203,9 @@ void debugInit(void)
 
     // unmask (enable) UART interrupts
     _xt_isr_unmask(BIT(INUM_UART));
+
+
+    set_user_exception_handler(sDebugResetStdout);
 
 #else
 
