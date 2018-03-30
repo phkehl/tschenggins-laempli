@@ -4,7 +4,7 @@
 
 =encoding utf8
 
-=head1 tschenggins-status-ng.pl -- Tschenggins Lämpli NG Backend
+=head1 tschenggins-status-ng.pl -- Tschenggins Lämpli Backend
 
 Copyright (c) 2017-2018 Philippe Kehl <flipflip at oinkzwurgl dot org>,
 L<https://oinkzwurgl.org/projaeggd/tschenggins-laempli>
@@ -40,10 +40,9 @@ my $DATADIR       = $FindBin::Bin;
 
 my $VALIDRESULT   = { unknown => 1, success => 2, unstable => 3, failure => 4 };
 my $VALIDSTATE    = { unknown => 1, running => 2, idle => 3 };
-my $UNKSTATE      = { name => 'unknown', server => 'unknown', result => 'unknown', state => 'unknown', ts => time() };
+my $UNKSTATE      = { name => 'unknown', server => 'unknown', result => 'unknown', state => 'unknown', ts => int(time()) };
 my $JOBNAMERE     = qr{^[-_a-zA-Z0-9]{5,50}$};
 my $JOBIDRE       = qr{^[0-9a-z]{8,8}$};
-my $DEFAULTCMD    = 'gui';
 my $DBFILE        = $ENV{'REMOTE_USER'} ? "$DATADIR/tschenggins-status-ng-$ENV{'REMOTE_USER'}.json" : "$DATADIR/tschenggins-status-ng.json";
 
 #DEBUG("DATADIR=%s, VALIDRESULT=%s, VALIDSTATE=%s", $DATADIR, $VALIDRESULT, $VALIDSTATE);
@@ -64,13 +63,15 @@ do
 
 =item * C<debug> -- debugging on (1) or off (0, default)
 
+=item * C<gui> -- which GUI to display ('jobs', 'clients')
+
 =item * C<job> -- job ID
 
 =item * C<result> -- job result ('unknown', 'success', 'unstable', 'failure')
 
 =item * C<state> -- job state ('unknown', 'running', 'idle')
 
-=item * C<redirct> -- C<cmd> to redirect to
+=item * C<redirct> -- where to redirect to
 
 =item * C<ascii> -- US-ASCII output (1) or UTF-8 (0, default)
 
@@ -92,8 +93,6 @@ do
 
 =item * C<version> -- client software version
 
-=item * C<led> -- (multiple) job ID for the LEDs
-
 =item * C<chunked> -- use "Transfer-Encoding: chunked" with given chunk size
         (default 0, i.e. not chunked), only for JSON output (e.g. cmd=list)
 
@@ -102,8 +101,9 @@ do
 =cut
 
     # query string, application/x-www-form-urlencoded or multipart/form-data
-    my $cmd      = $q->param('cmd')      || $DEFAULTCMD;
+    my $cmd      = $q->param('cmd')      || '';
     my $debug    = $q->param('debug')    || 0;
+    my $gui      = $q->param('gui')      || ''; # 'jobs', 'clients'
     my $job      = $q->param('job')      || '';
     my $result   = $q->param('result')   || ''; # 'unknown', 'success', 'unstable', 'failure'
     my $state    = $q->param('state')    || ''; # 'unknown', 'running', 'idle'
@@ -120,6 +120,13 @@ do
     my $version  = $q->param('version')  || '';
     my $chunked  = $q->param('chunked')  || 0;
     my @states   = (); # $q->multi_param('states');
+
+    # default: gui
+    if (!$cmd)
+    {
+        $cmd = 'gui';
+        #$gui = 'jobs';
+    }
 
     # text/json
     my $contentType = $q->content_type();
@@ -198,9 +205,22 @@ do
     }
     $db->{_jobIds} = \@jobIds;
     my @clientIds = ();
-    foreach my $clientId (sort keys %{$db->{clients}})
+    my %clientIdSeen = ();
+    foreach my $clientId (sort keys %{$db->{clients}}, sort keys %{$db->{config}})
     {
-        push(@clientIds, $clientId);
+        if (!$clientIdSeen{$clientId})
+        {
+            push(@clientIds, $clientId);
+        }
+        $clientIdSeen{$clientId} = 1;
+        if (!$db->{clients}->{$clientId})
+        {
+            $db->{clients}->{$clientId} = {};
+        }
+        if (!$db->{config}->{$clientId})
+        {
+            $db->{config}->{$clientId} = { jobs => [] };
+        }
     }
     $db->{_clientIds} = \@clientIds;
     #DEBUG("db=%s", Dumper($db));
@@ -282,7 +302,7 @@ The GUI.
     # GUI
     elsif ($cmd eq 'gui')
     {
-        push(@html, _gui($db));
+        push(@html, _gui($db, $gui, $client));
     }
 
 =pod
@@ -407,7 +427,7 @@ Remove client info.
 
 =pod
 
-=head3 C<< cmd=leds client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> strlen=<number> >>
+=head3 C<< cmd=jobs client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> strlen=<number> >>
 
 Returns info for a client.
 
@@ -418,15 +438,15 @@ Returns info for a client. Endless connection with real-time update as things ha
 =cut
 
     # LEDs results for client
-    elsif ($cmd eq 'leds')
+    elsif ($cmd eq 'jobs')
     {
-        ($data, $error) = _leds($db, $client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version });
+        ($data, $error) = _jobs($db, $client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version });
     }
     # special mode: realtime status change notification
     elsif ($cmd eq 'realtime')
     {
-        # first like cmd=leds to update the client info and then below dispatch to real-time monitoring
-        ($data, $error) = _leds($db, $client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version });
+        # dummy call like cmd=leds to check the parameters and update the client info in the DB
+        ($data, $error) = _jobs($db, $client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version });
 
         # save pid so that previous instances can terminate in case they're still running
         # and haven't noticed yet that the Lämpli is gone (Apache waiting "forever" for TCP timeout)
@@ -435,6 +455,8 @@ Returns info for a client. Endless connection with real-time update as things ha
             $db->{clients}->{$client}->{pid} = $$;
             $db->{_dirtiness}++;
         }
+
+        # continues in call to _realtime() below...
     }
 
     # illegal command
@@ -475,9 +497,7 @@ Returns info for a client. Endless connection with real-time update as things ha
     if (!$error && $redirect )
     {
         $q->delete_all();
-        $q->param('cmd', $redirect) unless ($redirect eq $DEFAULTCMD);
-        $q->param('debug', $debug) if ($debug);
-        print($q->redirect());
+        print($q->redirect($q->url() . "?$redirect" . ($debug ? ';debug=1' : '')));
         exit(0);
     }
 
@@ -722,25 +742,25 @@ sub _get
 }
 
 
-sub _leds
+sub _jobs
 {
     my ($db, $client, $strlen, $info) = @_;
 
-    DEBUG("_leds() $client $strlen");
+    DEBUG("_jobs() $client $strlen");
 
     if ( !$client )
     {
         return undef, 'missing parameters';
     }
-    my $data = { leds => [], res => 1 };
+    my $data = { jobs => [], res => 1 };
     my $now = time();
 
-    if (!$db->{clients}->{$client}->{leds})
+    if (!$db->{config}->{$client}->{jobs})
     {
-        $db->{clients}->{$client}->{leds} = [];
+        $db->{config}->{$client}->{jobs} = [];
     }
 
-    foreach my $jobId (@{$db->{clients}->{$client}->{leds}})
+    foreach my $jobId (@{$db->{config}->{$client}->{jobs}})
     {
         my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
         my $state  = $st->{state};
@@ -748,8 +768,8 @@ sub _leds
         my $name   = $st->{name};
         my $server = $st->{server};
         my $ts     = $st->{ts};
-        push(@{$data->{leds}},
-             [ substr($name, 0, $strlen), substr($server, 0, $strlen), $state, $result, $ts ]);
+        push(@{$data->{jobs}},
+             [ substr($name, 0, $strlen), substr($server, 0, $strlen), $state, $result, int($ts) ]);
     }
 
     $db->{clients}->{$client}->{ts} = int($now + 0.5);
@@ -763,18 +783,48 @@ sub _leds
 
 sub _gui
 {
-    my ($db) = @_;
+    my ($db, $gui, $client) = @_;
 
-    DEBUG("_gui()");
+    DEBUG("_gui() $gui $client");
+    my @html = ();
+
+    push(@html,
+         $q->p({}, 'Menu: ',
+               $q->a({ -href => ($q->url() . '?cmd=gui;gui=jobs') }, 'jobs'),
+               ', ',
+               $q->a({ -href => ($q->url() . '?cmd=gui;gui=clients') }, 'clients'),
+               ', ',
+               $q->a({ -href => ($q->url() . '?cmd=help') }, 'help'),
+               ', ',
+               $q->a({ -href => ($q->url() . '?cmd=rawdb;debug=1') }, 'raw db'),
+              )
+         #$q->hr(),
+        );
+
+    if ($gui eq 'jobs')
+    {
+        push(@html, _gui_jobs($db));
+    }
+    elsif ($gui eq 'clients')
+    {
+        push(@html, _gui_clients($db));
+    }
+    elsif ($client)
+    {
+        push(@html, _gui_client($db, $client));
+    }
+
+    return @html;
+}
+
+sub _gui_jobs
+{
+    my ($db) = @_;
     my @html = ();
     my $debug = $q->param('debug') || 0;
 
-    ##### Jobs #####
-
-    push(@html, $q->h2('Jobs'));
-
     # results
-    push(@html, $q->h3('Results'), _gui_results($db, @{$db->{_jobIds}}));
+    push(@html, $q->h2('Results'), __gui_results($db, @{$db->{_jobIds}}));
 
     # helpers
     my $jobSelectArgs =
@@ -801,7 +851,7 @@ sub _gui
     };
 
     # override
-    push(@html, $q->h3('Override'));
+    push(@html, $q->h2('Override'));
     push(@html, $q->start_form(-method => 'GET', -action => $q->url() ));
     push(@html,
          $q->table(
@@ -823,11 +873,11 @@ sub _gui
         );
     push(@html, $q->hidden(-name => 'debug', -default => $debug )) if ($debug);
     push(@html, $q->hidden(-name => 'cmd', -default => 'set'));
-    push(@html, $q->hidden(-name => 'redirect', -default => 'gui'));
+    push(@html, $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'));
     push(@html, $q->end_form());
 
     # create
-    push(@html, $q->h3('Create'));
+    push(@html, $q->h2('Create'));
     push(@html, $q->start_form(-method => 'GET', -action => $q->url() ));
     push(@html,
          $q->table(
@@ -865,11 +915,11 @@ sub _gui
         );
     push(@html, $q->hidden(-name => 'debug', -default => $debug )) if ($debug);
     push(@html, $q->hidden(-name => 'cmd', -default => 'add'));
-    push(@html, $q->hidden(-name => 'redirect', -default => 'gui'));
+    push(@html, $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'));
     push(@html, $q->end_form());
 
     # delete
-    push(@html, $q->h3('Delete'));
+    push(@html, $q->h2('Delete'));
     push(@html, $q->start_form(-method => 'GET', -action => $q->url() ));
     push(@html,
          $q->table(
@@ -883,45 +933,71 @@ sub _gui
         );
     push(@html, $q->hidden(-name => 'debug', -default => $debug )) if ($debug);
     push(@html, $q->hidden(-name => 'cmd', -default => 'del'));
-    push(@html, $q->hidden(-name => 'redirect', -default => 'gui'));
+    push(@html, $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'));
     push(@html, $q->end_form());
-
-
-    ##### Clients #####
-
-    push(@html, $q->h2('Clients'));
-
-    do
-    {
-        foreach my $clientId (sort { $db->{clients}->{$a}->{name} cmp $db->{clients}->{$b}->{name} } @{$db->{_clientIds}})
-        {
-            my $cl = $db->{clients}->{$clientId};
-            push(@html,
-                 $q->h3($cl->{name} . ' (' . $clientId . ')'),
-                 $q->table(
-                           $q->Tr(
-                                  $q->th('Last connect:'), $q->td(sprintf('%.1f hours ago', (time() - $cl->{ts}) / 3600.0)),
-                                  $q->th('Station IP:'), $q->td($cl->{staip}),
-                                  $q->th('Station SSID:'), $q->td($cl->{stassid}),
-                                  $q->th('Version:'), $q->td($cl->{version})
-                                 ),
-                          ),
-                 $q->br(),
-                 _gui_results($db, @{$cl->{leds}}),
-                 $q->a({ -href => $q->url() . '?cmd=rmclient;client=' . $clientId . ';redirect=gui' }, 'delete info'),
-                );
-        }
-    };
-
-
-    push(@html, $q->br(), $q->br(),
-         $q->a({ -href => ($q->url() . '?cmd=help') }, 'help'), ', ',
-         $q->a({ -href => ($q->url() . '?cmd=rawdb;debug=1') }, 'raw db'));
 
     return @html;
 }
 
-sub _gui_results
+sub _gui_clients
+{
+    my ($db) = @_;
+    my @html = ();
+
+    my @trs = ();
+    foreach my $clientId (sort  @{$db->{_clientIds}})
+    {
+        my $client = $db->{clients}->{$clientId};
+        my $config = $db->{config}->{$clientId};
+        my $name     = $client->{name} || 'unknown';
+        my $last     = $client->{ts} ? sprintf('%.1f hours ago', (time() - $client->{ts}) / 3600.0) : 'unknown';
+        my $staIp    = $client->{staip} || 'unknown';
+        my $staSsid  = $client->{stassid} || 'unknown';
+        my $version  = $client->{version} || 'unknown';
+        my $debugr = ($q->param('debug') ? '%3Bdebug%3D1' : '');
+        my $debug  = ($q->param('debug') ? ';debug=1' : '');
+        my $delete = $q->a({ -href => $q->url() . '?cmd=rmclient;client=' . $clientId . ';redirect=cmd%3Dgui%3Bgui%3Dclients' . $debug }, 'delete');
+        my $config = $q->a({ -href => $q->url() . '?cmd=gui;client=' . $clientId . $debug }, 'configure');
+
+        push(@trs, $q->td({}, $clientId), $q->td({}, $name), $q->td({}, $last), $q->td({}, $staIp),
+               $q->td({}, $staSsid), $q->td({}, $version), $q->td({}, $delete, ', ', $config));
+    }
+    push(@html,
+         $q->h2({}, 'Clients'),
+         $q->table({},
+                   $q->Tr(
+                          $q->th({}, 'ID'),
+                          $q->th({}, 'name'),
+                          $q->th({}, 'connected'),
+                          $q->th({}, 'station IP'),
+                          $q->th({}, 'station SSID'),
+                          $q->th({}, 'version'),
+                          $q->th({}, 'actions'),
+                         ),
+                   @trs));
+
+    return @html;
+}
+
+sub _gui_client
+{
+    my ($db, $clientId) = @_;
+    my $client = $db->{clients}->{$clientId};
+    my $config = $db->{config}->{$clientId};
+    my @html = ();
+    my $debug = $q->param('debug') || 0;
+    if (!$client || !$config)
+    {
+        return;
+    }
+
+    push(@html, $q->h2('Client ' . $clientId));
+
+    return @html;
+}
+
+
+sub __gui_results
 {
     my ($db, @jobIds) = @_;
     my $now = time();
@@ -936,6 +1012,9 @@ sub _gui_results
                      @trs);
 }
 
+
+# to test:
+# curl --raw -s -v -i "http://..../tschenggins-status-ng.pl?cmd=realtime;client=...;debug=1"
 sub _realtime
 {
     my ($client, $strlen, $info) = @_;
@@ -957,7 +1036,7 @@ sub _realtime
         if ( ($n % 5) == 0 )
         {
             my $nowInt = int($now + 0.5);
-            printf("heartbeat $nowInt $n\r\n");
+            printf("\r\nheartbeat $nowInt $n\r\n");
         }
         $n++;
 
@@ -1017,22 +1096,22 @@ sub _realtime
                     exit(0);
                 }
 
-                # same as cmd=led to get the data but we won't store the database (this updates $db->{clients}->{$client})
-                my ($data, $error) = _leds($db, $client, $strlen, $info);
+                # same as cmd=jobs to get the data but we won't store the database (this updates $db->{clients}->{$client})
+                my ($data, $error) = _jobs($db, $client, $strlen, $info);
                 if ($error)
                 {
-                    print("error $error\r\n");
+                    print("\r\nerror $now $error\r\n");
                 }
                 elsif ($data)
                 {
-                    my $status = join(' ', map { @{$_} } @{$data->{leds}});
+                    my $status = join(' ', map { @{$_} } @{$data->{jobs}});
                     if ($status ne $lastStatus)
                     {
                         #print("debug $lastStatus\n");
                         #print("debug $status\n");
                         my $json = JSON::PP->new()->ascii(1)->canonical(1)->pretty(0)->encode($data);
                         my $now = int(time() + 0.5);
-                        print("status $now $json\r\n");
+                        print("\r\nstatus $now $json\r\n");
                         $lastStatus = $status;
                     }
                 }
