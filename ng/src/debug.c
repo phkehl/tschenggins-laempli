@@ -33,6 +33,15 @@ IRAM static ssize_t sWriteStdoutFunc(struct _reent *r, int fd, const void *ptr, 
     return len;
 }
 
+void debugLock(void)
+{
+}
+
+void debugUnlock(void)
+{
+}
+
+
 #else // (TXBUF_SIZE <= 0)
 // non-blocking, buffered
 
@@ -124,6 +133,19 @@ IRAM static void sUartISR(void *pArg) // RAM function
     monIsrLeave();
 }
 
+static SemaphoreHandle_t sDebugMutex;
+
+__INLINE void debugLock(void)
+{
+    xSemaphoreTake(sDebugMutex, portMAX_DELAY);
+}
+
+__INLINE void debugUnlock(void)
+{
+    xSemaphoreGive(sDebugMutex);
+}
+
+
 #endif // (TXBUF_SIZE <= 0)
 
 
@@ -181,6 +203,13 @@ void debugInit(void)
 
     printf("..................................................\n");
     osSleep(250);
+    sDebugMutex = xSemaphoreCreateMutex();
+    if (!sDebugMutex)
+    {
+        printf("E: debug: mutex");
+        return;
+    }
+
 
 #if (TXBUF_SIZE > 0)
 
@@ -203,7 +232,6 @@ void debugInit(void)
 
     // unmask (enable) UART interrupts
     _xt_isr_unmask(BIT(INUM_UART));
-
 
     set_user_exception_handler(sDebugResetStdout);
 

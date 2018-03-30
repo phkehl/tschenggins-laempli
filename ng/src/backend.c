@@ -341,9 +341,10 @@ void sBackendProcessStatus(char *resp, const int respLen)
                  (pTokens[resultIx].type != JSMN_STRING) ||
                  (pTokens[timeIx].type   != JSMN_PRIMITIVE) )
             {
-                WARNING("backend: json jobs format (%d, %d, %d, %d, %d)",
-                    pTokens[nameIx].type, pTokens[serverIx].type,
-                    pTokens[stateIx].type, pTokens[resultIx].type, pTokens[timeIx].type);
+                WARNING("backend: json jobs format (%d!=%d, %d!=%d, %d!=%d, %d!=%d, %d!=%d)",
+                    pTokens[nameIx].type, JSMN_STRING, pTokens[serverIx].type, JSMN_STRING,
+                    pTokens[stateIx].type, JSMN_STRING, pTokens[resultIx].type, JSMN_STRING,
+                    pTokens[timeIx].type, JSMN_PRIMITIVE);
                 okay = false;
                 break;
             }
@@ -384,10 +385,12 @@ void sBackendProcessStatus(char *resp, const int respLen)
     // are we happy?
     if (okay)
     {
+        statusMakeNoise(STATUS_NOISE_OTHER);
         DEBUG("backend: json parse okay");
     }
     else
     {
+        statusMakeNoise(STATUS_NOISE_ERROR);
         ERROR("backend: json parse fail");
     }
 

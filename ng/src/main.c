@@ -89,7 +89,7 @@ static void sMainHello(void)
 void user_init(void)
 {
     // initialise stuff
-    debugInit();
+    debugInit(); // must be first
     stuffInit();
     monInit();
     toneInit();

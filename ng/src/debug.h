@@ -23,20 +23,23 @@ void debugInit(void);
 
 void debugMonStatus(void);
 
+void debugLock(void);
+void debugUnlock(void);
+
 //! print an error message \hideinitializer
-#define ERROR(fmt, ...)   printf("E: " fmt "\n", ## __VA_ARGS__)
+#define ERROR(fmt, ...)   debugLock(); printf("E: " fmt "\n", ## __VA_ARGS__); debugUnlock()
 
 //! print a warning message \hideinitializer
-#define WARNING(fmt, ...) printf("W: " fmt "\n", ## __VA_ARGS__)
+#define WARNING(fmt, ...) debugLock(); printf("W: " fmt "\n", ## __VA_ARGS__); debugUnlock()
 
 //! print a notice \hideinitializer
-#define NOTICE(fmt, ...)  printf("N: " fmt "\n", ## __VA_ARGS__)
+#define NOTICE(fmt, ...)  debugLock(); printf("N: " fmt "\n", ## __VA_ARGS__); debugUnlock()
 
 //! print a normal message \hideinitializer
-#define PRINT(fmt, ...)   printf("P: " fmt "\n", ## __VA_ARGS__)
+#define PRINT(fmt, ...)   debugLock(); printf("P: " fmt "\n", ## __VA_ARGS__); debugUnlock()
 
 //! print a debug message \hideinitializer
-#define DEBUG(fmt, ...)   printf("D: " fmt "\n", ## __VA_ARGS__)
+#define DEBUG(fmt, ...)   debugLock(); printf("D: " fmt "\n", ## __VA_ARGS__); debugUnlock()
 
 //! hex dump data
 void HEXDUMP(const void *pkData, int size);

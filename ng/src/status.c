@@ -114,6 +114,15 @@ void statusMakeNoise(const STATUS_NOISE_t noise)
             toneMelody(skNoiseOther);
             break;
         }
+        case STATUS_NOISE_ERROR:
+        {
+            static const int16_t skNoiseError[] =
+            {
+                TONE(C4, 200), TONE(PAUSE, 50), TONE(C4, 200), TONE_END
+            };
+            toneMelody(skNoiseError);
+            break;
+        }
     }
 }
 
