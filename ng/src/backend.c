@@ -112,6 +112,21 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
 
     char *pStatus    = strstr(resp, "\r\nstatus ");
     char *pHeartbeat = strstr(resp, "\r\nheartbeat ");
+    char *pError     = strstr(resp, "\r\nerror ");
+
+    // "\r\nerror 1491146601 WTF?\r\n"
+    if (pError != NULL)
+    {
+        pError += 2;
+        char *endOfError = strstr(pError, "\r\n");
+        if (endOfError != NULL)
+        {
+            *endOfError = '\0';
+        }
+        DEBUG("backend: error (%s)", pError);
+        sLastHeartbeat = osTime();
+        osSetPosixTime((uint32_t)atoi(&pError[6]));
+    }
 
     // "\r\nheartbeat 1491146601 25\r\n"
     if (pHeartbeat != NULL)
@@ -127,7 +142,7 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
         osSetPosixTime((uint32_t)atoi(&pHeartbeat[10]));
     }
 
-    // "\r\nstatus 1491146576 json={"leds": ... }\r\n"
+    // "\r\nstatus 1491146576 json={"jobs": ... }\r\n"
     if (pStatus != NULL)
     {
         pStatus += 2;
@@ -259,15 +274,15 @@ void sBackendProcessStatus(char *resp, const int respLen)
             break;
         }
 
-        // look for "leds" data
+        // look for "jobs" data
         int chArrTokIx = -1;
         for (int ix = 0; ix < numTokens; ix++)
         {
             const jsmntok_t *pkTok = &pTokens[ix];
-            // top-level "leds" key
-            if ( (pkTok->parent == 0) && JSON_STREQ(resp, pkTok, "leds") )
+            // top-level "jobs" key
+            if ( (pkTok->parent == 0) && JSON_STREQ(resp, pkTok, "jobs") )
             {
-                //DEBUG("leds at %d", ix);
+                //DEBUG("jobs at %d", ix);
                 // so the next token must be an array and point back to this token
                 if ( (pTokens[ix + 1].type == JSMN_ARRAY) &&
                      (pTokens[ix + 1].parent == ix) )
@@ -276,7 +291,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
                 }
                 else
                 {
-                    WARNING("backend: json no leds");
+                    WARNING("backend: status json no jobs");
                     okay = false;
                 }
                 break;
@@ -295,7 +310,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
         // check number of array elements
         if (pTokens[chArrTokIx].size > JENKINS_MAX_CH)
         {
-            WARNING("backend: json leds %d > %d", pTokens[chArrTokIx].size, JENKINS_MAX_CH);
+            WARNING("backend: json jobs %d > %d", pTokens[chArrTokIx].size, JENKINS_MAX_CH);
             okay = false;
             break;
         }
@@ -310,7 +325,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
             //DEBUG("ledIx=%d arrIx=%d", ledIx, arrIx);
             if ( (pTokens[arrIx].type != JSMN_ARRAY) || (pTokens[arrIx].size != numFields) )
             {
-                WARNING("backend: json leds format (arrIx=%d, type=%d, size=%d)",
+                WARNING("backend: json jobs format (arrIx=%d, type=%d, size=%d)",
                     arrIx, pTokens[arrIx].type, pTokens[arrIx].size);
                 okay = false;
                 break;
@@ -326,7 +341,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
                  (pTokens[resultIx].type != JSMN_STRING) ||
                  (pTokens[timeIx].type   != JSMN_PRIMITIVE) )
             {
-                WARNING("backend: json leds format (%d, %d, %d, %d, %d)",
+                WARNING("backend: json jobs format (%d, %d, %d, %d, %d)",
                     pTokens[nameIx].type, pTokens[serverIx].type,
                     pTokens[stateIx].type, pTokens[resultIx].type, pTokens[timeIx].type);
                 okay = false;
