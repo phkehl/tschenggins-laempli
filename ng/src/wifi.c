@@ -347,22 +347,43 @@ static bool sWifiConnectBackend(void)
 }
 
 // handle backend connection (wait for more data)
+// return true to force immediate reconnect, false for reconnecting later
 static bool sWifiHandleConnection(void)
 {
-    bool okay = true;
-    while (okay)
+    bool res = true;
+
+    netconn_set_nonblocking(sWifiData.conn, true);
+
+    bool keepGoing = true;
+    while (keepGoing)
     {
+        // check if backend is okay
+        if (!backendIsOkay())
+        {
+            res = false;
+            keepGoing = false;
+            break;
+        }
+
+        // read more data from the connection
         struct netbuf *buf = NULL;
         const err_t errRecv = netconn_recv(sWifiData.conn, &buf);
-        // FIXME: timeout, check heartbeat!
+
+        // no more data at the moment
+        if (errRecv == ERR_WOULDBLOCK)
+        {
+            osSleep(23);
+            continue;
+        }
 
         if (errRecv != ERR_OK)
         {
             ERROR("wifi: read failed: %s", lwipErrStr(errRecv));
-            okay = false;
+            res = false;
             break;
         }
-        // check data for HTTP response
+
+        // check data
         // (note: not handling multiple netbufs -- should not be necessary)
         void *resp;
         uint16_t len;
@@ -370,24 +391,26 @@ static bool sWifiHandleConnection(void)
         if (errData != ERR_OK)
         {
             ERROR("wifi: netbuf_data() failed: %s", lwipErrStr(errData));
-            okay = false;
+            keepGoing = false;
+            res = false;
         }
         else
         {
             //DEBUG("wifi: recv [%u] %s", len, (const char *)resp);
-            okay = backendHandle((char *)resp, (int)len);
+            const BACKEND_STATUS_t status = backendHandle((char *)resp, (int)len);
+            switch (status)
+            {
+                case BACKEND_STATUS_OKAY:                                      break;
+                case BACKEND_STATUS_FAIL:      keepGoing = false; res = false; break;
+                case BACKEND_STATUS_RECONNECT: keepGoing = false; res = true;  break;
+            }
         }
         netbuf_free(buf);
         netbuf_delete(buf);
-
-        if (okay)
-        {
-            osSleep(100);
-        }
     }
 
     backendDisconnect();
-    return okay;
+    return res;
 }
 
 
@@ -467,7 +490,7 @@ static void sWifiTask(void *pArg)
 
             case WIFI_STATE_CONNECTED:
             {
-                PRINT("wifi: state connected");
+                PRINT("wifi: state connected...");
                 statusMakeNoise(STATUS_NOISE_ONLINE);
                 statusSetLed(STATUS_LED_HEARTBEAT);
                 if (sWifiHandleConnection())
@@ -607,7 +630,7 @@ void wifiInit(void)
 
     //sdk_wifi_status_led_install(2, PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2);
 
-    xTaskCreate(sWifiTask, "ff_wifi", 1024, NULL, 2, NULL);
+    xTaskCreate(sWifiTask, "ff_wifi", 768, NULL, 2, NULL);
 }
 
 /* ********************************************************************************************** */

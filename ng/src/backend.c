@@ -24,6 +24,9 @@
 #include "cfg_gen.h"
 #include "version_gen.h"
 
+#define BACKEND_HEARTBEAT_INTERVAL 5000
+#define BACKEND_HEARTBEAT_TIMEOUT (3 * BACKEND_HEARTBEAT_INTERVAL)
+
 static uint32_t sLastHello;
 static uint32_t sLastHeartbeat;
 static uint32_t sBytesReceived;
@@ -47,11 +50,13 @@ bool backendConnect(char *resp, const int len)
     }
     pHello += 2;
     char *endOfHello = strstr(pHello, "\r\n");
-    if (endOfHello)
+    if (endOfHello != NULL)
     {
         *endOfHello = '\0';
     }
-    sLastHello = osTime();
+    const uint32_t now = osTime();
+    sLastHello = now;
+    sLastHeartbeat = now;
 
     // handle remaining data
     char *pParse = endOfHello + 2;
@@ -78,18 +83,28 @@ void backendMonStatus(void)
         sLastHeartbeat ? now - sLastHeartbeat : 0, sBytesReceived);
 }
 
-//    // check heartbeat
-//    if ( (osTime() - sWifiData.lastHeartbeat) > 30000 )
-//    {
-//        ERROR("wifi: lost heartbeat");
-//        okay = false;
-//    }
+bool backendIsOkay(void)
+{
+    // check heartbeat
+    const uint32_t now = osTime();
+    if ( (now - sLastHeartbeat) > BACKEND_HEARTBEAT_TIMEOUT )
+    {
+        ERROR("backend: lost heartbeat");
+        return false;
+    }
+    else
+    {
+        //DEBUG("backend: heartbeat %u < %u", now - sLastHeartbeat, BACKEND_HEARTBEAT_TIMEOUT);
+        return true;
+    }
+}
+
 
 // forward declarations
 void sBackendProcessStatus(char *resp, const int respLen);
 
 // process response from backend
-bool backendHandle(char *resp, const int len)
+BACKEND_STATUS_t backendHandle(char *resp, const int len)
 {
     sBytesReceived += len;
 
@@ -107,7 +122,7 @@ bool backendHandle(char *resp, const int len)
         {
             *endOfHeartbeat = '\0';
         }
-        DEBUG("wifi: heartbeat (%s)", pHeartbeat);
+        DEBUG("backend: heartbeat (%s)", pHeartbeat);
         sLastHeartbeat = osTime();
         osSetPosixTime((uint32_t)atoi(&pHeartbeat[10]));
     }
@@ -129,16 +144,16 @@ bool backendHandle(char *resp, const int len)
             sLastHeartbeat = osTime();
             osSetPosixTime((uint32_t)atoi(&pStatus[7]));
             const int jsonLen = strlen(pJson);
-            DEBUG("wifi: status [%d] %s", jsonLen, pJson);
+            DEBUG("backend: status [%d] %s", jsonLen, pJson);
             sBackendProcessStatus(pJson, jsonLen);
         }
         else
         {
-            WARNING("wifi: ignoring fishy status");
+            WARNING("backend: ignoring fishy status");
         }
     }
 
-    return true;
+    return BACKEND_STATUS_OKAY;
 }
 
 #define JSON_STREQ(json, pkTok, str) (    \
@@ -159,7 +174,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
     jsmntok_t *pTokens = malloc(tokensSize);
     if (pTokens == NULL)
     {
-        ERROR("wifi: json malloc fail");
+        ERROR("backend: json malloc fail");
         return;
     }
     memset(pTokens, 0, tokensSize);
@@ -213,7 +228,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
     {
         if (pTokens[0].type != JSMN_OBJECT)
         {
-            WARNING("wifi: json not obj");
+            WARNING("backend: json not obj");
             okay = false;
             break;
         }
@@ -232,7 +247,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
                     if (!JSON_ANYEQ(resp, &pTokens[ix+1], "1"))
                     {
                         resp[ pTokens[ix+1].end ] = '\0';
-                        WARNING("wifi: json res=%s", &resp[ pTokens[ix+1].start ]);
+                        WARNING("backend: json res=%s", &resp[ pTokens[ix+1].start ]);
                         okay = false;
                     }
                     break;
@@ -261,7 +276,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
                 }
                 else
                 {
-                    WARNING("wifi: json no leds");
+                    WARNING("backend: json no leds");
                     okay = false;
                 }
                 break;
@@ -280,7 +295,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
         // check number of array elements
         if (pTokens[chArrTokIx].size > JENKINS_MAX_CH)
         {
-            WARNING("wifi: json leds %d > %d", pTokens[chArrTokIx].size, JENKINS_MAX_CH);
+            WARNING("backend: json leds %d > %d", pTokens[chArrTokIx].size, JENKINS_MAX_CH);
             okay = false;
             break;
         }
@@ -295,7 +310,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
             //DEBUG("ledIx=%d arrIx=%d", ledIx, arrIx);
             if ( (pTokens[arrIx].type != JSMN_ARRAY) || (pTokens[arrIx].size != numFields) )
             {
-                WARNING("wifi: json leds format (arrIx=%d, type=%d, size=%d)",
+                WARNING("backend: json leds format (arrIx=%d, type=%d, size=%d)",
                     arrIx, pTokens[arrIx].type, pTokens[arrIx].size);
                 okay = false;
                 break;
@@ -311,7 +326,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
                  (pTokens[resultIx].type != JSMN_STRING) ||
                  (pTokens[timeIx].type   != JSMN_PRIMITIVE) )
             {
-                WARNING("wifi: json leds format (%d, %d, %d, %d, %d)",
+                WARNING("backend: json leds format (%d, %d, %d, %d, %d)",
                     pTokens[nameIx].type, pTokens[serverIx].type,
                     pTokens[stateIx].type, pTokens[resultIx].type, pTokens[timeIx].type);
                 okay = false;
@@ -354,11 +369,11 @@ void sBackendProcessStatus(char *resp, const int respLen)
     // are we happy?
     if (okay)
     {
-        DEBUG("wifi: json parse okay");
+        DEBUG("backend: json parse okay");
     }
     else
     {
-        ERROR("wifi: json parse fail");
+        ERROR("backend: json parse fail");
     }
 
     // cleanup

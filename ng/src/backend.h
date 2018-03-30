@@ -18,9 +18,19 @@
 //! initialise
 void backendInit(void);
 
+typedef enum BACKEND_STATUS_e
+{
+    BACKEND_STATUS_OKAY,
+    BACKEND_STATUS_RECONNECT,
+    BACKEND_STATUS_FAIL,
+
+} BACKEND_STATUS_t;
 
 bool backendConnect(char *resp, const int len);
-bool backendHandle(char *resp, const int len);
+
+BACKEND_STATUS_t backendHandle(char *resp, const int len);
+
+bool backendIsOkay(void);
 void backendDisconnect(void);
 
 void backendMonStatus(void);
