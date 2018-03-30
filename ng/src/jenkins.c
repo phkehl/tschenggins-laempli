@@ -109,13 +109,13 @@ static void sJenkinsTask(void *pArg)
     while (true)
     {
         JENKINS_INFO_t jInfo;
-        if (xQueueReceive(sJenkinsInfoQueue, &jInfo, 1000))
+        if (xQueueReceive(sJenkinsInfoQueue, &jInfo, 5000))
         {
             const char *state  = jenkinsStateToStr(jInfo.state);
             const char *result = jenkinsResultToStr(jInfo.result);
             const uint32_t now = osGetPosixTime();
             const uint32_t age = now - jInfo.time;
-            PRINT("jenkins: info: %-"STRINGIFY(JENKINS_JOBNAME_LEN)"s %-"STRINGIFY(JENKINS_SERVER_LEN)"s %-7s %-8s %5.1fh",
+            PRINT("jenkins: info: %-"STRINGIFY(JENKINS_JOBNAME_LEN)"s %-"STRINGIFY(JENKINS_SERVER_LEN)"s %-7s %-8s %6.1fh",
                 jInfo.job, jInfo.server, state, result, (double)age / 3600.0);
         }
         else
