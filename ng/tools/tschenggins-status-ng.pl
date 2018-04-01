@@ -1212,7 +1212,8 @@ sub _realtime
     print($q->header(-type => 'text/plain', -expires => 'now', charset => 'US-ASCII'));
     my $n = 0;
     my $lastTs = 0;
-    my $lastStatus = 'asdfasdfasdfasdfasdf';
+    my $lastStatus = 'not a possible status string';
+    my $lastConfig = 'not a possible config string';
     my $lastCheck = 0;
     my $startTs = time();
     my $debugServer = 0;
@@ -1290,7 +1291,20 @@ sub _realtime
                 exit(0);
             }
 
-            # check if we're interested
+            # check if we're interested in any changes
+            if ($db && $db->{config} && $db->{config}->{$client})
+            {
+                my @cfgKeys = grep { $_ ne 'jobs' } sort keys %{$db->{config}->{$client}};
+                my $config = join(' ', map { "$_=$db->{config}->{$client}->{$_}" } @cfgKeys);
+                if ($config ne $lastConfig)
+                {
+                    my %data = map { $_, $db->{config}->{$client}->{$_} } @cfgKeys;
+                    my $json = JSON::PP->new()->ascii(1)->canonical(1)->pretty(0)->encode(\%data);
+                    my $now = int(time() + 0.5);
+                    print("\r\nconfig $now $json\r\n");
+                    $lastConfig = $config;
+                }
+            }
             if ($db && $db->{clients} && $db->{clients}->{$client})
             {
                 # same as cmd=jobs to get the data but we won't store the database (this updates $db->{clients}->{$client})
