@@ -13,6 +13,7 @@
 #include "stuff.h"
 #include "wifi.h"
 #include "backend.h"
+#include "config.h"
 #include "mon.h"
 
 
@@ -142,6 +143,7 @@ static void sMonTask(void *pArg)
         debugMonStatus();
         wifiMonStatus();
         backendMonStatus();
+        configMonStatus();
 
         // print tasks info
         for (int ix = 0; ix < nTasks; ix++)

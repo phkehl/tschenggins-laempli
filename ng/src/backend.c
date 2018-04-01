@@ -179,7 +179,14 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
             osSetPosixTime((uint32_t)atoi(&pConfig[7]));
             const int jsonLen = strlen(pJson);
             DEBUG("backend: config");
-            configParseJson(pJson, jsonLen);
+            if (configParseJson(pJson, jsonLen))
+            {
+                statusMakeNoise(STATUS_NOISE_OTHER);
+            }
+            else
+            {
+                statusMakeNoise(STATUS_NOISE_ERROR);
+            }
         }
         else
         {
@@ -262,7 +269,11 @@ void sBackendProcessStatus(char *resp, const int respLen)
     // debug json tokens
     for (int ix = 0; ix < numTokens; ix++)
     {
-        static const char * const skTypeStrs[] = { "undef", "obj", "arr", "str", "prim" };
+        static const char * const skTypeStrs[] =
+        {
+            [JSMN_UNDEFINED] = "undef", [JSMN_OBJECT] = "obj", [JSMN_ARRAY] = "arr",
+            [JSMN_STRING] = "str", [JSMN_PRIMITIVE] = "prim"
+        };
         const jsmntok_t *pkTok = &pTokens[ix];
         char buf[200];
         int sz = pkTok->end - pkTok->start;
@@ -276,7 +287,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
             buf[0] = '\0';
         }
         char str[10];
-        strcpy(str, pkTok->type < NUMOF(skTypeStrs) ? skTypeStrs[pkTok->type] : "???");
+        strncpy(str, pkTok->type < NUMOF(skTypeStrs) ? skTypeStrs[pkTok->type] : "???", sizeof(str));
         DEBUG("json %02u: %d %-5s %03d..%03d %d <%2d %s",
             ix, pkTok->type, str,
             pkTok->start, pkTok->end, pkTok->size, pkTok->parent, buf);
