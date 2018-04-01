@@ -13,6 +13,7 @@
 #include "debug.h"
 #include "stuff.h"
 #include "tone.h"
+#include "config.h"
 #include "status.h"
 
 #define STATUS_GPIO 2
@@ -69,9 +70,7 @@ void statusSetLed(const STATUS_LED_t status)
 
 void statusMakeNoise(const STATUS_NOISE_t noise)
 {
-    // FIXME: not if beNoisy=false
-
-    if (toneIsPlaying())
+    if (toneIsPlaying() || (configGetNoise() == CONFIG_NOISE_NONE) )
     {
         return;
     }
