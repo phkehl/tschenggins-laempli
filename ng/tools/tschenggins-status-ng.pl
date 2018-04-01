@@ -1187,7 +1187,6 @@ sub _gui_client
     return $q->div({}, @html), $q->div({ -style => 'clear: both;' });
 }
 
-
 sub __gui_results
 {
     my ($db, @jobIds) = @_;
