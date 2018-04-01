@@ -93,6 +93,8 @@ do
 
 =item * C<version> -- client software version
 
+=item * C<maxch> -- maximum number of channels the client can handle
+
 =item * C<chunked> -- use "Transfer-Encoding: chunked" with given chunk size
         (default 0, i.e. not chunked), only for JSON output (e.g. cmd=list)
 
@@ -118,8 +120,14 @@ do
     my $staip    = $q->param('staip')    || '';
     my $stassid  = $q->param('stassid')  || '';
     my $version  = $q->param('version')  || '';
+    my $maxch    = $q->param('maxch')    || '';
     my $chunked  = $q->param('chunked')  || 0;
     my @states   = (); # $q->multi_param('states');
+    my @jobs     = $q->multi_param('jobs');
+    my $model    = $q->param('model')    || '';
+    my $driver   = $q->param('driver')   || '';
+    my $order    = $q->param('order')    || '';
+    my $noise    = $q->param('noise')    || '';
 
     # default: gui
     if (!$cmd)
@@ -148,7 +156,8 @@ do
             @states = @{ $jsonObj->{states} } if ($jsonObj->{states});
         }
     }
-    $q->param('debug', $debug);
+    $q->delete_all();
+    $q->param('debug', 1) if ($debug);
     DEBUG("cmd=%s user=%s", $cmd, $ENV{'REMOTE_USER'} || 'anonymous');
     $chunked = 0 if ($chunked !~ m{^\d+$}); # positive integers only
 
@@ -225,6 +234,7 @@ do
     $db->{_clientIds} = \@clientIds;
     #DEBUG("db=%s", Dumper($db));
 
+    my $signalClient = 0;
 
     ##### handle requests #####
 
@@ -416,6 +426,7 @@ Remove client info.
         if ($client && $db->{clients}->{$client})
         {
             delete $db->{clients}->{$client};
+            delete $db->{config}->{$client};
             $db->{_dirtiness}++;
             $text = "client $client removed";
         }
@@ -425,13 +436,79 @@ Remove client info.
         }
     }
 
+=head3 C<< cmd=cfgjobs client=<clientid> jobs=<jobID> ... >>
+
+Set client jobs configuration.
+
+=cut
+
+    # set client jobs configuration
+    elsif ($cmd eq 'cfgjobs')
+    {
+        DEBUG("jobs $client @jobs");
+        if ($client && $db->{clients}->{$client} && $db->{clients}->{$client}->{maxch} && $db->{config}->{$client} && ($#jobs > -1))
+        {
+            # strip empty elements from end
+            my $ix = $#jobs;
+            while (!$jobs[$ix] && ($ix >= 0))
+            {
+                splice(@jobs, $ix, 1);
+                $ix--;
+            }
+            # remove illegal and empty IDs
+            @jobs = map { $_ && $db->{jobs}->{$_} ? $_ : '' } @jobs;
+            $db->{config}->{$client}->{jobs} = \@jobs;
+            $db->{_dirtiness}++;
+            $text = "client $client set jobs @jobs";
+            # signal server
+            if ($db->{clients}->{$client}->{pid})
+            {
+                $signalClient = $db->{clients}->{$client}->{pid};
+            }
+        }
+        else
+        {
+            $error = 'illegal parameter';
+        }
+    }
+
+=head3 C<< cmd=cfgdevice client=<clientid> model=<...> driver=<...> order=<...> noise=<...> >>
+
+Set client device configuration.
+
+=cut
+
+    # set client device configuration
+    elsif ($cmd eq 'cfgdevice')
+    {
+        DEBUG("jobs $client $model $driver $order $noise");
+        if ($client && $db->{config}->{$client} && $model && $driver && $order && $noise)
+        {
+            $db->{config}->{$client}->{model}  = $model;
+            $db->{config}->{$client}->{driver} = $driver;
+            $db->{config}->{$client}->{order}  = $order;
+            $db->{config}->{$client}->{noise}  = $noise;
+            $db->{_dirtiness}++;
+            $text = "client $client set config $model $driver $order $noise";
+            # signal server
+            if ($db->{clients}->{$client}->{pid})
+            {
+                $signalClient = $db->{clients}->{$client}->{pid};
+            }
+        }
+        else
+        {
+            $error = 'illegal parameter';
+        }
+    }
+
 =pod
 
-=head3 C<< cmd=jobs client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> strlen=<number> >>
+=head3 C<< cmd=jobs client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> strlen=<number> maxch=<number> >>
 
 Returns info for a client.
 
-=head3 C<< cmd=realtime client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> strlen=<number> >>
+=head3 C<< cmd=realtime client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> strlen=<number> maxch=<number> >>
 
 Returns info for a client. Endless connection with real-time update as things happen.
 
@@ -440,13 +517,15 @@ Returns info for a client. Endless connection with real-time update as things ha
     # LEDs results for client
     elsif ($cmd eq 'jobs')
     {
-        ($data, $error) = _jobs($db, $client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version });
+        ($data, $error) = _jobs($db, $client, $strlen,
+            { name => $name, staip => $staip, stassid => $stassid, version => $version, maxch => $maxch });
     }
     # special mode: realtime status change notification
     elsif ($cmd eq 'realtime')
     {
         # dummy call like cmd=leds to check the parameters and update the client info in the DB
-        ($data, $error) = _jobs($db, $client, $strlen, { name => $name, staip => $staip, stassid => $stassid, version => $version });
+        ($data, $error) = _jobs($db, $client, $strlen,
+            { name => $name, staip => $staip, stassid => $stassid, version => $version, maxch => $maxch });
 
         # save pid so that previous instances can terminate in case they're still running
         # and haven't noticed yet that the Lämpli is gone (Apache waiting "forever" for TCP timeout)
@@ -480,6 +559,12 @@ Returns info for a client. Endless connection with real-time update as things ha
         print($dbHandle $dbJson);
     }
     close($dbHandle);
+
+    # signal client?
+    if ($signalClient)
+    {
+        kill('USR1', $signalClient);
+    }
 
 
     ##### real-time status monitoring #####
@@ -824,7 +909,8 @@ sub _gui_jobs
     my $debug = $q->param('debug') || 0;
 
     # results
-    push(@html, $q->h2('Results'), __gui_results($db, @{$db->{_jobIds}}));
+    push(@html, $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' }, $q->h2('Results'),
+                        __gui_results($db, @{$db->{_jobIds}})));
 
     # helpers
     my $jobSelectArgs =
@@ -851,92 +937,95 @@ sub _gui_jobs
     };
 
     # override
-    push(@html, $q->h2('Override'));
-    push(@html, $q->start_form(-method => 'GET', -action => $q->url() ));
     push(@html,
-         $q->table(
-                   $q->Tr(
-                          $q->td('job: '),
-                          $q->td($q->popup_menu($jobSelectArgs))
-                         ),
-                   $q->Tr(
-                          $q->td('state: '),
-                          $q->td($q->popup_menu($stateSelectArgs)),
-                         ),
-                   $q->Tr(
-                          $q->td('result: '),
-                          $q->td($q->popup_menu($resultSelectArgs)),
-                         ),
-                   $q->Tr($q->td({ -colspan => 2, -align => 'center' },
-                                 $q->submit(-value => 'override')))
-                   )
+         $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
+                 $q->h2('Override'),
+                 $q->start_form(-method => 'GET', -action => $q->url() ),
+                 $q->table(
+                           $q->Tr(
+                                  $q->td('job: '),
+                                  $q->td($q->popup_menu($jobSelectArgs))
+                                 ),
+                           $q->Tr(
+                                  $q->td('state: '),
+                                  $q->td($q->popup_menu($stateSelectArgs)),
+                                 ),
+                           $q->Tr(
+                                  $q->td('result: '),
+                                  $q->td($q->popup_menu($resultSelectArgs)),
+                                 ),
+                           $q->Tr($q->td({ -colspan => 2, -align => 'center' },
+                                         $q->submit(-value => 'override')))
+                          ),
+                 ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
+                 $q->hidden(-name => 'cmd', -default => 'set'),
+                 $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'),
+                 $q->end_form())
         );
-    push(@html, $q->hidden(-name => 'debug', -default => $debug )) if ($debug);
-    push(@html, $q->hidden(-name => 'cmd', -default => 'set'));
-    push(@html, $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'));
-    push(@html, $q->end_form());
 
     # create
-    push(@html, $q->h2('Create'));
-    push(@html, $q->start_form(-method => 'GET', -action => $q->url() ));
     push(@html,
-         $q->table(
-                   $q->Tr(
-                          $q->td('server: '),
-                          $q->td($q->input({
-                                           -type => 'text',
-                                           -name => 'server',
-                                           -size => 20,
-                                           -autocomplete => 'off',
-                                           -default => '',
-                                          })),
-                         ),
-                   $q->Tr(
-                          $q->td('job: '),
-                          $q->td($q->input({
-                                           -type => 'text',
-                                           -name => 'job',
-                                           -size => 20,
-                                           -autocomplete => 'off',
-                                           -default => '',
-                                          })),
-                         ),
-                   $q->Tr(
-                          $q->td('state: '),
-                          $q->td($q->popup_menu($stateSelectArgs)),
-                         ),
-                   $q->Tr(
-                          $q->td('result: '),
-                          $q->td($q->popup_menu($resultSelectArgs)),
-                         ),
-                   $q->Tr($q->td({ -colspan => 2, -align => 'center' },
-                                 $q->submit(-value => 'create')))
-                   )
-        );
-    push(@html, $q->hidden(-name => 'debug', -default => $debug )) if ($debug);
-    push(@html, $q->hidden(-name => 'cmd', -default => 'add'));
-    push(@html, $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'));
-    push(@html, $q->end_form());
+         $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
+                 $q->h2('Create'),
+                 $q->start_form(-method => 'GET', -action => $q->url() ),
+                 $q->table(
+                           $q->Tr(
+                                  $q->td('server: '),
+                                  $q->td($q->input({
+                                                    -type => 'text',
+                                                    -name => 'server',
+                                                    -size => 20,
+                                                    -autocomplete => 'off',
+                                                    -default => '',
+                                                   })),
+                                 ),
+                           $q->Tr(
+                                  $q->td('job: '),
+                                  $q->td($q->input({
+                                                    -type => 'text',
+                                                    -name => 'job',
+                                                    -size => 20,
+                                                    -autocomplete => 'off',
+                                                    -default => '',
+                                                   })),
+                                 ),
+                           $q->Tr(
+                                  $q->td('state: '),
+                                  $q->td($q->popup_menu($stateSelectArgs)),
+                                 ),
+                           $q->Tr(
+                                  $q->td('result: '),
+                                  $q->td($q->popup_menu($resultSelectArgs)),
+                                 ),
+                           $q->Tr($q->td({ -colspan => 2, -align => 'center' },
+                                         $q->submit(-value => 'create')))
+                          ),
+                 ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
+                 $q->hidden(-name => 'cmd', -default => 'add'),
+                 $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'),
+                 $q->end_form())
+         );
 
     # delete
-    push(@html, $q->h2('Delete'));
-    push(@html, $q->start_form(-method => 'GET', -action => $q->url() ));
     push(@html,
-         $q->table(
-                   $q->Tr(
-                          $q->td('job: '),
-                          $q->td($q->popup_menu($jobSelectArgs)),
-                         ),
-                   $q->Tr($q->td({ -colspan => 2, -align => 'center' },
-                                 $q->submit(-value => 'delete')))
-                   )
+         $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
+                 $q->h2('Delete'),
+                 $q->start_form(-method => 'GET', -action => $q->url() ),
+                 $q->table(
+                           $q->Tr(
+                                  $q->td('job: '),
+                                  $q->td($q->popup_menu($jobSelectArgs)),
+                                 ),
+                           $q->Tr($q->td({ -colspan => 2, -align => 'center' },
+                                         $q->submit(-value => 'delete info')))
+                          ),
+                 ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
+                 $q->hidden(-name => 'cmd', -default => 'del'),
+                 $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'),
+                 $q->end_form())
         );
-    push(@html, $q->hidden(-name => 'debug', -default => $debug )) if ($debug);
-    push(@html, $q->hidden(-name => 'cmd', -default => 'del'));
-    push(@html, $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'));
-    push(@html, $q->end_form());
 
-    return @html;
+    return $q->div({}, @html), $q->div({ -style => 'clear: both;' });
 }
 
 sub _gui_clients
@@ -951,16 +1040,16 @@ sub _gui_clients
         my $config = $db->{config}->{$clientId};
         my $name     = $client->{name} || 'unknown';
         my $last     = $client->{ts} ? sprintf('%.1f hours ago', (time() - $client->{ts}) / 3600.0) : 'unknown';
+        my $pid      = $client->{pid} || 'n/a';
         my $staIp    = $client->{staip} || 'unknown';
         my $staSsid  = $client->{stassid} || 'unknown';
         my $version  = $client->{version} || 'unknown';
         my $debugr = ($q->param('debug') ? '%3Bdebug%3D1' : '');
         my $debug  = ($q->param('debug') ? ';debug=1' : '');
-        my $delete = $q->a({ -href => $q->url() . '?cmd=rmclient;client=' . $clientId . ';redirect=cmd%3Dgui%3Bgui%3Dclients' . $debug }, 'delete');
-        my $config = $q->a({ -href => $q->url() . '?cmd=gui;client=' . $clientId . $debug }, 'configure');
+        my $edit   = $q->a({ -href => $q->url() . '?cmd=gui;client=' . $clientId . $debug }, 'configure');
 
-        push(@trs, $q->td({}, $clientId), $q->td({}, $name), $q->td({}, $last), $q->td({}, $staIp),
-               $q->td({}, $staSsid), $q->td({}, $version), $q->td({}, $delete, ', ', $config));
+        push(@trs, $q->td({}, $clientId), $q->td({}, $name), $q->td({}, $last), $q->td({}, $pid), $q->td({}, $staIp),
+               $q->td({}, $staSsid), $q->td({}, $version), $q->td({}, $edit));
     }
     push(@html,
          $q->h2({}, 'Clients'),
@@ -969,6 +1058,7 @@ sub _gui_clients
                           $q->th({}, 'ID'),
                           $q->th({}, 'name'),
                           $q->th({}, 'connected'),
+                          $q->th({}, 'PID'),
                           $q->th({}, 'station IP'),
                           $q->th({}, 'station SSID'),
                           $q->th({}, 'version'),
@@ -990,10 +1080,111 @@ sub _gui_client
     {
         return;
     }
-
     push(@html, $q->h2('Client ' . $clientId));
 
-    return @html;
+    # info (and raw config)
+    my $rawconfig = Dumper($config);
+    $rawconfig =~ s{<}{&lt;}g;
+    $rawconfig =~ s{>}{&gt;}g;
+    my $debug  = ($q->param('debug') ? ';debug=1' : '');
+    push(@html,
+         $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
+                 $q->h3({}, 'Info'),
+                 $q->table({},
+                           (map { $q->Tr({}, $q->th({}, $_), $q->td({}, $client->{$_})) } sort keys %{$client}),
+                           $q->Tr({}, $q->th({}, 'config'), $q->td({}, $q->pre({}, $rawconfig)))
+                          ),
+                 $q->a({ -href => $q->url() . '?cmd=rmclient;client=' . $clientId . ';redirect=cmd%3Dgui%3Bgui%3Dclients' . $debug }, 'delete info & config')
+                )
+        );
+
+    # config: jobs
+    my $jobSelectArgs =
+    {
+        -name         => 'jobs',
+        -values       => [ '', @{$db->{_jobIds}} ],
+        -labels       => { map { $_, "$db->{jobs}->{$_}->{server}: $db->{jobs}->{$_}->{name}" } @{$db->{_jobIds}} },
+        -autocomplete => 'off',
+        -default      => '',
+    };
+    my @jobsTrs = ();
+    my $maxch = $client->{maxch} || 0; #($#{$config->{jobs}} + 1);
+    for (my $ix = 0; $ix < $maxch; $ix++)
+    {
+        my $jobId = $config->{jobs}->[$ix] || '';
+        $jobSelectArgs->{default} = $jobId;
+        push(@jobsTrs,
+             $q->Tr({}, $q->td({ -align => 'right' }, $ix), $q->td({}, $jobId), $q->td({}, $q->popup_menu($jobSelectArgs)))
+            );
+    }
+    push(@html,
+         $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
+                 $q->h3({}, 'Jobs'),
+                 $q->start_form(-method => 'GET', -action => $q->url() ),
+                 $q->table({},
+                           $q->Tr({}, $q->th({}, 'ix'), $q->th({}, 'ID'), $q->th({}, 'job')),
+                           @jobsTrs,
+                           ($maxch ? $q->Tr({ }, $q->td({ -colspan => 3, -align => 'center' }, $q->submit(-value => 'apply config'))) : ''),
+                          ),
+                 ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
+                 $q->hidden(-name => 'cmd', -default => 'cfgjobs'),
+                 $q->hidden(-name => 'client', -default => $clientId),
+                 $q->hidden(-name => 'redirect', -default => 'cmd=gui;client=' . $clientId),
+                 $q->end_form()
+                )
+         );
+
+    # config: LEDs
+    my $modelSelectArgs =
+    {
+        -name         => 'model',
+        -values       => [ '', 'standard', 'hello' ],
+        -autocomplete => 'off',
+        -default      => ($config->{model} || ''),
+    };
+    my $driverSelectArgs =
+    {
+        -name         => 'driver',
+        -values       => [ '', 'WS2801', 'WS2812', 'SK9822' ],
+        -autocomplete => 'off',
+        -default      => ($config->{driver} || ''),
+    };
+    my $orderSelectArgs =
+    {
+        -name         => 'order',
+        -values       => [ '', qw(RGB RBG GRB GBR BRG BGR) ],
+        -labels       => { RGB => 'RGB (red-green-blue)', RBG => 'RBG (red-blue-green)', GRB => 'GRB (green-red-blue)',
+                           GBR => 'GBR (green-blue-red)', BRG => 'BRG (blue-red-green)', BGR => 'BGR (blue-green-red)' },
+        -autocomplete => 'off',
+        -default      => ($config->{order} || ''),
+    };
+    my $noiseSelectArgs =
+    {
+        -name         => 'noise',
+        -values       => [ '', 0, 1, 2 ],
+        -labels       => { 0 => 'none', 1 => 'some', 2 => 'more' },
+        -autocomplete => 'off',
+        -default      => ($config->{noise} || ''),
+    };
+    push(@html,
+         $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
+                 $q->h3({}, 'Device'),
+                 $q->start_form(-method => 'POST', -action => $q->url() ),
+                 $q->table({},
+                           $q->Tr({}, $q->td({}, 'Lämpli model:'), $q->td({}, $q->popup_menu($modelSelectArgs))),
+                           $q->Tr({}, $q->td({}, 'LED driver:'), $q->td({}, $q->popup_menu($driverSelectArgs))),
+                           $q->Tr({}, $q->td({}, 'LED colour order:'), $q->td({}, $q->popup_menu($orderSelectArgs))),
+                           $q->Tr({}, $q->td({}, 'noise:'), $q->td({}, $q->popup_menu($noiseSelectArgs))),
+                           $q->Tr({ }, $q->td({ -colspan => 3, -align => 'center' }, $q->submit(-value => 'apply config'))),
+                          ),
+                 $q->hidden(-name => 'cmd', -default => 'cfgdevice'),
+                 $q->hidden(-name => 'client', -default => $clientId),
+                 $q->hidden(-name => 'redirect', -default => 'cmd=gui;client=' . $clientId),
+                 $q->end_form()
+                )
+        );
+
+    return $q->div({}, @html), $q->div({ -style => 'clear: both;' });
 }
 
 
@@ -1008,7 +1199,7 @@ sub __gui_results
         push(@trs, $q->Tr($q->td($jobId), $q->td($st->{server}), $q->td($st->{name}), $q->td($st->{state}), $q->td($st->{result}),
                           $q->td({ -align => 'right' }, sprintf('%.1fh', ($now - $st->{ts}) / 3600))));
     }
-    return $q->table($q->Tr($q->th('id'), $q->th('server'), $q->th('job'), $q->th('state'), $q->th('result'), $q->th('age')),
+    return $q->table($q->Tr($q->th('ID'), $q->th('server'), $q->th('job'), $q->th('state'), $q->th('result'), $q->th('age')),
                      @trs);
 }
 
@@ -1021,9 +1212,12 @@ sub _realtime
     print($q->header(-type => 'text/plain', -expires => 'now', charset => 'US-ASCII'));
     my $n = 0;
     my $lastTs = 0;
-    my $lastStatus = '';
+    my $lastStatus = 'asdfasdfasdfasdfasdf';
     my $lastCheck = 0;
     my $startTs = time();
+    my $debugServer = 0;
+    my $doCheck = 0;
+    $SIG{USR1} = sub { $doCheck = 1; };
 
     $0 = $info->{name} || "client$client";
 
@@ -1046,9 +1240,7 @@ sub _realtime
             exit(0);
         }
 
-        # check database?
-        my $doCheck = 0;
-
+        # check database...
         # ...if it has changed
         my $ts = -f $DBFILE ? (stat($DBFILE))[9] : 0;
         if ($ts != $lastTs)
@@ -1065,7 +1257,8 @@ sub _realtime
 
         if ($doCheck)
         {
-            #printf("debug change $ts\n");
+            $doCheck = 0;
+            printf(STDERR "doCheck\n") if ($debugServer);
 
             # load database
             my $dbHandle;
@@ -1087,15 +1280,19 @@ sub _realtime
             };
             close($dbHandle);
 
+            # exit if we were deleted, or we're no longer in charge
+            if (!$db->{clients}->{$client} ||
+                ($db->{clients}->{$client}->{pid} && ($db->{clients}->{$client}->{pid} != $$)) )
+            {
+                printf(STDERR "client info gone\n") if ($debugServer);
+                print("\r\nreconnect $now\r\n");
+                sleep(1);
+                exit(0);
+            }
+
             # check if we're interested
             if ($db && $db->{clients} && $db->{clients}->{$client})
             {
-                # exit if we're no longer in charge
-                if ($db->{clients}->{$client}->{pid} && ($db->{clients}->{$client}->{pid} != $$))
-                {
-                    exit(0);
-                }
-
                 # same as cmd=jobs to get the data but we won't store the database (this updates $db->{clients}->{$client})
                 my ($data, $error) = _jobs($db, $client, $strlen, $info);
                 if ($error)
