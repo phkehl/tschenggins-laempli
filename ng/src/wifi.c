@@ -20,6 +20,7 @@
 #include "wifi.h"
 #include "status.h"
 #include "backend.h"
+#include "jenkins.h"
 #include "cfg_gen.h"
 #include "version_gen.h"
 
@@ -58,7 +59,7 @@ static const char *sWifiStateStr(const WIFI_STATE_t state)
 }
 
 // query parameters for the backend
-#define BACKEND_QUERY "cmd=realtime;ascii=1;client=%s;name=%s;stassid="FF_CFG_STASSID";staip="IPSTR";version="FF_BUILDVER
+#define BACKEND_QUERY "cmd=realtime;ascii=1;client=%s;name=%s;stassid="FF_CFG_STASSID";staip="IPSTR";version="FF_BUILDVER";maxch="STRINGIFY(JENKINS_MAX_CH)
 
 // wifi (network) state data
 typedef struct WIFI_DATA_s

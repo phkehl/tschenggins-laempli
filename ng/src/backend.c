@@ -106,13 +106,15 @@ void sBackendProcessStatus(char *resp, const int respLen);
 // process response from backend
 BACKEND_STATUS_t backendHandle(char *resp, const int len)
 {
+    BACKEND_STATUS_t res = BACKEND_STATUS_OKAY;
     sBytesReceived += len;
 
     //DEBUG("backendHandle() [%d] %s", len, resp);
 
-    char *pStatus    = strstr(resp, "\r\nstatus ");
-    char *pHeartbeat = strstr(resp, "\r\nheartbeat ");
-    char *pError     = strstr(resp, "\r\nerror ");
+    char *pStatus    = strstr(resp, "\r\n""status ");
+    char *pHeartbeat = strstr(resp, "\r\n""heartbeat ");
+    char *pError     = strstr(resp, "\r\n""error ");
+    char *pReconnect = strstr(resp, "\r\n""reconnect ");
 
     // "\r\nerror 1491146601 WTF?\r\n"
     if (pError != NULL)
@@ -123,9 +125,25 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
         {
             *endOfError = '\0';
         }
-        DEBUG("backend: error (%s)", pError);
+        char *pErrorMsg = &pError[17];
+        DEBUG("backend: error (%s)", pErrorMsg < endOfError ? pErrorMsg : "???");
         sLastHeartbeat = osTime();
         osSetPosixTime((uint32_t)atoi(&pError[6]));
+    }
+
+    // "\r\nreconnect 1491146601\r\n"
+    if (pReconnect != NULL)
+    {
+        pReconnect += 2;
+        char *endOfError = strstr(pReconnect, "\r\n");
+        if (endOfError != NULL)
+        {
+            *endOfError = '\0';
+        }
+        WARNING("backend: reconnect");
+        sLastHeartbeat = osTime();
+        osSetPosixTime((uint32_t)atoi(&pReconnect[6]));
+        res = BACKEND_STATUS_RECONNECT;
     }
 
     // "\r\nheartbeat 1491146601 25\r\n"
@@ -137,7 +155,7 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
         {
             *endOfHeartbeat = '\0';
         }
-        DEBUG("backend: heartbeat (%s)", pHeartbeat);
+        DEBUG("backend: heartbeat");
         sLastHeartbeat = osTime();
         osSetPosixTime((uint32_t)atoi(&pHeartbeat[10]));
     }
@@ -159,7 +177,7 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
             sLastHeartbeat = osTime();
             osSetPosixTime((uint32_t)atoi(&pStatus[7]));
             const int jsonLen = strlen(pJson);
-            DEBUG("backend: status [%d] %s", jsonLen, pJson);
+            DEBUG("backend: status");
             sBackendProcessStatus(pJson, jsonLen);
         }
         else
@@ -168,7 +186,7 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
         }
     }
 
-    return BACKEND_STATUS_OKAY;
+    return res;
 }
 
 #define JSON_STREQ(json, pkTok, str) (    \
@@ -184,7 +202,7 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
 void sBackendProcessStatus(char *resp, const int respLen)
 {
     // memory for JSON parser
-    const int maxTokens = (6 * JENKINS_MAX_CH) + 20;
+    const int maxTokens = (6 * JENKINS_MAX_CH) + 20; // FIXME: ???
     const int tokensSize = maxTokens * sizeof(jsmntok_t);
     jsmntok_t *pTokens = malloc(tokensSize);
     if (pTokens == NULL)
@@ -210,7 +228,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
         }
         okay = false;
     }
-    DEBUG("sAppWgetResponse() %d/%d tokens, alloc %d",
+    DEBUG("backend: json %d/%d tokens, alloc %d",
         numTokens, maxTokens, tokensSize);
 
 #if 0
@@ -365,8 +383,8 @@ void sBackendProcessStatus(char *resp, const int respLen)
             resp[ pTokens[timeIx].end ] = '\0';
             const char *timeStr     = &resp[ pTokens[timeIx].start ];
 
-            DEBUG("sAppWgetResponse() arrIx=%02d ledIx=%02d name=%s server=%s state=%s result=%s time=%s",
-                arrIx, ledIx, nameStr, serverStr, stateStr, resultStr, timeStr);
+            //DEBUG("backend: json arrIx=%02d ledIx=%02d name=%s server=%s state=%s result=%s time=%s",
+            //    arrIx, ledIx, nameStr, serverStr, stateStr, resultStr, timeStr);
 
             // create message to Jenkins task
             JENKINS_INFO_t jInfo;
