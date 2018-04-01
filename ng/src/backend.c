@@ -13,14 +13,13 @@
 #include <lwip/api.h>
 #include <lwip/netif.h>
 
-#include <jsmn.h>
-
 #include "stuff.h"
 #include "debug.h"
 #include "wifi.h"
 #include "jenkins.h"
 #include "status.h"
 #include "config.h"
+#include "json.h"
 #include "backend.h"
 
 
@@ -223,219 +222,134 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
     return res;
 }
 
-#define JSON_STREQ(json, pkTok, str) (    \
-        ((pkTok)->type == JSMN_STRING) && \
-        (strlen(str) == ( (pkTok)->end - (pkTok)->start ) ) && \
-        (strncmp(&json[(pkTok)->start], str, (pkTok)->end - (pkTok)->start) == 0) )
-
-#define JSON_ANYEQ(json, pkTok, str) (    \
-        ( ((pkTok)->type == JSMN_STRING) || ((pkTok)->type == JSMN_PRIMITIVE) ) && \
-        (strlen(str) == ( (pkTok)->end - (pkTok)->start ) ) && \
-        (strncmp(&json[(pkTok)->start], str, (pkTok)->end - (pkTok)->start) == 0) )
 
 void sBackendProcessStatus(char *resp, const int respLen)
 {
-    // memory for JSON parser
+    DEBUG("backend: [%d] %s", respLen, resp);
+
     const int maxTokens = (6 * JENKINS_MAX_CH) + 20;
-    const int tokensSize = maxTokens * sizeof(jsmntok_t);
-    jsmntok_t *pTokens = malloc(tokensSize);
+    jsmntok_t *pTokens = jsmnAllocTokens(maxTokens);
     if (pTokens == NULL)
     {
         ERROR("backend: json malloc fail");
         return;
     }
-    memset(pTokens, 0, tokensSize);
 
     // parse JSON response
-    jsmn_parser parser;
-    jsmn_init(&parser);
-    const int numTokens = jsmn_parse(&parser, resp, respLen, pTokens, maxTokens);
-    bool okay = true;
-    if (numTokens < 1)
-    {
-        switch (numTokens)
-        {
-            case JSMN_ERROR_NOMEM: WARNING("json: no mem");                    break;
-            case JSMN_ERROR_INVAL: WARNING("json: invalid");                   break;
-            case JSMN_ERROR_PART:  WARNING("json: partial");                   break;
-            default:               WARNING("json: too short (%d)", numTokens); break;
-        }
-        okay = false;
-    }
-    DEBUG("backend: json %d/%d tokens, alloc %d",
-        numTokens, maxTokens, tokensSize);
+    const int numTokens = jsmnParse(resp, respLen, pTokens, maxTokens);
+    bool okay = numTokens > 0 ? true : false;
 
-#if 0
-    // debug json tokens
-    for (int ix = 0; ix < numTokens; ix++)
-    {
-        static const char * const skTypeStrs[] =
-        {
-            [JSMN_UNDEFINED] = "undef", [JSMN_OBJECT] = "obj", [JSMN_ARRAY] = "arr",
-            [JSMN_STRING] = "str", [JSMN_PRIMITIVE] = "prim"
-        };
-        const jsmntok_t *pkTok = &pTokens[ix];
-        char buf[200];
-        int sz = pkTok->end - pkTok->start;
-        if ( (sz > 0) && (sz < (int)sizeof(buf)))
-        {
-            memcpy(buf, &resp[pkTok->start], sz);
-            buf[sz] = '\0';
-        }
-        else
-        {
-            buf[0] = '\0';
-        }
-        char str[10];
-        strncpy(str, pkTok->type < NUMOF(skTypeStrs) ? skTypeStrs[pkTok->type] : "???", sizeof(str));
-        DEBUG("json %02u: %d %-5s %03d..%03d %d <%2d %s",
-            ix, pkTok->type, str,
-            pkTok->start, pkTok->end, pkTok->size, pkTok->parent, buf);
-    }
-#endif
+    //jsmnDumpTokens(resp, pTokens, numTokens);
+    /*
+      004.974 D: json 00: 2 arr   000..218 10 <-1
+      004.984 D: json 01: 2 arr   001..057 6 < 0 [0,"PROJECT03","server-abc","idle","unknown",1522616716]
+      004.985 D: json 02: 4 prim  002..003 0 < 1 0
+      004.985 D: json 03: 3 str   005..014 0 < 1 PROJECT03
+      004.995 D: json 04: 3 str   017..027 0 < 1 server-abc
+      004.995 D: json 05: 3 str   030..034 0 < 1 idle
+      004.995 D: json 06: 3 str   037..044 0 < 1 unknown
+      005.006 D: json 07: 4 prim  046..056 0 < 1 1522616716
+      005.016 D: json 08: 2 arr   058..121 6 < 0 [1,"CI_Project_Foo1","server-abc","idle","unstable",1522616736]
+      005.017 D: json 09: 4 prim  059..060 0 < 8 1
+      005.017 D: json 10: 3 str   062..077 0 < 8 CI_Project_Foo1
+      005.027 D: json 11: 3 str   080..090 0 < 8 server-abc
+      005.027 D: json 12: 3 str   093..097 0 < 8 idle
+      005.027 D: json 13: 3 str   100..108 0 < 8 unstable
+      005.038 D: json 14: 4 prim  110..120 0 < 8 1522616736
+      005.048 D: json 15: 2 arr   122..189 6 < 0 [2,"CI_Project1_Foo02","server-abc","unknown","unknown",1505942566]
+      005.048 D: json 16: 4 prim  123..124 0 <15 2
+      005.048 D: json 17: 3 str   126..143 0 <15 CI_Project1_Foo02
+      005.059 D: json 18: 3 str   146..156 0 <15 server-abc
+      005.059 D: json 19: 3 str   159..166 0 <15 unknown
+      005.059 D: json 20: 3 str   169..176 0 <15 unknown
+      005.069 D: json 21: 4 prim  178..188 0 <15 1505942566
+      005.069 D: json 22: 2 arr   190..193 1 < 0 [3]
+      005.080 D: json 23: 4 prim  191..192 0 <22 3
+      005.080 D: json 24: 2 arr   194..197 1 < 0 [4]
+      005.080 D: json 25: 4 prim  195..196 0 <24 4
+    */
 
     // process JSON data
-    while (okay)
-    {
-        if (pTokens[0].type != JSMN_OBJECT)
-        {
-            WARNING("backend: json not obj");
-            okay = false;
-            break;
-        }
 
+    if (okay && (pTokens[0].type != JSMN_ARRAY))
+    {
+        WARNING("backend: json not array");
+        okay = false;
+    }
+
+    // look for results
+    if (okay)
+    {
         // look for response result
         for (int ix = 0; ix < numTokens; ix++)
         {
             const jsmntok_t *pkTok = &pTokens[ix];
-            // top-level "res" key
-            if ( (pkTok->parent == 0) && JSON_STREQ(resp, pkTok, "res") )
+            // top-level array, size 1 or 6
+            if ( (pkTok->parent == 0) && (pkTok->type == JSMN_ARRAY) &&
+                ( (pkTok->size == 1) || (pkTok->size == 6) ) )
             {
-                // so the next token must point back to this (key : value pair)
-                if (pTokens[ix + 1].parent == ix)
-                {
-                    // and we want the result 1 (or "1")
-                    if (!JSON_ANYEQ(resp, &pTokens[ix+1], "1"))
-                    {
-                        resp[ pTokens[ix+1].end ] = '\0';
-                        WARNING("backend: json res=%s", &resp[ pTokens[ix+1].start ]);
-                        okay = false;
-                    }
-                    break;
-                }
-            }
-        }
-        if (!okay)
-        {
-            break;
-        }
+                // create message to Jenkins task
+                JENKINS_INFO_t jInfo;
+                memset(&jInfo, 0, sizeof(jInfo));
 
-        // look for "jobs" data
-        int chArrTokIx = -1;
-        for (int ix = 0; ix < numTokens; ix++)
-        {
-            const jsmntok_t *pkTok = &pTokens[ix];
-            // top-level "jobs" key
-            if ( (pkTok->parent == 0) && JSON_STREQ(resp, pkTok, "jobs") )
-            {
-                //DEBUG("jobs at %d", ix);
-                // so the next token must be an array and point back to this token
-                if ( (pTokens[ix + 1].type == JSMN_ARRAY) &&
-                     (pTokens[ix + 1].parent == ix) )
+                // first element is the channel index
+                const jsmntok_t *pkTokCh = &pTokens[ix + 1];
+                if ( (pkTokCh->type == JSMN_STRING) || (pkTokCh->type == JSMN_PRIMITIVE) )
                 {
-                    chArrTokIx = ix + 1;
+                    resp[ pkTokCh->end ] = '\0';
+                    const char *chStr = &resp[ pkTokCh->start ];
+                    jInfo.chIx = atoi(chStr);
+                    jInfo.active = false;
+                    ix++;
                 }
                 else
                 {
-                    WARNING("backend: status json no jobs");
+                    WARNING("backend: json jobs format at %d (%d)", ix, pkTokCh->type);
                     okay = false;
+                    break;
                 }
-                break;
-            }
-        }
-        if (chArrTokIx < 0)
-        {
-            okay = false;
-        }
-        if (!okay)
-        {
-            break;
-        }
-        //DEBUG("chArrTokIx=%d", chArrTokIx);
 
-        // check number of array elements
-        if (pTokens[chArrTokIx].size > JENKINS_MAX_CH)
-        {
-            WARNING("backend: json jobs %d > %d", pTokens[chArrTokIx].size, JENKINS_MAX_CH);
-            okay = false;
-            break;
-        }
+                // the next five elements are the job info
+                const jsmntok_t *pkTokName   = &pTokens[ix + 1];
+                const jsmntok_t *pkTokServer = &pTokens[ix + 2];
+                const jsmntok_t *pkTokState  = &pTokens[ix + 3];
+                const jsmntok_t *pkTokResult = &pTokens[ix + 4];
+                const jsmntok_t *pkTokTime   = &pTokens[ix + 5];
+                if ( (pkTok->size == 6) &&
+                     (pkTokName->type == JSMN_STRING) &&  (pkTokServer->type == JSMN_STRING) &&
+                     (pkTokState->type == JSMN_STRING) &&  (pkTokResult->type == JSMN_STRING) &&
+                     ( (pkTokTime->type == JSMN_STRING) || (pkTokTime->type == JSMN_PRIMITIVE) ) )
+                {
 
-        // parse array
-        for (int ledIx = 0; (ledIx < JENKINS_MAX_CH) && (ledIx <pTokens[chArrTokIx].size) ; ledIx++)
-        {
-            const int numFields = 5;
-            // expected start of fife element array with state and result
-            // ["CI_foo_master","devpos-thl","idle","success",9199]
-            const int arrIx = chArrTokIx + 1 + (ledIx * (numFields + 1));
-            //DEBUG("ledIx=%d arrIx=%d", ledIx, arrIx);
-            if ( (pTokens[arrIx].type != JSMN_ARRAY) || (pTokens[arrIx].size != numFields) )
-            {
-                WARNING("backend: json jobs format (arrIx=%d, type=%d, size=%d)",
-                    arrIx, pTokens[arrIx].type, pTokens[arrIx].size);
-                okay = false;
-                break;
-            }
-            const int nameIx   = arrIx + 1;
-            const int serverIx = arrIx + 2;
-            const int stateIx  = arrIx + 3;
-            const int resultIx = arrIx + 4;
-            const int timeIx   = arrIx + 5;
-            if ( (pTokens[nameIx].type   != JSMN_STRING) ||
-                 (pTokens[serverIx].type != JSMN_STRING) ||
-                 (pTokens[stateIx].type  != JSMN_STRING) ||
-                 (pTokens[resultIx].type != JSMN_STRING) ||
-                 (pTokens[timeIx].type   != JSMN_PRIMITIVE) )
-            {
-                WARNING("backend: json jobs format (%d!=%d, %d!=%d, %d!=%d, %d!=%d, %d!=%d)",
-                    pTokens[nameIx].type, JSMN_STRING, pTokens[serverIx].type, JSMN_STRING,
-                    pTokens[stateIx].type, JSMN_STRING, pTokens[resultIx].type, JSMN_STRING,
-                    pTokens[timeIx].type, JSMN_PRIMITIVE);
-                okay = false;
-                break;
+                    resp[ pkTokName->end   ] = '\0'; const char *nameStr   = &resp[ pkTokName->start ];
+                    resp[ pkTokServer->end ] = '\0'; const char *serverStr = &resp[ pkTokServer->start ];
+                    resp[ pkTokState->end  ] = '\0'; const char *stateStr  = &resp[ pkTokState->start ];
+                    resp[ pkTokResult->end ] = '\0'; const char *resultStr = &resp[ pkTokResult->start ];
+                    resp[ pkTokTime->end   ] = '\0'; const char *timeStr   = &resp[ pkTokTime->start ];
+                    ix += 5;
+
+                    jInfo.active = true;
+                    jInfo.state  = jenkinsStrToState(stateStr);
+                    jInfo.result = jenkinsStrToResult(resultStr);
+                    strncpy(jInfo.job, nameStr, sizeof(jInfo.job));
+                    strncpy(jInfo.server, serverStr, sizeof(jInfo.server));
+                    jInfo.time = (uint32_t)atoi(timeStr);
+                }
+                else if (pkTok->size == 6)
+                {
+                    WARNING("backend: json jobs format at %d (%d, %d, %d, %d, %d)", ix,
+                        pkTokName->type, pkTokServer->type, pkTokState->type,
+                        pkTokResult->type, pkTokTime->type);
+                    okay = false;
+                    break;
+                }
+
+                // send info the Jenkins task
+                jenkinsAddInfo(&jInfo);
+
             }
 
-            // get data
-            resp[ pTokens[nameIx].end ] = '\0';
-            const char *nameStr    = &resp[ pTokens[nameIx].start ];
-
-            resp[ pTokens[serverIx].end ] = '\0';
-            const char *serverStr  = &resp[ pTokens[serverIx].start ];
-
-            resp[ pTokens[stateIx].end ] = '\0';
-            const char *stateStr  = &resp[ pTokens[stateIx].start ];
-
-            resp[ pTokens[resultIx].end ] = '\0';
-            const char *resultStr   = &resp[ pTokens[resultIx].start ];
-
-            resp[ pTokens[timeIx].end ] = '\0';
-            const char *timeStr     = &resp[ pTokens[timeIx].start ];
-
-            //DEBUG("backend: json arrIx=%02d ledIx=%02d name=%s server=%s state=%s result=%s time=%s",
-            //    arrIx, ledIx, nameStr, serverStr, stateStr, resultStr, timeStr);
-
-            // create message to Jenkins task
-            JENKINS_INFO_t jInfo;
-            memset(&jInfo, 0, sizeof(jInfo));
-            jInfo.state  = jenkinsStrToState(stateStr);
-            jInfo.result = jenkinsStrToResult(resultStr);
-            strncpy(jInfo.job, nameStr, sizeof(jInfo.job));
-            strncpy(jInfo.server, serverStr, sizeof(jInfo.server));
-            jInfo.time = (uint32_t)atoi(timeStr);
-            jenkinsAddInfo(&jInfo);
         }
-
-        break;
     }
 
     // are we happy?

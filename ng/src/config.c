@@ -8,12 +8,11 @@
 
 #include "stdinc.h"
 
-#include <jsmn.h>
-
 #include "stuff.h"
 #include "debug.h"
 #include "status.h"
 #include "config.h"
+#include "json.h"
 #include "cfg_gen.h"
 
 CONFIG_MODEL_t  sConfigModel;
@@ -110,73 +109,23 @@ static CONFIG_NOISE_t sConfigStrToNoise(const char *str)
     else                               { return CONFIG_NOISE_UNKNOWN; }
 }
 
-#define JSON_STREQ(json, pkTok, str) (    \
-        ((pkTok)->type == JSMN_STRING) && \
-        (strlen(str) == ( (pkTok)->end - (pkTok)->start ) ) && \
-        (strncmp(&json[(pkTok)->start], str, (pkTok)->end - (pkTok)->start) == 0) )
-
 bool configParseJson(char *resp, const int respLen)
 {
     DEBUG("config: [%d] %s", respLen, resp);
 
-    // memory for JSON parser
     const int maxTokens = (4 * 2) + 10;
-    const int tokensSize = maxTokens * sizeof(jsmntok_t);
-    jsmntok_t *pTokens = malloc(tokensSize);
+    jsmntok_t *pTokens = jsmnAllocTokens(maxTokens);
     if (pTokens == NULL)
     {
-        ERROR("backend: json malloc fail");
+        ERROR("config: json malloc fail");
         return false;
     }
-    memset(pTokens, 0, tokensSize);
 
     // parse JSON response
-    jsmn_parser parser;
-    jsmn_init(&parser);
-    const int numTokens = jsmn_parse(&parser, resp, respLen, pTokens, maxTokens);
-    bool okay = true;
-    if (numTokens < 1)
-    {
-        switch (numTokens)
-        {
-            case JSMN_ERROR_NOMEM: WARNING("json: no mem");                    break;
-            case JSMN_ERROR_INVAL: WARNING("json: invalid");                   break;
-            case JSMN_ERROR_PART:  WARNING("json: partial");                   break;
-            default:               WARNING("json: too short (%d)", numTokens); break;
-        }
-        okay = false;
-    }
-    DEBUG("config: json %d/%d tokens, alloc %d",
-        numTokens, maxTokens, tokensSize);
+    const int numTokens = jsmnParse(resp, respLen, pTokens, maxTokens);
+    bool okay = numTokens > 0 ? true : false;
 
-#if 0
-    // debug json tokens
-    for (int ix = 0; ix < numTokens; ix++)
-    {
-        static const char * const skTypeStrs[] =
-        {
-            [JSMN_UNDEFINED] = "undef", [JSMN_OBJECT] = "obj", [JSMN_ARRAY] = "arr",
-            [JSMN_STRING] = "str", [JSMN_PRIMITIVE] = "prim"
-        };
-        const jsmntok_t *pkTok = &pTokens[ix];
-        char buf[200];
-        int sz = pkTok->end - pkTok->start;
-        if ( (sz > 0) && (sz < (int)sizeof(buf)))
-        {
-            memcpy(buf, &resp[pkTok->start], sz);
-            buf[sz] = '\0';
-        }
-        else
-        {
-            buf[0] = '\0';
-        }
-        char str[10];
-        strncpy(str, pkTok->type < NUMOF(skTypeStrs) ? skTypeStrs[pkTok->type] : "???", sizeof(str));
-        DEBUG("json %02u: %d %-5s %03d..%03d %d <%2d %s",
-            ix, pkTok->type, str,
-            pkTok->start, pkTok->end, pkTok->size, pkTok->parent, buf);
-    }
-#endif
+    //jsmnDumpTokens(resp, pTokens, numTokens);
     /*
       004.999 D: json 00: 1 obj   000..067 4 <-1 {"driver":"WS2801","model":"standard","noise":"some","order":"RGB"}
       004.999 D: json 01: 3 str   002..008 1 < 0 driver

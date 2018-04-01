@@ -20,26 +20,26 @@ void jenkinsInit(void);
 
 #define JENKINS_MAX_CH 20
 
-// possible job states
+//! possible job states
 typedef enum JENKINS_STATE_e
 {
-    JENKINS_STATE_OFF      = 0,
-    JENKINS_STATE_UNKNOWN  = 1,
-    JENKINS_STATE_RUNNING  = 2,
-    JENKINS_STATE_IDLE     = 3,
+    JENKINS_STATE_UNKNOWN = 0,
+    JENKINS_STATE_OFF,
+    JENKINS_STATE_RUNNING,
+    JENKINS_STATE_IDLE,
 } JENKINS_STATE_t;
 
 JENKINS_STATE_t jenkinsStrToState(const char *str);
 const char *jenkinsStateToStr(const JENKINS_STATE_t state);
 
-// possible job results
+//! possible job results
 typedef enum JENKINS_RESULT_e
 {
-    JENKINS_RESULT_OFF      = 0,
-    JENKINS_RESULT_UNKNOWN  = 1,
-    JENKINS_RESULT_SUCCESS  = 2,
-    JENKINS_RESULT_UNSTABLE = 3,
-    JENKINS_RESULT_FAILURE  = 4,
+    JENKINS_RESULT_UNKNOWN = 0,
+    JENKINS_RESULT_OFF,
+    JENKINS_RESULT_SUCCESS,
+    JENKINS_RESULT_UNSTABLE,
+    JENKINS_RESULT_FAILURE,
 } JENKINS_RESULT_t;
 
 JENKINS_RESULT_t jenkinsStrToResult(const char *str);
@@ -50,6 +50,8 @@ const char *jenkinsResultToStr(const JENKINS_RESULT_t result);
 
 typedef struct JENKINS_INFO_s
 {
+    short int        chIx;
+    bool             active;
     JENKINS_RESULT_t result;
     JENKINS_STATE_t  state;
     char             job[JENKINS_JOBNAME_LEN];

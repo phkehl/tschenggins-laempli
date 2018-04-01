@@ -12,9 +12,18 @@
 #include "stuff.h"
 #include "jenkins.h"
 
-static const char * const skJenkinsStateStrs[] = { "off", "unknown", "running", "idle" };
+static const char * const skJenkinsStateStrs[] =
+{
+    [JENKINS_STATE_UNKNOWN] = "unknown", [JENKINS_STATE_OFF] = "off",
+    [JENKINS_STATE_RUNNING] = "running", [JENKINS_STATE_IDLE] = "idle",
+};
 
-static const char * const  skJenkinsResultStrs[] = { "off", "unknown", "success", "unstable", "failure" };
+static const char * const  skJenkinsResultStrs[] =
+{
+    [JENKINS_RESULT_UNKNOWN] = "unknown", [JENKINS_RESULT_OFF] = "off",
+    [JENKINS_RESULT_SUCCESS] = "success", [JENKINS_RESULT_UNSTABLE] = "unstable",
+    [JENKINS_RESULT_FAILURE] "failure",
+};
 
 JENKINS_STATE_t jenkinsStrToState(const char *str)
 {
@@ -33,7 +42,6 @@ JENKINS_STATE_t jenkinsStrToState(const char *str)
     }
     return state;
 }
-
 
 JENKINS_RESULT_t jenkinsStrToResult(const char *str)
 {
@@ -69,7 +77,6 @@ const char *jenkinsStateToStr(const JENKINS_STATE_t state)
     return "???";
 }
 
-
 const char *jenkinsResultToStr(const JENKINS_RESULT_t result)
 {
     switch (result)
@@ -82,7 +89,6 @@ const char *jenkinsResultToStr(const JENKINS_RESULT_t result)
     }
     return "???";
 }
-
 
 static QueueHandle_t sJenkinsInfoQueue;
 
@@ -111,12 +117,19 @@ static void sJenkinsTask(void *pArg)
         JENKINS_INFO_t jInfo;
         if (xQueueReceive(sJenkinsInfoQueue, &jInfo, 5000))
         {
-            const char *state  = jenkinsStateToStr(jInfo.state);
-            const char *result = jenkinsResultToStr(jInfo.result);
-            const uint32_t now = osGetPosixTime();
-            const uint32_t age = now - jInfo.time;
-            PRINT("jenkins: info: %-"STRINGIFY(JENKINS_JOBNAME_LEN)"s %-"STRINGIFY(JENKINS_SERVER_LEN)"s %-7s %-8s %6.1fh",
-                jInfo.job, jInfo.server, state, result, (double)age / 3600.0);
+            if (jInfo.active)
+            {
+                const char *state  = jenkinsStateToStr(jInfo.state);
+                const char *result = jenkinsResultToStr(jInfo.result);
+                const uint32_t now = osGetPosixTime();
+                const uint32_t age = now - jInfo.time;
+                PRINT("jenkins: info: #%02d %-"STRINGIFY(JENKINS_JOBNAME_LEN)"s %-"STRINGIFY(JENKINS_SERVER_LEN)"s %-7s %-8s %6.1fh",
+                    jInfo.chIx, jInfo.job, jInfo.server, state, result, (double)age / 3600.0);
+            }
+            else
+            {
+                PRINT("jenkins: info: #%02d <inactive>", jInfo.chIx);
+            }
         }
         else
         {
