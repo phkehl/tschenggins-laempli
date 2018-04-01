@@ -120,7 +120,7 @@ do
     my $staip    = $q->param('staip')    || '';
     my $stassid  = $q->param('stassid')  || '';
     my $version  = $q->param('version')  || '';
-    my $maxch    = $q->param('maxch')    || '';
+    my $maxch    = $q->param('maxch')    || 10;
     my $chunked  = $q->param('chunked')  || 0;
     my @states   = (); # $q->multi_param('states');
     my @jobs     = $q->multi_param('jobs');
@@ -446,15 +446,8 @@ Set client jobs configuration.
     elsif ($cmd eq 'cfgjobs')
     {
         DEBUG("jobs $client @jobs");
-        if ($client && $db->{clients}->{$client} && $db->{clients}->{$client}->{maxch} && $db->{config}->{$client} && ($#jobs > -1))
+        if ($client && $db->{clients}->{$client} && $db->{config}->{$client} && ($#jobs > -1) && ($#jobs < 100))
         {
-            # strip empty elements from end
-            my $ix = $#jobs;
-            while (!$jobs[$ix] && ($ix >= 0))
-            {
-                splice(@jobs, $ix, 1);
-                $ix--;
-            }
             # remove illegal and empty IDs
             @jobs = map { $_ && $db->{jobs}->{$_} ? $_ : '' } @jobs;
             $db->{config}->{$client}->{jobs} = \@jobs;
@@ -847,14 +840,21 @@ sub _jobs
 
     foreach my $jobId (@{$db->{config}->{$client}->{jobs}})
     {
-        my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
-        my $state  = $st->{state};
-        my $result = $st->{result};
-        my $name   = $st->{name};
-        my $server = $st->{server};
-        my $ts     = $st->{ts};
-        push(@{$data->{jobs}},
-             [ substr($name, 0, $strlen), substr($server, 0, $strlen), $state, $result, int($ts) ]);
+        my $st = $db->{jobs}->{$jobId};
+        if ($st)
+        {
+            my $state  = $st->{state};
+            my $result = $st->{result};
+            my $name   = $st->{name};
+            my $server = $st->{server};
+            my $ts     = $st->{ts};
+            push(@{$data->{jobs}},
+                 [ substr($name, 0, $strlen), substr($server, 0, $strlen), $state, $result, int($ts) ]);
+        }
+        else
+        {
+            push(@{$data->{jobs}}, []);
+        }
     }
 
     $db->{clients}->{$client}->{ts} = int($now + 0.5);
@@ -1108,7 +1108,7 @@ sub _gui_client
         -default      => '',
     };
     my @jobsTrs = ();
-    my $maxch = $client->{maxch} || 0; #($#{$config->{jobs}} + 1);
+    my $maxch = $client->{maxch} || 0;
     for (my $ix = 0; $ix < $maxch; $ix++)
     {
         my $jobId = $config->{jobs}->[$ix] || '';
@@ -1212,7 +1212,7 @@ sub _realtime
     print($q->header(-type => 'text/plain', -expires => 'now', charset => 'US-ASCII'));
     my $n = 0;
     my $lastTs = 0;
-    my $lastStatus = 'not a possible status string';
+    my @lastStatus = ();
     my $lastConfig = 'not a possible config string';
     my $lastCheck = 0;
     my $startTs = time();
@@ -1315,15 +1315,26 @@ sub _realtime
                 }
                 elsif ($data)
                 {
-                    my $status = join(' ', map { @{$_} } @{$data->{jobs}});
-                    if ($status ne $lastStatus)
+                    # we send only changed jobs info
+                    my @changedJobs = ();
+                    # add index to results, find jobs that have changed
+                    my @jobs = @{$data->{jobs}};
+                    for (my $ix = 0; $ix <= $#jobs; $ix++)
                     {
-                        #print("debug $lastStatus\n");
-                        #print("debug $status\n");
-                        my $json = JSON::PP->new()->ascii(1)->canonical(1)->pretty(0)->encode($data);
+                        my @job = (int($ix), @{$jobs[$ix]});
+                        my $status = join(' ', map { $_ } @job); # join copy of array to avoid stringification of integers
+                        if (!defined $lastStatus[$ix] || ($lastStatus[$ix] ne $status))
+                        {
+                            $lastStatus[$ix] = $status;
+                            push(@changedJobs, \@job);
+                        }
+                    }
+                    # send list of changed jobs
+                    if ($#changedJobs > -1)
+                    {
+                        my $json = JSON::PP->new()->ascii(1)->canonical(1)->pretty(0)->encode(\@changedJobs);
                         my $now = int(time() + 0.5);
                         print("\r\nstatus $now $json\r\n");
-                        $lastStatus = $status;
                     }
                 }
             }
