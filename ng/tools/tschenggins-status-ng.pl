@@ -1075,7 +1075,6 @@ sub _gui_client
     my $client = $db->{clients}->{$clientId};
     my $config = $db->{config}->{$clientId};
     my @html = ();
-    my $debug = $q->param('debug') || 0;
     if (!$client || !$config)
     {
         return;
