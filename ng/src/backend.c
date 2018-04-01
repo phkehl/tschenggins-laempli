@@ -20,9 +20,9 @@
 #include "wifi.h"
 #include "jenkins.h"
 #include "status.h"
+#include "config.h"
 #include "backend.h"
-#include "cfg_gen.h"
-#include "version_gen.h"
+
 
 #define BACKEND_HEARTBEAT_INTERVAL 5000
 #define BACKEND_HEARTBEAT_TIMEOUT (3 * BACKEND_HEARTBEAT_INTERVAL)
@@ -111,6 +111,7 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
 
     //DEBUG("backendHandle() [%d] %s", len, resp);
 
+    char *pConfig    = strstr(resp, "\r\n""config ");
     char *pStatus    = strstr(resp, "\r\n""status ");
     char *pHeartbeat = strstr(resp, "\r\n""heartbeat ");
     char *pError     = strstr(resp, "\r\n""error ");
@@ -158,6 +159,32 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
         DEBUG("backend: heartbeat");
         sLastHeartbeat = osTime();
         osSetPosixTime((uint32_t)atoi(&pHeartbeat[10]));
+    }
+
+    // "\r\nconfig 1491146576 json={"key":"value", ... }\r\n"
+    if (pConfig != NULL)
+    {
+        pConfig += 2;
+        char *endOfConfig = strstr(pConfig, "\r\n");
+        if (endOfConfig != NULL)
+        {
+            *endOfConfig = '\0';
+        }
+        char *pJson = strstr(&pConfig[7], " ");
+        if (pJson != NULL)
+        {
+            *pJson = '\0';
+            pJson += 1;
+            sLastHeartbeat = osTime();
+            osSetPosixTime((uint32_t)atoi(&pConfig[7]));
+            const int jsonLen = strlen(pJson);
+            DEBUG("backend: config");
+            configParseJson(pJson, jsonLen);
+        }
+        else
+        {
+            WARNING("backend: ignoring fishy config");
+        }
     }
 
     // "\r\nstatus 1491146576 json={"jobs": ... }\r\n"

@@ -16,6 +16,7 @@
 #include "jenkins.h"
 #include "wifi.h"
 #include "tone.h"
+#include "config.h"
 #include "status.h"
 #include "backend.h"
 #include "version_gen.h"
@@ -91,6 +92,7 @@ void user_init(void)
     // initialise stuff
     debugInit(); // must be first
     stuffInit();
+    configInit();
     monInit();
     toneInit();
     statusInit();
