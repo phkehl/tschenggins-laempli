@@ -120,7 +120,7 @@ bool configParseJson(char *resp, const int respLen)
     DEBUG("config: [%d] %s", respLen, resp);
 
     // memory for JSON parser
-    const int maxTokens = (4 * 3) + 10; // FIXME: ???
+    const int maxTokens = (4 * 2) + 10;
     const int tokensSize = maxTokens * sizeof(jsmntok_t);
     jsmntok_t *pTokens = malloc(tokensSize);
     if (pTokens == NULL)

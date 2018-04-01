@@ -236,7 +236,7 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
 void sBackendProcessStatus(char *resp, const int respLen)
 {
     // memory for JSON parser
-    const int maxTokens = (6 * JENKINS_MAX_CH) + 20; // FIXME: ???
+    const int maxTokens = (6 * JENKINS_MAX_CH) + 20;
     const int tokensSize = maxTokens * sizeof(jsmntok_t);
     jsmntok_t *pTokens = malloc(tokensSize);
     if (pTokens == NULL)
