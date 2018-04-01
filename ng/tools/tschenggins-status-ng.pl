@@ -1161,7 +1161,7 @@ sub _gui_client
     my $noiseSelectArgs =
     {
         -name         => 'noise',
-        -values       => [ '', 0, 1, 2 ],
+        -values       => [ '', qw(none some more) ],
         -labels       => { 0 => 'none', 1 => 'some', 2 => 'more' },
         -autocomplete => 'off',
         -default      => ($config->{noise} || ''),
