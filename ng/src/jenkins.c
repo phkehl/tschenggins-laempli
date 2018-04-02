@@ -10,6 +10,7 @@
 
 #include "debug.h"
 #include "stuff.h"
+#include "leds.h"
 #include "jenkins.h"
 
 static const char * const skJenkinsStateStrs[] =
@@ -20,9 +21,8 @@ static const char * const skJenkinsStateStrs[] =
 
 static const char * const  skJenkinsResultStrs[] =
 {
-    [JENKINS_RESULT_UNKNOWN] = "unknown", [JENKINS_RESULT_OFF] = "off",
-    [JENKINS_RESULT_SUCCESS] = "success", [JENKINS_RESULT_UNSTABLE] = "unstable",
-    [JENKINS_RESULT_FAILURE] "failure",
+    [JENKINS_RESULT_UNKNOWN] = "unknown", [JENKINS_RESULT_UNSTABLE] = "unstable",
+    [JENKINS_RESULT_SUCCESS] = "success", [JENKINS_RESULT_FAILURE] "failure",
 };
 
 JENKINS_STATE_t jenkinsStrToState(const char *str)
@@ -58,10 +58,6 @@ JENKINS_RESULT_t jenkinsStrToResult(const char *str)
     {
         result = JENKINS_RESULT_SUCCESS;
     }
-    else if (strcmp(str, skJenkinsResultStrs[JENKINS_RESULT_OFF]) == 0)
-    {
-        result = JENKINS_RESULT_OFF;
-    }
     return result;
 }
 
@@ -69,8 +65,8 @@ const char *jenkinsStateToStr(const JENKINS_STATE_t state)
 {
     switch (state)
     {
-        case JENKINS_STATE_OFF:     return "off";
         case JENKINS_STATE_UNKNOWN: return "unknown";
+        case JENKINS_STATE_OFF:     return "off";
         case JENKINS_STATE_RUNNING: return "running";
         case JENKINS_STATE_IDLE:    return "idle";
     }
@@ -81,7 +77,6 @@ const char *jenkinsResultToStr(const JENKINS_RESULT_t result)
 {
     switch (result)
     {
-        case JENKINS_RESULT_OFF:      return "off";
         case JENKINS_RESULT_UNKNOWN:  return "unknown";
         case JENKINS_RESULT_SUCCESS:  return "success";
         case JENKINS_RESULT_UNSTABLE: return "unstable";
@@ -110,6 +105,88 @@ bool jenkinsAddInfo(const JENKINS_INFO_t *pkInfo)
     }
 }
 
+static const LEDS_STATE_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t state, const JENKINS_RESULT_t result)
+{
+    static const LEDS_STATE_t skLedStateOff = { 0 };
+    const LEDS_STATE_t *pRes = &skLedStateOff;
+
+    switch (state)
+    {
+        case JENKINS_STATE_RUNNING:
+        {
+            switch (result)
+            {
+                case JENKINS_RESULT_SUCCESS:
+                {
+                    static const LEDS_STATE_t skLedState = { .hue = 85, .sat = 255, .val = 255, .minVal = 30, .maxVal = 255, .dVal = 2 };
+                    pRes = &skLedState;
+                    break;
+                }
+                case JENKINS_RESULT_UNSTABLE:
+                {
+                    static const LEDS_STATE_t skLedState = { .hue = 38, .sat = 255, .val = 255, .minVal = 30, .maxVal = 255, .dVal = 2 };
+                    pRes = &skLedState;
+                    break;
+                }
+                case JENKINS_RESULT_FAILURE:
+                {
+                    static const LEDS_STATE_t skLedState = { .hue = 0, .sat = 255, .val = 255, .minVal = 30, .maxVal = 255, .dVal = 2 };
+                    pRes = &skLedState;
+                    break;
+                }
+                case JENKINS_RESULT_UNKNOWN:
+                {
+                    static const LEDS_STATE_t skLedState = { .hue = 0, .sat = 0, .val = 255, .minVal = 30, .maxVal = 255, .dVal = 2 };
+                    pRes = &skLedState;
+                    break;
+                }
+            }
+            break;
+        }
+        case JENKINS_STATE_IDLE:
+        {
+            switch (result)
+            {
+                case JENKINS_RESULT_SUCCESS:
+                {
+                    static const LEDS_STATE_t skLedState = { .hue = 85, .sat = 255, .val = 255 };
+                    pRes = &skLedState;
+                    break;
+                }
+                case JENKINS_RESULT_UNSTABLE:
+                {
+                    static const LEDS_STATE_t skLedState = { .hue = 38, .sat = 255, .val = 255 };
+                    pRes = &skLedState;
+                    break;
+                }
+                case JENKINS_RESULT_FAILURE:
+                {
+                    static const LEDS_STATE_t skLedState = { .hue = 0, .sat = 255, .val = 255 };
+                    pRes = &skLedState;
+                    break;
+                }
+                case JENKINS_RESULT_UNKNOWN:
+                {
+                    static const LEDS_STATE_t skLedState = { .hue = 0, .sat = 0, .val = 255 };
+                    pRes = &skLedState;
+                    break;
+                }
+            }
+            break;
+        }
+        case JENKINS_STATE_UNKNOWN:
+        {
+            static const LEDS_STATE_t skLedState = { .hue = 0, .sat = 0, .val = 255 };
+            pRes = &skLedState;
+            break;
+        }
+        default:
+            break;
+    }
+
+    return pRes;
+}
+
 static void sJenkinsTask(void *pArg)
 {
     while (true)
@@ -126,10 +203,12 @@ static void sJenkinsTask(void *pArg)
                 const uint32_t age = now - jInfo.time;
                 PRINT("jenkins: info: #%02d %-"STRINGIFY(JENKINS_JOBNAME_LEN)"s %-"STRINGIFY(JENKINS_SERVER_LEN)"s %-7s %-8s %6.1fh",
                     jInfo.chIx, jInfo.job, jInfo.server, state, result, (double)age / 3600.0);
+                ledsSetState(jInfo.chIx, sJenkinsLedStateFromJenkins(jInfo.state, jInfo.result));
             }
             else
             {
                 PRINT("jenkins: info: #%02d <unused>", jInfo.chIx);
+                ledsSetState(jInfo.chIx, sJenkinsLedStateFromJenkins(JENKINS_STATE_UNKNOWN, JENKINS_RESULT_UNKNOWN));
             }
         }
         else
@@ -149,7 +228,6 @@ void jenkinsInit(void)
     {
         ERROR("jenkins: create queue");
     }
-
 }
 
 void jenkinsStart(void)

@@ -22,6 +22,20 @@ void ledsInit(void);
 void ledsStart(void);
 
 
+typedef struct LEDS_STATE_s
+{
+    uint8_t hue;
+    uint8_t sat;
+    uint8_t val;
+
+    int8_t  dVal;
+    uint8_t minVal;
+    uint8_t maxVal;
+} LEDS_STATE_t;
+
+void ledsSetState(const uint16_t ledIx, const LEDS_STATE_t *pkState);
+
+
 #endif // __LEDS_H__
 //@}
 // eof

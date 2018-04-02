@@ -262,6 +262,17 @@ static void sLedsFlush(const CONFIG_DRIVER_t driver)
 
 /* *********************************************************************************************** */
 
+static LEDS_STATE_t sLedsStates[LEDS_NUM];
+
+void ledsSetState(const uint16_t ledIx, const LEDS_STATE_t *pkState)
+{
+    if (ledIx < LEDS_NUM)
+    {
+        sLedsStates[ledIx] = *pkState;
+    }
+}
+
+
 static void sLedsTask(void *pArg)
 {
     static CONFIG_DRIVER_t sConfigDriverLast = CONFIG_DRIVER_UNKNOWN;
@@ -325,6 +336,44 @@ static void sLedsTask(void *pArg)
         // render next frame..
         static uint32_t sTick;
         sLedsClear();
+        for (uint16_t ix = 0; ix < NUMOF(sLedsStates); ix++)
+        {
+            LEDS_STATE_t *pState = &sLedsStates[ix];
+            if (pState->dVal != 0)
+            {
+                if (pState->val < pState->minVal)
+                {
+                    pState->val = pState->minVal;
+                }
+                else if (pState->val > pState->maxVal)
+                {
+                    pState->val = pState->maxVal;
+                }
+                if (pState->dVal > 0)
+                {
+                    if ( ((int)pState->val + (int)pState->dVal) <= (int)pState->maxVal )
+                    {
+                        pState->val += pState->dVal;
+                    }
+                    else
+                    {
+                        pState->dVal = -pState->dVal;
+                    }
+                }
+                else if (pState->dVal < 0)
+                {
+                    if ( ((int)pState->val + (int)pState->dVal) >= (int)pState->minVal )
+                    {
+                        pState->val += pState->dVal;
+                    }
+                    else
+                    {
+                        pState->dVal = -pState->dVal;
+                    }
+                }
+            }
+            sLedsSetHSV(ix, pState->hue, pState->sat, pState->val);
+        }
 
         vTaskDelayUntil(&sTick, MS2TICKS(1000 / LEDS_FPS));
         sLedsFlush(configDriver);
@@ -342,27 +391,29 @@ void ledsInit(void)
         LEDS_WS2801_BUFSIZE, LEDS_SK9822_BUFSIZE,
         NUMOF(sLedsSpiBuf), sizeof(sLedsSpiBuf));
 
-     static const spi_settings_t skSpiSettings =
-     {
-         .mode = SPI_MODE0,
-         .freq_divider = SPI_FREQ_DIV_2M,
-         .msb = true,
-         .endianness = SPI_LITTLE_ENDIAN,
-         .minimal_pins = true
-     };
-     spi_set_settings(LEDS_SPI, &skSpiSettings);
+    memset(&sLedsStates, 0, sizeof(sLedsStates));
 
-     //const uint8_t buf[] = { 0xff, 0x00, 0x00,  0x00, 0xff, 0x00,  0x00, 0x00, 0xff };
-     //spi_transfer(LEDS_SPI, buf, NULL, sizeof(buf), SPI_8BIT);
+    static const spi_settings_t skSpiSettings =
+    {
+        .mode = SPI_MODE0,
+        .freq_divider = SPI_FREQ_DIV_2M,
+        .msb = true,
+        .endianness = SPI_LITTLE_ENDIAN,
+        .minimal_pins = true
+    };
+    spi_set_settings(LEDS_SPI, &skSpiSettings);
 
-     _xt_isr_mask(BIT(INUM_SPI));
-     _xt_isr_attach(INUM_SPI, sLedsSpiIsr, NULL);
+    //const uint8_t buf[] = { 0xff, 0x00, 0x00,  0x00, 0xff, 0x00,  0x00, 0x00, 0xff };
+    //spi_transfer(LEDS_SPI, buf, NULL, sizeof(buf), SPI_8BIT);
 
-     sLedsClear();
-     sLedsFlush(CONFIG_DRIVER_SK9822);
-     osSleep(100);
-     sLedsFlush(CONFIG_DRIVER_WS2801);
-     osSleep(100);
+    _xt_isr_mask(BIT(INUM_SPI));
+    _xt_isr_attach(INUM_SPI, sLedsSpiIsr, NULL);
+
+    sLedsClear();
+    sLedsFlush(CONFIG_DRIVER_SK9822);
+    osSleep(100);
+    sLedsFlush(CONFIG_DRIVER_WS2801);
+    osSleep(100);
 }
 
 void ledsStart(void)
