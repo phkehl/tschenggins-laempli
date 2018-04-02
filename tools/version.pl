@@ -10,6 +10,11 @@ use strict;
 use warnings;
 
 
+my $dir = shift(@ARGV);
+if ($dir)
+{
+    chdir($dir);
+}
 
 my $debug = 0;
 

@@ -36,6 +36,7 @@ static void sMainHello(void)
     NOTICE("------------------------------------------------------------------------------------------");
 
     // print some system information
+    DEBUG("esp-open-sdk "FF_SDKVERSION", esp-open-rtos "FF_EORVERSION);
     DEBUG("SDK %s, Chip 0x%08x", sdk_system_get_sdk_version(), sdk_system_get_chip_id());
     DEBUG("GCC "FF_GCCVERSION);
     DEBUG("LwIP "LWIP_VERSION_STRING", FreeRTOS " tskKERNEL_VERSION_NUMBER ", Newlib "_NEWLIB_VERSION);

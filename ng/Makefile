@@ -121,6 +121,8 @@ BUILDVER    := $(shell $(PERL) ../tools/version.pl)
 BUILDVEROLD := $(shell $(SED) -n '/FF_BUILDVER/s/.*"\(.*\)".*/\1/p' $(PROGRAM_OBJ_DIR)version_gen.h 2>/dev/null)
 BUILDDATE   := $(shell $(DATE) +"%Y-%m-%d %H:%M")
 GCCVERSION  := $(shell PATH=$(PATH) $(CC) --version | $(HEAD) -n1)
+EORVERSION  := $(shell $(PERL) ../tools/version.pl $(RTOSBASE))
+SDKVERSION  := $(shell $(PERL) ../tools/version.pl $(SDKBASE))
 
 # trigger generation of version_gen.h if necessary
 ifneq ($(BUILDVER),$(BUILDVEROLD))
@@ -137,6 +139,8 @@ $(PROGRAM_OBJ_DIR)version_gen.h: $(PROGRAM_OBJ_DIR).version_gen.h Makefile | $(P
 	$(Q)echo "#define FF_BUILDVER   \"$(BUILDVER)\""   >> $@.tmp
 	$(Q)echo "#define FF_BUILDDATE  \"$(BUILDDATE)\""  >> $@.tmp
 	$(Q)echo "#define FF_PROGRAM    \"$(PROGRAM)\""    >> $@.tmp
+	$(Q)echo "#define FF_EORVERSION \"$(EORVERSION)\"" >> $@.tmp
+	$(Q)echo "#define FF_SDKVERSION \"$(SDKVERSION)\"" >> $@.tmp
 	$(Q)echo "#endif"                                  >> $@.tmp
 	$(Q)$(MV) $@.tmp $@
 

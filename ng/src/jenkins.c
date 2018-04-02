@@ -117,6 +117,7 @@ static void sJenkinsTask(void *pArg)
         JENKINS_INFO_t jInfo;
         if (xQueueReceive(sJenkinsInfoQueue, &jInfo, 5000))
         {
+            // FIXME: check valid channel (here?)
             if (jInfo.active)
             {
                 const char *state  = jenkinsStateToStr(jInfo.state);
