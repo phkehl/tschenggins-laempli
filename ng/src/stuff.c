@@ -313,7 +313,7 @@ uint32_t osGetPosixTime(void)
 
 void stuffInit(void)
 {
-    DEBUG("stuffInit()");
+    DEBUG("stuff: init");
 }
 
 

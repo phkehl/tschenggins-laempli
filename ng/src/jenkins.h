@@ -18,6 +18,9 @@
 //! initialise
 void jenkinsInit(void);
 
+//! start
+void jenkinsStart(void);
+
 #define JENKINS_MAX_CH 20
 
 //! possible job states

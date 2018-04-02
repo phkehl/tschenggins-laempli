@@ -31,7 +31,7 @@ typedef enum CONFIG_DRIVER_e
 {
     CONFIG_DRIVER_UNKNOWN,
     CONFIG_DRIVER_WS2801,
-    CONFIG_DRIVER_WS2812,
+    //CONFIG_DRIVER_WS2812,
     CONFIG_DRIVER_SK9822,
 } CONFIG_DRIVER_t;
 
@@ -46,6 +46,15 @@ typedef enum CONFIG_ORDER_e
     CONFIG_ORDER_BGR,
 } CONFIG_ORDER_t;
 
+typedef enum CONFIG_BRIGHT_e
+{
+    CONFIG_BRIGHT_UNKNOWN,
+    CONFIG_BRIGHT_LOW,
+    CONFIG_BRIGHT_MEDIUM,
+    CONFIG_BRIGHT_HIGH,
+    CONFIG_BRIGHT_FULL,
+} CONFIG_BRIGHT_t;
+
 typedef enum CONFIG_NOISE_e
 {
     CONFIG_NOISE_UNKNOWN,
@@ -57,6 +66,7 @@ typedef enum CONFIG_NOISE_e
 CONFIG_MODEL_t  configGetModel(void);
 CONFIG_DRIVER_t configGetDriver(void);
 CONFIG_ORDER_t  configGetOrder(void);
+CONFIG_BRIGHT_t configGetBright(void);
 CONFIG_NOISE_t  configGetNoise(void);
 
 bool configParseJson(char *resp, const int respLen);

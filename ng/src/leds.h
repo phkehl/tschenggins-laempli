@@ -18,6 +18,9 @@
 //! initialise
 void ledsInit(void);
 
+//! start
+void ledsStart(void);
+
 
 #endif // __LEDS_H__
 //@}

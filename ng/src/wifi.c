@@ -627,10 +627,13 @@ void wifiMonStatus(void)
 
 void wifiInit(void)
 {
-    DEBUG("wifiInit()");
-
+    DEBUG("wifi: init");
     //sdk_wifi_status_led_install(2, PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2);
+}
 
+void wifiStart(void)
+{
+    DEBUG("wifi: start");
     xTaskCreate(sWifiTask, "ff_wifi", 768, NULL, 2, NULL);
 }
 

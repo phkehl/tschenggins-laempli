@@ -100,6 +100,8 @@ void user_init(void)
     statusInit();
     backendInit();
     ledsInit();
+    jenkinsInit();
+    wifiInit();
 
     // trigger core dump
     //*((volatile uint32_t *)0) = 0; // null pointer deref, instant crash
@@ -113,8 +115,9 @@ void user_init(void)
     osSleep(100);
 
     // start stuff
-    jenkinsInit();
-    wifiInit();
+    ledsStart();
+    jenkinsStart();
+    wifiStart();
 
 }
 

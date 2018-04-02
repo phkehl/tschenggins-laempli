@@ -42,25 +42,25 @@ void statusSetLed(const STATUS_LED_t status)
     switch (status)
     {
         case STATUS_LED_NONE:
-            DEBUG("statusSetLed() none");
+            DEBUG("status: none");
             break;
         case STATUS_LED_HEARTBEAT:
-            DEBUG("statusSetLed() heartbeat");
+            DEBUG("status: heartbeat");
             sPeriod = 20;
             sNum    = 2;
             break;
         case STATUS_LED_OFFLINE:
-            DEBUG("statusSetLed() offline");
+            DEBUG("status: offline");
             sPeriod = 20;
             sNum    = 1;
             break;
         case STATUS_LED_FAIL:
-            DEBUG("statusSetLed() fail");
+            DEBUG("status: fail");
             sPeriod = 20;
             sNum    = 5;
             break;
         case STATUS_LED_UPDATE:
-            DEBUG("statusSetLed() update");
+            DEBUG("status: update");
             sPeriod = 2;
             sNum    = 1;
             break;
@@ -127,7 +127,7 @@ void statusMakeNoise(const STATUS_NOISE_t noise)
 
 void statusInit(void)
 {
-    DEBUG("statusInit()");
+    DEBUG("status: init");
 
     gpio_enable(STATUS_GPIO, GPIO_OUTPUT);
     gpio_write(STATUS_GPIO, true); // off, LED logic is inverted

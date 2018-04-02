@@ -129,7 +129,7 @@ static void sJenkinsTask(void *pArg)
             }
             else
             {
-                PRINT("jenkins: info: #%02d <inactive>", jInfo.chIx);
+                PRINT("jenkins: info: #%02d <unused>", jInfo.chIx);
             }
         }
         else
@@ -142,7 +142,7 @@ static void sJenkinsTask(void *pArg)
 
 void jenkinsInit(void)
 {
-    DEBUG("jenkinsInit()");
+    DEBUG("jenkins: init");
 
     sJenkinsInfoQueue = xQueueCreate(JENKINS_MAX_CH, sizeof(JENKINS_INFO_t));
     if (sJenkinsInfoQueue == NULL)
@@ -150,6 +150,11 @@ void jenkinsInit(void)
         ERROR("jenkins: create queue");
     }
 
+}
+
+void jenkinsStart(void)
+{
+    DEBUG("jenkins: start");
     xTaskCreate(sJenkinsTask, "ff_jenkins", 512, NULL, 2, NULL);
 }
 

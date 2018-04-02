@@ -372,7 +372,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
 
 void backendInit(void)
 {
-    DEBUG("backendInit()");
+    DEBUG("backend: init");
 }
 
 /* ********************************************************************************************** */

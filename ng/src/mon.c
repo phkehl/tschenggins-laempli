@@ -188,7 +188,7 @@ static void sMonTask(void *pArg)
 
 void monInit(void)
 {
-    DEBUG("monInit()");
+    DEBUG("mon: init");
 
     xTaskCreate(sMonTask, "ff_mon", 384, NULL, 9, NULL);
 }

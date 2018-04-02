@@ -15,8 +15,11 @@
 
 #include "stdinc.h"
 
-//! initialise WIFI things
+//! initialise
 void wifiInit(void);
+
+//! start
+void wifiStart(void);
 
 void wifiMonStatus(void);
 

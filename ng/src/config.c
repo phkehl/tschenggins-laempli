@@ -18,20 +18,23 @@
 CONFIG_MODEL_t  sConfigModel;
 CONFIG_DRIVER_t sConfigDriver;
 CONFIG_ORDER_t  sConfigOrder;
+CONFIG_BRIGHT_t sConfigBright;
 CONFIG_NOISE_t  sConfigNoise;
 
 void configInit(void)
 {
-    DEBUG("configInit()");
+    DEBUG("config: init");
     sConfigModel  = CONFIG_MODEL_UNKNOWN;
     sConfigDriver = CONFIG_DRIVER_UNKNOWN;
     sConfigOrder  = CONFIG_ORDER_UNKNOWN;
+    sConfigBright = CONFIG_BRIGHT_UNKNOWN;
     sConfigNoise  = CONFIG_NOISE_SOME;
 }
 
 __INLINE CONFIG_MODEL_t  configGetModel(void)  { return sConfigModel; }
 __INLINE CONFIG_DRIVER_t configGetDriver(void) { return sConfigDriver; }
 __INLINE CONFIG_ORDER_t  configGetOrder(void)  { return sConfigOrder; }
+__INLINE CONFIG_BRIGHT_t configGetBright(void) { return sConfigBright; }
 __INLINE CONFIG_NOISE_t  configGetNoise(void)  { return sConfigNoise; }
 
 static const char * const skConfigModelStrs[] =
@@ -45,7 +48,7 @@ static const char * const skConfigDriverStrs[] =
 {
     [CONFIG_DRIVER_UNKNOWN] = "unknown",
     [CONFIG_DRIVER_WS2801]  = "WS2801",
-    [CONFIG_DRIVER_WS2812]  = "WS2812",
+    //[CONFIG_DRIVER_WS2812]  = "WS2812",
     [CONFIG_DRIVER_SK9822]  = "SK9822",
 };
 
@@ -60,6 +63,15 @@ static const char * const skConfigOrderStrs[] =
     [CONFIG_ORDER_BGR]     = "BGR",
 };
 
+static const char * const skConfigBrightStrs[] =
+{
+    [CONFIG_BRIGHT_UNKNOWN] = "unknown",
+    [CONFIG_BRIGHT_LOW]     = "low",
+    [CONFIG_BRIGHT_MEDIUM]  = "medium",
+    [CONFIG_BRIGHT_HIGH]    = "high",
+    [CONFIG_BRIGHT_FULL]    = "full",
+};
+
 static const char * const skConfigNoiseStrs[] =
 {
     [CONFIG_NOISE_UNKNOWN] = "unknown",
@@ -70,9 +82,10 @@ static const char * const skConfigNoiseStrs[] =
 
 void configMonStatus(void)
 {
-    DEBUG("mon: config: model=%s driver=%s order=%s noise=%s",
+    DEBUG("mon: config: model=%s driver=%s order=%s bright=%s noise=%s",
         skConfigModelStrs[sConfigModel], skConfigDriverStrs[sConfigDriver],
-        skConfigOrderStrs[sConfigOrder], skConfigNoiseStrs[sConfigNoise]);
+        skConfigOrderStrs[sConfigOrder], skConfigBrightStrs[sConfigBright],
+        skConfigNoiseStrs[sConfigNoise]);
 }
 
 static CONFIG_MODEL_t sConfigStrToModel(const char *str)
@@ -85,7 +98,7 @@ static CONFIG_MODEL_t sConfigStrToModel(const char *str)
 static CONFIG_DRIVER_t sConfigStrToDriver(const char *str)
 {
     if      (strcmp("WS2801", str) == 0) { return CONFIG_DRIVER_WS2801; }
-    else if (strcmp("WS2812", str) == 0) { return CONFIG_DRIVER_WS2812; }
+    //else if (strcmp("WS2812", str) == 0) { return CONFIG_DRIVER_WS2812; }
     else if (strcmp("SK9822", str) == 0) { return CONFIG_DRIVER_SK9822; }
     else                                 { return CONFIG_DRIVER_UNKNOWN; }
 }
@@ -99,6 +112,15 @@ static CONFIG_ORDER_t sConfigStrToOrder(const char *str)
     else if (strcmp("BRG",    str) == 0) { return CONFIG_ORDER_BRG; }
     else if (strcmp("BGR",    str) == 0) { return CONFIG_ORDER_BGR; }
     else                                 { return CONFIG_ORDER_UNKNOWN; }
+}
+
+static CONFIG_BRIGHT_t sConfigStrToBright(const char *str)
+{
+    if      (strcmp("low",    str) == 0) { return CONFIG_BRIGHT_LOW; }
+    else if (strcmp("medium", str) == 0) { return CONFIG_BRIGHT_MEDIUM; }
+    else if (strcmp("high",   str) == 0) { return CONFIG_BRIGHT_HIGH; }
+    else if (strcmp("full",   str) == 0) { return CONFIG_BRIGHT_FULL; }
+    else                                 { return CONFIG_BRIGHT_UNKNOWN; }
 }
 
 static CONFIG_NOISE_t sConfigStrToNoise(const char *str)
@@ -151,6 +173,7 @@ bool configParseJson(char *resp, const int respLen)
         CONFIG_MODEL_t  configModel  = CONFIG_MODEL_UNKNOWN;
         CONFIG_DRIVER_t configDriver = CONFIG_DRIVER_UNKNOWN;;
         CONFIG_ORDER_t  configOrder  = CONFIG_ORDER_UNKNOWN;
+        CONFIG_BRIGHT_t configBright = CONFIG_BRIGHT_UNKNOWN;
         CONFIG_NOISE_t  configNoise  = CONFIG_NOISE_UNKNOWN;
 
         for (int ix = 0; ix < (numTokens - 1); ix++)
@@ -171,6 +194,7 @@ bool configParseJson(char *resp, const int respLen)
                     if      (strcmp("model",  key) == 0) { configModel  = sConfigStrToModel(val); }
                     else if (strcmp("driver", key) == 0) { configDriver = sConfigStrToDriver(val); }
                     else if (strcmp("order",  key) == 0) { configOrder  = sConfigStrToOrder(val); }
+                    else if (strcmp("bright", key) == 0) { configBright = sConfigStrToBright(val); }
                     else if (strcmp("noise",  key) == 0) { configNoise  = sConfigStrToNoise(val); }
                 }
             }
@@ -179,12 +203,16 @@ bool configParseJson(char *resp, const int respLen)
         if ( (configModel != CONFIG_MODEL_UNKNOWN)   &&
              (configDriver != CONFIG_DRIVER_UNKNOWN) &&
              (configOrder != CONFIG_ORDER_UNKNOWN)   &&
+             (configBright != CONFIG_BRIGHT_UNKNOWN)   &&
              (configNoise != CONFIG_NOISE_UNKNOWN) )
         {
+            CS_ENTER;
             sConfigModel  = configModel;
             sConfigDriver = configDriver;
             sConfigOrder  = configOrder;
+            sConfigBright = configBright;
             sConfigNoise  = configNoise;
+            CS_LEAVE;
         }
         else
         {
