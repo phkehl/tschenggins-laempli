@@ -39,7 +39,7 @@ my @DEBUGSTRS     = ();
 my $DATADIR       = $FindBin::Bin;
 
 my $VALIDRESULT   = { unknown => 1, success => 2, unstable => 3, failure => 4 };
-my $VALIDSTATE    = { unknown => 1, running => 2, idle => 3 };
+my $VALIDSTATE    = { unknown => 1, off => 2, running => 3, idle => 4 };
 my $UNKSTATE      = { name => 'unknown', server => 'unknown', result => 'unknown', state => 'unknown', ts => int(time()) };
 my $JOBNAMERE     = qr{^[-_a-zA-Z0-9]{5,50}$};
 my $JOBIDRE       = qr{^[0-9a-z]{8,8}$};
@@ -1163,7 +1163,6 @@ sub _gui_client
     {
         -name         => 'bright',
         -values       => [ '', qw(low medium high full) ],
-        -labels       => { full => "full (don't!)" },
         -autocomplete => 'off',
         -default      => ($config->{bright} || ''),
     };
