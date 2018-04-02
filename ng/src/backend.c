@@ -72,6 +72,7 @@ void backendDisconnect(void)
     sLastHeartbeat = 0;
     sLastHello = 0;
     sBytesReceived = 0;
+    jenkinsClearInfo();
 }
 
 void backendMonStatus(void)
@@ -345,7 +346,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
                 }
 
                 // send info the Jenkins task
-                jenkinsAddInfo(&jInfo);
+                jenkinsSetInfo(&jInfo);
 
             }
 

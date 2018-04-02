@@ -85,26 +85,6 @@ const char *jenkinsResultToStr(const JENKINS_RESULT_t result)
     return "???";
 }
 
-static QueueHandle_t sJenkinsInfoQueue;
-
-bool jenkinsAddInfo(const JENKINS_INFO_t *pkInfo)
-{
-    if (sJenkinsInfoQueue == NULL)
-    {
-        ERROR("jenkins: no queue");
-        return false;
-    }
-    if (xQueueSend(sJenkinsInfoQueue, pkInfo, 0) == pdTRUE)
-    {
-        return true;
-    }
-    else
-    {
-        WARNING("jenkins: queue full");
-        return false;
-    }
-}
-
 static const LEDS_STATE_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t state, const JENKINS_RESULT_t result)
 {
     static const LEDS_STATE_t skLedStateOff = { 0 };
@@ -187,34 +167,33 @@ static const LEDS_STATE_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
     return pRes;
 }
 
-static void sJenkinsTask(void *pArg)
+
+void jenkinsSetInfo(const JENKINS_INFO_t *pkInfo)
 {
-    while (true)
+    // FIXME: check valid channel (here?)
+    if (pkInfo->active)
     {
-        JENKINS_INFO_t jInfo;
-        if (xQueueReceive(sJenkinsInfoQueue, &jInfo, 5000))
-        {
-            // FIXME: check valid channel (here?)
-            if (jInfo.active)
-            {
-                const char *state  = jenkinsStateToStr(jInfo.state);
-                const char *result = jenkinsResultToStr(jInfo.result);
-                const uint32_t now = osGetPosixTime();
-                const uint32_t age = now - jInfo.time;
-                PRINT("jenkins: info: #%02d %-"STRINGIFY(JENKINS_JOBNAME_LEN)"s %-"STRINGIFY(JENKINS_SERVER_LEN)"s %-7s %-8s %6.1fh",
-                    jInfo.chIx, jInfo.job, jInfo.server, state, result, (double)age / 3600.0);
-                ledsSetState(jInfo.chIx, sJenkinsLedStateFromJenkins(jInfo.state, jInfo.result));
-            }
-            else
-            {
-                PRINT("jenkins: info: #%02d <unused>", jInfo.chIx);
-                ledsSetState(jInfo.chIx, sJenkinsLedStateFromJenkins(JENKINS_STATE_UNKNOWN, JENKINS_RESULT_UNKNOWN));
-            }
-        }
-        else
-        {
-            DEBUG("jenkins: no news");
-        }
+        const char *state  = jenkinsStateToStr(pkInfo->state);
+        const char *result = jenkinsResultToStr(pkInfo->result);
+        const uint32_t now = osGetPosixTime();
+        const uint32_t age = now - pkInfo->time;
+        PRINT("jenkins: info: #%02d %-"STRINGIFY(JENKINS_JOBNAME_LEN)"s %-"STRINGIFY(JENKINS_SERVER_LEN)"s %-7s %-8s %6.1fh",
+            pkInfo->chIx, pkInfo->job, pkInfo->server, state, result, (double)age / 3600.0);
+        ledsSetState(pkInfo->chIx, sJenkinsLedStateFromJenkins(pkInfo->state, pkInfo->result));
+    }
+    else
+    {
+        PRINT("jenkins: info: #%02d <unused>", pkInfo->chIx);
+        ledsSetState(pkInfo->chIx, sJenkinsLedStateFromJenkins(JENKINS_STATE_UNKNOWN, JENKINS_RESULT_UNKNOWN));
+    }
+}
+
+void jenkinsClearInfo(void)
+{
+    for (uint16_t ix = 0; ix < JENKINS_MAX_CH; ix++)
+    {
+        JENKINS_INFO_t info = { .chIx = ix, .active = false };
+        jenkinsSetInfo(&info);
     }
 }
 
@@ -223,17 +202,7 @@ void jenkinsInit(void)
 {
     DEBUG("jenkins: init");
 
-    sJenkinsInfoQueue = xQueueCreate(JENKINS_MAX_CH, sizeof(JENKINS_INFO_t));
-    if (sJenkinsInfoQueue == NULL)
-    {
-        ERROR("jenkins: create queue");
-    }
 }
 
-void jenkinsStart(void)
-{
-    DEBUG("jenkins: start");
-    xTaskCreate(sJenkinsTask, "ff_jenkins", 512, NULL, 2, NULL);
-}
 
 // eof

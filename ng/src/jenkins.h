@@ -18,9 +18,6 @@
 //! initialise
 void jenkinsInit(void);
 
-//! start
-void jenkinsStart(void);
-
 #define JENKINS_MAX_CH 20
 
 //! possible job states
@@ -61,7 +58,8 @@ typedef struct JENKINS_INFO_s
     int32_t          time;
 } JENKINS_INFO_t;
 
-bool jenkinsAddInfo(const JENKINS_INFO_t *pkInfo);
+void jenkinsSetInfo(const JENKINS_INFO_t *pkInfo);
 
+void jenkinsClearInfo(void);
 
 #endif // __JENKINS_H__

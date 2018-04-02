@@ -116,7 +116,6 @@ void user_init(void)
 
     // start stuff
     ledsStart();
-    jenkinsStart();
     wifiStart();
 
 }
