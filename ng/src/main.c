@@ -19,6 +19,7 @@
 #include "config.h"
 #include "status.h"
 #include "backend.h"
+#include "leds.h"
 #include "version_gen.h"
 
 //void vApplicationIdleHook(void)
@@ -98,6 +99,7 @@ void user_init(void)
     toneInit();
     statusInit();
     backendInit();
+    ledsInit();
 
     // trigger core dump
     //*((volatile uint32_t *)0) = 0; // null pointer deref, instant crash
