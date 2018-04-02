@@ -127,6 +127,7 @@ do
     my $model    = $q->param('model')    || '';
     my $driver   = $q->param('driver')   || '';
     my $order    = $q->param('order')    || '';
+    my $bright   = $q->param('bright')   || '';
     my $noise    = $q->param('noise')    || '';
 
     # default: gui
@@ -465,7 +466,7 @@ Set client jobs configuration.
         }
     }
 
-=head3 C<< cmd=cfgdevice client=<clientid> model=<...> driver=<...> order=<...> noise=<...> >>
+=head3 C<< cmd=cfgdevice client=<clientid> model=<...> driver=<...> order=<...> bright=<...> noise=<...> >>
 
 Set client device configuration.
 
@@ -474,15 +475,16 @@ Set client device configuration.
     # set client device configuration
     elsif ($cmd eq 'cfgdevice')
     {
-        DEBUG("jobs $client $model $driver $order $noise");
-        if ($client && $db->{config}->{$client} && $model && $driver && $order && $noise)
+        DEBUG("jobs $client $model $driver $order $bright $noise");
+        if ($client && $db->{config}->{$client} && $model && $driver && $order && $bright && $noise)
         {
             $db->{config}->{$client}->{model}  = $model;
             $db->{config}->{$client}->{driver} = $driver;
             $db->{config}->{$client}->{order}  = $order;
+            $db->{config}->{$client}->{bright} = $bright;
             $db->{config}->{$client}->{noise}  = $noise;
             $db->{_dirtiness}++;
-            $text = "client $client set config $model $driver $order $noise";
+            $text = "client $client set config $model $driver $order $bright $noise";
             # signal server
             if ($db->{clients}->{$client}->{pid})
             {
@@ -1144,7 +1146,7 @@ sub _gui_client
     my $driverSelectArgs =
     {
         -name         => 'driver',
-        -values       => [ '', 'WS2801', 'WS2812', 'SK9822' ],
+        -values       => [ '', 'WS2801', 'SK9822' ],
         -autocomplete => 'off',
         -default      => ($config->{driver} || ''),
     };
@@ -1156,6 +1158,14 @@ sub _gui_client
                            GBR => 'GBR (green-blue-red)', BRG => 'BRG (blue-red-green)', BGR => 'BGR (blue-green-red)' },
         -autocomplete => 'off',
         -default      => ($config->{order} || ''),
+    };
+    my $brightSelectArgs =
+    {
+        -name         => 'bright',
+        -values       => [ '', qw(low medium high full) ],
+        -labels       => { full => "full (don't!)" },
+        -autocomplete => 'off',
+        -default      => ($config->{bright} || ''),
     };
     my $noiseSelectArgs =
     {
@@ -1173,6 +1183,7 @@ sub _gui_client
                            $q->Tr({}, $q->td({}, 'Lämpli model:'), $q->td({}, $q->popup_menu($modelSelectArgs))),
                            $q->Tr({}, $q->td({}, 'LED driver:'), $q->td({}, $q->popup_menu($driverSelectArgs))),
                            $q->Tr({}, $q->td({}, 'LED colour order:'), $q->td({}, $q->popup_menu($orderSelectArgs))),
+                           $q->Tr({}, $q->td({}, 'LED brightness:'), $q->td({}, $q->popup_menu($brightSelectArgs))),
                            $q->Tr({}, $q->td({}, 'noise:'), $q->td({}, $q->popup_menu($noiseSelectArgs))),
                            $q->Tr({ }, $q->td({ -colspan => 3, -align => 'center' }, $q->submit(-value => 'apply config'))),
                           ),
