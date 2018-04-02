@@ -156,7 +156,7 @@ static const LEDS_STATE_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
         }
         case JENKINS_STATE_UNKNOWN:
         {
-            static const LEDS_STATE_t skLedState = { .hue = 0, .sat = 0, .val = 255 };
+            static const LEDS_STATE_t skLedState = { .hue = 0, .sat = 0, .val = 100 };
             pRes = &skLedState;
             break;
         }
