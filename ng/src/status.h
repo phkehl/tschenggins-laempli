@@ -29,8 +29,7 @@ typedef enum STATUS_LED_e
 
 } STATUS_LED_t;
 
-void statusSetLed(const STATUS_LED_t status);
-
+void statusLed(const STATUS_LED_t status);
 
 typedef enum STATUS_NOISE_e
 {
@@ -38,9 +37,12 @@ typedef enum STATUS_NOISE_e
     STATUS_NOISE_FAIL,
     STATUS_NOISE_ONLINE,
     STATUS_NOISE_OTHER,
-    STATUS_NOISE_ERROR
+    STATUS_NOISE_TICK,
+    STATUS_NOISE_ERROR,
 } STATUS_NOISE_t;
 
-void statusMakeNoise(const STATUS_NOISE_t noise);
+void statusNoise(const STATUS_NOISE_t noise);
+
+void statusMelody(const char *name);
 
 #endif // __STATUS_H__

@@ -18,6 +18,7 @@
 #include "wifi.h"
 #include "jenkins.h"
 #include "status.h"
+#include "tone.h"
 #include "config.h"
 #include "json.h"
 #include "backend.h"
@@ -103,6 +104,18 @@ bool backendIsOkay(void)
 // forward declarations
 void sBackendProcessStatus(char *resp, const int respLen);
 
+
+static void sBackendHandleSetTime(const char *timestamp)
+{
+    const uint32_t ts = (uint32_t)atoi(timestamp);
+    if (ts != 0)
+    {
+        sLastHeartbeat = osTime();
+        osSetPosixTime(ts);
+    }
+}
+
+
 // process response from backend
 BACKEND_STATUS_t backendHandle(char *resp, const int len)
 {
@@ -116,81 +129,70 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
     char *pHeartbeat = strstr(resp, "\r\n""heartbeat ");
     char *pError     = strstr(resp, "\r\n""error ");
     char *pReconnect = strstr(resp, "\r\n""reconnect ");
+    char *pCommand   = strstr(resp, "\r\n""command ");
 
     // "\r\nerror 1491146601 WTF?\r\n"
     if (pError != NULL)
     {
         pError += 2;
-        char *endOfError = strstr(pError, "\r\n");
-        if (endOfError != NULL)
+        char *endOfLine = strstr(pError, "\r\n");
+        if (endOfLine != NULL)
         {
-            *endOfError = '\0';
+            *endOfLine = '\0';
+            sBackendHandleSetTime(&pError[6]);
+            const char *pMsg = &pError[6 + 10 + 1];
+            ERROR("backend: error: %s", pMsg);
         }
-        char *pErrorMsg = &pError[17];
-        DEBUG("backend: error (%s)", pErrorMsg < endOfError ? pErrorMsg : "???");
-        sLastHeartbeat = osTime();
-        osSetPosixTime((uint32_t)atoi(&pError[6]));
     }
 
     // "\r\nreconnect 1491146601\r\n"
     if (pReconnect != NULL)
     {
         pReconnect += 2;
-        char *endOfError = strstr(pReconnect, "\r\n");
-        if (endOfError != NULL)
+        char *endOfLine = strstr(pReconnect, "\r\n");
+        if (endOfLine != NULL)
         {
-            *endOfError = '\0';
+            *endOfLine = '\0';
+            sBackendHandleSetTime(&pReconnect[10]);
+            WARNING("backend: reconnect");
+            res = BACKEND_STATUS_RECONNECT;
         }
-        WARNING("backend: reconnect");
-        sLastHeartbeat = osTime();
-        osSetPosixTime((uint32_t)atoi(&pReconnect[6]));
-        res = BACKEND_STATUS_RECONNECT;
     }
 
     // "\r\nheartbeat 1491146601 25\r\n"
     if (pHeartbeat != NULL)
     {
         pHeartbeat += 2;
-        char *endOfHeartbeat = strstr(pHeartbeat, "\r\n");
-        if (endOfHeartbeat != NULL)
+        char *endOfLine = strstr(pHeartbeat, "\r\n");
+        if (endOfLine != NULL)
         {
-            *endOfHeartbeat = '\0';
+            *endOfLine = '\0';
+            sBackendHandleSetTime(&pHeartbeat[10]);
+            const char *pCnt = &pHeartbeat[10 + 10 + 1];
+            DEBUG("backend: heartbeat %s", pCnt);
         }
-        DEBUG("backend: heartbeat");
-        sLastHeartbeat = osTime();
-        osSetPosixTime((uint32_t)atoi(&pHeartbeat[10]));
     }
 
     // "\r\nconfig 1491146576 json={"key":"value", ... }\r\n"
     if (pConfig != NULL)
     {
         pConfig += 2;
-        char *endOfConfig = strstr(pConfig, "\r\n");
-        if (endOfConfig != NULL)
+        char *endOfLine = strstr(pConfig, "\r\n");
+        if (endOfLine != NULL)
         {
-            *endOfConfig = '\0';
-        }
-        char *pJson = strstr(&pConfig[7], " ");
-        if (pJson != NULL)
-        {
-            *pJson = '\0';
-            pJson += 1;
-            sLastHeartbeat = osTime();
-            osSetPosixTime((uint32_t)atoi(&pConfig[7]));
+            *endOfLine = '\0';
+            sBackendHandleSetTime(&pConfig[7]);
+            char *pJson = &pConfig[7 + 10 + 1];
             const int jsonLen = strlen(pJson);
             DEBUG("backend: config");
             if (configParseJson(pJson, jsonLen))
             {
-                statusMakeNoise(STATUS_NOISE_OTHER);
+                statusNoise(STATUS_NOISE_OTHER);
             }
             else
             {
-                statusMakeNoise(STATUS_NOISE_ERROR);
+                statusNoise(STATUS_NOISE_ERROR);
             }
-        }
-        else
-        {
-            WARNING("backend: ignoring fishy config");
         }
     }
 
@@ -198,25 +200,59 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
     if (pStatus != NULL)
     {
         pStatus += 2;
-        char *endOfStatus = strstr(pStatus, "\r\n");
-        if (endOfStatus != NULL)
+        char *endOfLine = strstr(pStatus, "\r\n");
+        if (endOfLine != NULL)
         {
-            *endOfStatus = '\0';
-        }
-        char *pJson = strstr(&pStatus[7], " ");
-        if (pJson != NULL)
-        {
-            *pJson = '\0';
-            pJson += 1;
-            sLastHeartbeat = osTime();
-            osSetPosixTime((uint32_t)atoi(&pStatus[7]));
-            const int jsonLen = strlen(pJson);
+            *endOfLine = '\0';
+            sBackendHandleSetTime(&pStatus[7]);
             DEBUG("backend: status");
+            char *pJson = &pStatus[7 + 10 + 1];
+            const int jsonLen = strlen(pJson);
             sBackendProcessStatus(pJson, jsonLen);
         }
-        else
+    }
+
+    // "\r\ncommand 1491146601 reset\r\n"
+    if (pCommand != NULL)
+    {
+        pCommand += 2;
+        char *endOfLine = strstr(pCommand, "\r\n");
+        if (endOfLine != NULL)
         {
-            WARNING("backend: ignoring fishy status");
+            *endOfLine = '\0';
+            sBackendHandleSetTime(&pCommand[8]);
+            const char *pCmd = &pCommand[8 + 10 + 1];
+            if (strcmp("reconnect", pCmd) == 0)
+            {
+                PRINT("backend: command reconnect");
+                statusNoise(STATUS_NOISE_OTHER);
+                res = BACKEND_STATUS_RECONNECT;
+            }
+            else if (strcmp("reset", pCmd) == 0)
+            {
+                WARNING("backend: command restart");
+                statusNoise(STATUS_NOISE_OTHER);
+                osSleep(250);
+                sdk_system_restart();
+            }
+            else if (strcmp("identify", pCmd) == 0)
+            {
+                PRINT("backend: command identify");
+                toneStop();
+                toneBuiltinMelody("PacMan"); // ignore noise config
+            }
+            else if (strcmp("random", pCmd) == 0)
+            {
+                PRINT("backend: command random");
+                toneStop();
+                toneBuiltinMelodyRandom();
+            }
+            else
+            {
+                WARNING("backend: command %s ???", pCmd);
+                toneStop();
+                statusNoise(STATUS_NOISE_FAIL);
+            }
         }
     }
 
@@ -356,12 +392,12 @@ void sBackendProcessStatus(char *resp, const int respLen)
     // are we happy?
     if (okay)
     {
-        statusMakeNoise(STATUS_NOISE_OTHER);
+        statusNoise(STATUS_NOISE_OTHER);
         DEBUG("backend: json parse okay");
     }
     else
     {
-        statusMakeNoise(STATUS_NOISE_ERROR);
+        statusNoise(STATUS_NOISE_ERROR);
         ERROR("backend: json parse fail");
     }
 

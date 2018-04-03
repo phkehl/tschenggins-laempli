@@ -36,7 +36,7 @@ static void sStatusLedTimerFunc(TimerHandle_t timer)
     tick++;
 }
 
-void statusSetLed(const STATUS_LED_t status)
+void statusLed(const STATUS_LED_t status)
 {
     gpio_write(STATUS_GPIO, false);
     switch (status)
@@ -68,7 +68,7 @@ void statusSetLed(const STATUS_LED_t status)
 }
 
 
-void statusMakeNoise(const STATUS_NOISE_t noise)
+void statusNoise(const STATUS_NOISE_t noise)
 {
     if (toneIsPlaying() || (configGetNoise() == CONFIG_NOISE_NONE) )
     {
@@ -122,8 +122,28 @@ void statusMakeNoise(const STATUS_NOISE_t noise)
             toneMelody(skNoiseError);
             break;
         }
+        case STATUS_NOISE_TICK:
+        {
+            static const int16_t skNoiseError[] =
+            {
+                TONE(C8, 40), TONE(PAUSE, 30), TONE(C7, 40), TONE_END
+            };
+            toneMelody(skNoiseError);
+            break;
+        }
     }
 }
+
+void statusMelody(const char *name)
+{
+    if (configGetNoise() < CONFIG_NOISE_MORE)
+    {
+        return;
+    }
+    toneStop();
+    toneBuiltinMelody(name);
+}
+
 
 void statusInit(void)
 {
@@ -139,7 +159,7 @@ void statusInit(void)
         ERROR("status: timer");
     }
 
-    statusSetLed(STATUS_LED_NONE);
+    statusLed(STATUS_LED_NONE);
 }
 
 // eof

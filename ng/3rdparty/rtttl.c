@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 #include "rtttl.h"
 
@@ -153,6 +154,13 @@ const char * rtttlBuiltinMelody(const char *name)
     }
     return res;
 }
+
+const char *rtttlBuiltinMelodyRandom(void)
+{
+    const int ix = rand() % (sizeof(skRtttlMelodies)/sizeof(*skRtttlMelodies));
+    return skRtttlMelodies[ix];
+}
+
 
 //-------------------------------------------------------------------------------------------------------------
 

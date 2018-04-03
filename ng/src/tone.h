@@ -72,6 +72,9 @@ void toneMelody(const int16_t *pkFreqDur);
 */
 void toneBuiltinMelody(const char *name);
 
+//! play a random melody
+void toneBuiltinMelodyRandom(void);
+
 //! play melody in RTTTL format
 /*!
     \param[in] rtttl  string with melody in RTTTL format (see rtttl.c, https://en.wikipedia.org/wiki/Ring_Tone_Transfer_Language)

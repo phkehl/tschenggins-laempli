@@ -11,6 +11,8 @@
 
 #include <lwip/err.h>
 
+#include <esp/hwrand.h>
+
 #include "base64.h"
 
 #include "debug.h"
@@ -314,6 +316,7 @@ uint32_t osGetPosixTime(void)
 void stuffInit(void)
 {
     DEBUG("stuff: init");
+    srand(hwrand());
 }
 
 

@@ -442,8 +442,8 @@ static void sWifiTask(void *pArg)
             case WIFI_STATE_UNKNOWN:
             {
                 PRINT("wifi: state unknown, initialising...");
-                statusMakeNoise(STATUS_NOISE_OTHER);
-                statusSetLed(STATUS_LED_OFFLINE);
+                statusNoise(STATUS_NOISE_OTHER);
+                statusLed(STATUS_LED_OFFLINE);
                 osSleep(100);
                 if (!sWifiInit())
                 {
@@ -460,8 +460,8 @@ static void sWifiTask(void *pArg)
             case WIFI_STATE_OFFLINE:
             {
                 PRINT("wifi: state offline, connecting station...");
-                statusMakeNoise(STATUS_NOISE_ABORT);
-                statusSetLed(STATUS_LED_UPDATE);
+                statusNoise(STATUS_NOISE_ABORT);
+                statusLed(STATUS_LED_UPDATE);
                 if (sWifiConnect())
                 {
                     sWifiState = WIFI_STATE_ONLINE;
@@ -492,8 +492,8 @@ static void sWifiTask(void *pArg)
             case WIFI_STATE_CONNECTED:
             {
                 PRINT("wifi: state connected...");
-                statusMakeNoise(STATUS_NOISE_ONLINE);
-                statusSetLed(STATUS_LED_HEARTBEAT);
+                statusNoise(STATUS_NOISE_ONLINE);
+                statusLed(STATUS_LED_HEARTBEAT);
                 if (sWifiHandleConnection())
                 {
                     sWifiState = sWifiIsOnline() ? WIFI_STATE_ONLINE : WIFI_STATE_UNKNOWN;
@@ -509,17 +509,20 @@ static void sWifiTask(void *pArg)
             {
                 static uint32_t lastFail;
                 const uint32_t now = osTime();
-                const uint32_t waitTime = (now - lastFail) > 300000 ? 5 : 60;
+                int waitTime = (now - lastFail) > 300000 ? 5 : 10;
                 lastFail = now;
+                statusNoise(STATUS_NOISE_FAIL);
+                statusLed(STATUS_LED_FAIL);
                 PRINT("wifi: failure... waiting %us", waitTime);
-                statusMakeNoise(STATUS_NOISE_FAIL);
-                statusSetLed(STATUS_LED_FAIL);
-                osSleep(1000);
-                waitTime--;
+                osSleep(500);
                 while (waitTime > 0)
                 {
-                    DEBUG("wifi: wait... %u", waitTime);
                     osSleep(1000);
+                    DEBUG("wifi: wait... %d", waitTime);
+                    if (waitTime <= 5)
+                    {
+                        statusNoise(STATUS_NOISE_TICK);
+                    }
                     waitTime--;
                 }
                 sWifiState = sWifiIsOnline() ? WIFI_STATE_ONLINE : WIFI_STATE_UNKNOWN;

@@ -195,6 +195,13 @@ void toneBuiltinMelody(const char *name)
     toneRtttlMelody(rtttl);
 }
 
+void toneBuiltinMelodyRandom(void)
+{
+    const char *rtttl = rtttlBuiltinMelodyRandom();
+    toneRtttlMelody(rtttl);
+}
+
+
 void toneRtttlMelody(const char *rtttl)
 {
     toneStop();
