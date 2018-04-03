@@ -81,8 +81,29 @@ static int sLedsRenderWS2801(uint8_t *outBuf, const int bufSize)
 {
     memset(outBuf, 0, bufSize);
     const int outSize = MIN(bufSize, sizeof(sLedsData));
-    memcpy(outBuf, sLedsData, outSize);
-    // TODO: adjust brightness
+    uint32_t brightness = 0;
+    switch (configGetBright())
+    {
+        case CONFIG_BRIGHT_FULL:   brightness =   0; break;
+        case CONFIG_BRIGHT_HIGH:   brightness = 200; break;
+        case CONFIG_BRIGHT_MEDIUM: brightness = 100; break;
+        case CONFIG_BRIGHT_UNKNOWN:
+        case CONFIG_BRIGHT_LOW:    brightness =  50; break;
+    }
+    if (brightness == 0)
+    {
+        memcpy(outBuf, sLedsData, outSize);
+    }
+    else
+    {
+        const uint32_t thrs = 256 / brightness;
+        const uint8_t *inBuf = (const uint8_t *)sLedsData;
+        for (uint32_t ix = 0; ix < bufSize; ix++)
+        {
+            const uint32_t in = inBuf[ix];
+            if (in != 0) { outBuf[ix] = (in <= thrs) ? 1 : ((in * brightness) >> 8); } else { outBuf[ix] = in; }
+        }
+    }
     return outSize;
 }
 
@@ -92,6 +113,16 @@ static int sLedsRenderWS2801(uint8_t *outBuf, const int bufSize)
 static int sLedsRenderSK9822(uint8_t *outBuf, const int bufSize)
 {
     memset(outBuf, 0, bufSize);
+
+    uint8_t brightness = 0;
+    switch (configGetBright())
+    {
+        case CONFIG_BRIGHT_FULL:   brightness = 31; break;
+        case CONFIG_BRIGHT_HIGH:   brightness = 20; break;
+        case CONFIG_BRIGHT_MEDIUM: brightness = 10; break;
+        case CONFIG_BRIGHT_UNKNOWN:
+        case CONFIG_BRIGHT_LOW:    brightness =  5; break;
+    }
 
     // Tim (https://cpldcpu.wordpress.com/2016/12/13/sk9822-a-clone-of-the-apa102/) says:
     // «A protocol that is compatible to both the SK9822 and the APA102 consists of the following:
@@ -111,7 +142,7 @@ static int sLedsRenderSK9822(uint8_t *outBuf, const int bufSize)
     // 2. LEDs data
     for (int ix = 0; (ix < LEDS_NUM) && (outIx < (bufSize - 4 - LEDS_SK9822_END_BYTES )); ix++)
     {
-        outBuf[outIx++] = 0xe0 | (0x0a & 0x1f); // global brightness, TODO: adjust brightness
+        outBuf[outIx++] = 0xe0 | (brightness & 0x1f); // global brightness
         outBuf[outIx++] = sLedsData[ix][0];
         outBuf[outIx++] = sLedsData[ix][1];
         outBuf[outIx++] = sLedsData[ix][2];
@@ -305,7 +336,7 @@ static void sLedsTask(void *pArg)
         {
             DEBUG("leds: bright change");
             sConfigBrightLast = configBright;
-            doDemo = true;
+            //doDemo = true;
         }
 
         // cannot do much if we don't know the driver
