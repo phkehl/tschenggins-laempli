@@ -172,70 +172,13 @@ do
     my $error = '';
 
 
-    ##### load "database" #####
+    ##### load and lock "database" #####
 
-    # open database
-    my $dbHandle;
-    my $db;
-    unless (open($dbHandle, '+>>', $DBFILE))
+    my ($dbHandle, $db, $error) = _dbOpen();
+    if ($error)
     {
-        $error = "failed opening database file";
         $cmd = '';
     }
-    unless (flock($dbHandle, LOCK_EX))
-    {
-        $error = "failed locking database file";
-        $cmd = '';
-    }
-
-    # read database
-    eval
-    {
-        seek($dbHandle, 0, SEEK_SET);
-        local $/;
-        my $dbJson = <$dbHandle>;
-        $db = JSON::PP->new()->utf8()->decode($dbJson);
-    };
-    unless ($db)
-    {
-        $db = { };
-    }
-    $db->{_dirtiness} =  0  unless (exists $db->{_dirtiness});
-    $db->{jobs}       = { } unless (exists $db->{jobs});
-    $db->{config}     = { } unless (exists $db->{config});
-    $db->{clients}    = { } unless (exists $db->{clients});
-    $db->{cmd}        = { } unless (exists $db->{cmd});
-
-    # add helper arrays
-    my @jobIds = ();
-    foreach my $jobId (sort
-                     { $db->{jobs}->{$a}->{server} cmp $db->{jobs}->{$b}->{server} or
-                       $db->{jobs}->{$a}->{name}   cmp $db->{jobs}->{$b}->{name}
-                     } keys %{$db->{jobs}})
-    {
-        push(@jobIds, $jobId);
-    }
-    $db->{_jobIds} = \@jobIds;
-    my @clientIds = ();
-    my %clientIdSeen = ();
-    foreach my $clientId (sort keys %{$db->{clients}}, sort keys %{$db->{config}})
-    {
-        if (!$clientIdSeen{$clientId})
-        {
-            push(@clientIds, $clientId);
-        }
-        $clientIdSeen{$clientId} = 1;
-        if (!$db->{clients}->{$clientId})
-        {
-            $db->{clients}->{$clientId} = {};
-        }
-        if (!$db->{config}->{$clientId})
-        {
-            $db->{config}->{$clientId} = { jobs => [] };
-        }
-    }
-    $db->{_clientIds} = \@clientIds;
-    #DEBUG("db=%s", Dumper($db));
 
     my $signalClient = 0;
 
@@ -575,20 +518,9 @@ Returns info for a client. Endless connection with real-time update as things ha
     }
 
 
-    ##### update database with changes #####
+    ##### close, update database with changes, and unlock #####
 
-    if (!$error && $db->{_dirtiness})
-    {
-        DEBUG("updating db, dirtiness $db->{_dirtiness}");
-        delete $db->{_dirtiness};
-        delete $db->{_clientIds};
-        delete $db->{_jobIds};
-        my $dbJson = JSON::PP->new()->utf8(1)->canonical(1)->pretty($debug ? 1 : 0)->encode($db);
-        truncate($dbHandle, 0);
-        seek($dbHandle, 0, SEEK_SET);
-        print($dbHandle $dbJson);
-    }
-    close($dbHandle);
+    _dbClose($dbHandle, $db, $debug, $error ? 0 : 1);
 
     # signal client?
     if ($signalClient)
@@ -712,6 +644,94 @@ sub DEBUG
     return 1;
 }
 
+sub _dbOpen
+{
+    # open database
+    my $dbHandle;
+    my $db;
+    my $error = '';
+    unless (open($dbHandle, '+>>', $DBFILE))
+    {
+        $error = "failed opening database file";
+    }
+    unless (flock($dbHandle, LOCK_EX))
+    {
+        $error = "failed locking database file";
+    }
+
+    if (!$error)
+    {
+
+        # read database
+        eval
+        {
+            seek($dbHandle, 0, SEEK_SET);
+            local $/;
+            my $dbJson = <$dbHandle>;
+            $db = JSON::PP->new()->utf8()->decode($dbJson);
+        };
+        unless ($db)
+        {
+            $db = { };
+        }
+        $db->{_dirtiness} =  0  unless (exists $db->{_dirtiness});
+        $db->{jobs}       = { } unless (exists $db->{jobs});
+        $db->{config}     = { } unless (exists $db->{config});
+        $db->{clients}    = { } unless (exists $db->{clients});
+        $db->{cmd}        = { } unless (exists $db->{cmd});
+
+        # add helper arrays
+        my @jobIds = ();
+        foreach my $jobId (sort
+                         { $db->{jobs}->{$a}->{server} cmp $db->{jobs}->{$b}->{server} or
+                             $db->{jobs}->{$a}->{name}   cmp $db->{jobs}->{$b}->{name}
+                         } keys %{$db->{jobs}})
+        {
+            push(@jobIds, $jobId);
+        }
+        $db->{_jobIds} = \@jobIds;
+        my @clientIds = ();
+        my %clientIdSeen = ();
+        foreach my $clientId (sort keys %{$db->{clients}}, sort keys %{$db->{config}})
+        {
+            if (!$clientIdSeen{$clientId})
+            {
+                push(@clientIds, $clientId);
+            }
+            $clientIdSeen{$clientId} = 1;
+            if (!$db->{clients}->{$clientId})
+            {
+                $db->{clients}->{$clientId} = {};
+            }
+            if (!$db->{config}->{$clientId})
+            {
+                $db->{config}->{$clientId} = { jobs => [] };
+            }
+        }
+        $db->{_clientIds} = \@clientIds;
+        #DEBUG("db=%s", Dumper($db));
+    }
+    return ($dbHandle, $db, $error);
+}
+
+sub _dbClose
+{
+    my ($dbHandle, $db, $debug, $update) = @_;
+
+    if ($update && $db->{_dirtiness})
+    {
+        DEBUG("updating db, dirtiness $db->{_dirtiness}");
+        delete $db->{_dirtiness};
+        delete $db->{_clientIds};
+        delete $db->{_jobIds};
+        my $dbJson = JSON::PP->new()->utf8(1)->canonical(1)->pretty($debug ? 1 : 0)->encode($db);
+        truncate($dbHandle, 0);
+        seek($dbHandle, 0, SEEK_SET);
+        print($dbHandle $dbJson);
+    }
+    close($dbHandle);
+}
+
 sub _update
 {
     my ($db, @states) = @_;
@@ -768,7 +788,6 @@ sub _update
     return $ok, $error;
 }
 
-
 sub _set
 {
     my ($db, $id, $state, $result) = @_;
@@ -785,7 +804,6 @@ sub _set
     return 1, '';
 }
 
-
 sub _add
 {
     my ($db, $server, $job, $state, $result) = @_;
@@ -796,7 +814,6 @@ sub _add
     }
     return _update($db, { server => $server, name => $job, state => $state, result => $result });
 }
-
 
 sub _del
 {
@@ -813,7 +830,6 @@ sub _del
         return 0, 'illegal job id';
     }
 }
-
 
 sub _list
 {
@@ -832,7 +848,6 @@ sub _list
 
     return { res => 1, offset => $offset, limit => $limit, num => ($#list + 1), list => \@list };
 }
-
 
 sub _get
 {
@@ -855,7 +870,6 @@ sub _get
         return undef, 'illegal job id';
     }
 }
-
 
 sub _jobs
 {
@@ -901,7 +915,6 @@ sub _jobs
 
     return $data, '';
 }
-
 
 sub _gui
 {
@@ -1234,7 +1247,7 @@ sub _gui_client
     my $cmdSelectArgs =
     {
         -name         => 'cfgcmd',
-        -values       => [ '', qw(reset reconnect) ],
+        -values       => [ '', qw(reset reconnect identify random dummy) ],
         -autocomplete => 'off',
         -default      => '',
     };
@@ -1257,7 +1270,6 @@ sub _gui_client
     return $q->div({}, @html), $q->div({ -style => 'clear: both;' });
 }
 
-
 sub __gui_results
 {
     my ($db, @jobIds) = @_;
@@ -1272,7 +1284,6 @@ sub __gui_results
     return $q->table($q->Tr($q->th('ID'), $q->th('server'), $q->th('job'), $q->th('state'), $q->th('result'), $q->th('age')),
                      @trs);
 }
-
 
 # to test:
 # curl --raw -s -v -i "http://..../tschenggins-status-ng.pl?cmd=realtime;client=...;debug=1"
@@ -1332,24 +1343,7 @@ sub _realtime
             my $sendCmd = '';
 
             # load database
-            my $dbHandle;
-            unless (open($dbHandle, '+>>', $DBFILE))
-            {
-                next;
-            }
-            unless (flock($dbHandle, LOCK_EX))
-            {
-                close($dbHandle);
-                next;
-            }
-            my $db;
-            eval
-            {
-                seek($dbHandle, 0, SEEK_SET);
-                local $/;
-                my $dbJson = <$dbHandle>;
-                $db = JSON::PP->new()->utf8()->decode($dbJson);
-            };
+            my ($dbHandle, $db, $error) = _dbOpen();;
 
             # command pending?
             if ($db->{cmd}->{$client})
@@ -1359,19 +1353,8 @@ sub _realtime
                 $db->{_dirtiness}++;
             }
 
-            if ($db->{_dirtiness})
-            {
-                printf(STDERR "updatedb\n") if ($debugServer);
-                delete $db->{_dirtiness};
-                delete $db->{_clientIds};
-                delete $db->{_jobIds};
-                my $dbJson = JSON::PP->new()->utf8(1)->canonical(1)->pretty(0)->encode($db);
-                truncate($dbHandle, 0);
-                seek($dbHandle, 0, SEEK_SET);
-                print($dbHandle $dbJson);
-            }
-
-            close($dbHandle);
+            # close database
+            _dbClose($dbHandle, $db, 0, $error ? 0 : 1);
 
             # exit if we were deleted, or we're no longer in charge
             if (!$db->{clients}->{$client} ||
