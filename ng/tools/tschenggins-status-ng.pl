@@ -556,7 +556,7 @@ Returns info for a client. Endless connection with real-time update as things ha
         $pre =~ s{>}{&gt;}gs;
         my $css = '';
         #$css .= "* { margin: 0; padding: 0; }\n";
-        $css .= "body { font-family: sans-serif; }\n";
+        $css .= "body { font-family: sans-serif; background-color: hsl(160, 100%, 95%); }\n";
         $css .= "table { padding: 0; border: 1px solid #000; border-collapse: collapse; }\n";
         $css .= "table td, table th { margin: 0; padding: 0.1em 0.25em 0.1em 0.25em;  border: 1px solid #000; }\n";
         $css .= "table th { font-weight: bold; background-color: #ddd; text-align: left; border-bottom: 1px solid #000; }\n";
