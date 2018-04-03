@@ -129,6 +129,7 @@ do
     my $order    = $q->param('order')    || '';
     my $bright   = $q->param('bright')   || '';
     my $noise    = $q->param('noise')    || '';
+    my $cfgcmd   = $q->param('cfgcmd')   || '';
 
     # default: gui
     if (!$cmd)
@@ -203,6 +204,7 @@ do
     $db->{jobs}       = { } unless (exists $db->{jobs});
     $db->{config}     = { } unless (exists $db->{config});
     $db->{clients}    = { } unless (exists $db->{clients});
+    $db->{cmd}        = { } unless (exists $db->{cmd});
 
     # add helper arrays
     my @jobIds = ();
@@ -475,8 +477,8 @@ Set client device configuration.
     # set client device configuration
     elsif ($cmd eq 'cfgdevice')
     {
-        DEBUG("jobs $client $model $driver $order $bright $noise");
-        if ($client && $db->{config}->{$client} && $model && $driver && $order && $bright && $noise)
+        DEBUG("cfg $client $model $driver $order $bright $noise");
+        if ($client && $db->{config}->{$client}) # && $model && $driver && $order && $bright && $noise)
         {
             $db->{config}->{$client}->{model}  = $model;
             $db->{config}->{$client}->{driver} = $driver;
@@ -485,6 +487,35 @@ Set client device configuration.
             $db->{config}->{$client}->{noise}  = $noise;
             $db->{_dirtiness}++;
             $text = "client $client set config $model $driver $order $bright $noise";
+            # signal server
+            if ($db->{clients}->{$client}->{pid})
+            {
+                $signalClient = $db->{clients}->{$client}->{pid};
+            }
+        }
+        else
+        {
+            $error = 'illegal parameter';
+        }
+    }
+
+=pod
+
+=head3 C<< cmd=cfgcmd cfgcmd=<...> >>
+
+Send command to client.
+
+=cut
+
+    # set client device configuration
+    elsif ($cmd eq 'cfgcmd')
+    {
+        DEBUG("cmd $client $cfgcmd");
+        if ($client && $db->{config}->{$client} && $cfgcmd)
+        {
+            $db->{cmd}->{$client} = $cfgcmd;
+            $db->{_dirtiness}++;
+            $text = "client $client send command $cfgcmd";
             # signal server
             if ($db->{clients}->{$client}->{pid})
             {
@@ -522,6 +553,10 @@ Returns info for a client. Endless connection with real-time update as things ha
         ($data, $error) = _jobs($db, $client, $strlen,
             { name => $name, staip => $staip, stassid => $stassid, version => $version, maxch => $maxch });
 
+        # clear pending commands
+        $db->{cmd}->{$client} = '';
+        $db->{_dirtiness}++;
+
         # save pid so that previous instances can terminate in case they're still running
         # and haven't noticed yet that the Lämpli is gone (Apache waiting "forever" for TCP timeout)
         unless ($error)
@@ -530,7 +565,7 @@ Returns info for a client. Endless connection with real-time update as things ha
             $db->{_dirtiness}++;
         }
 
-        # continues in call to _realtime() below...
+        # continues in call to _realtime() below... (unless $error)
     }
 
     # illegal command
@@ -1050,8 +1085,8 @@ sub _gui_clients
         my $debug  = ($q->param('debug') ? ';debug=1' : '');
         my $edit   = $q->a({ -href => $q->url() . '?cmd=gui;client=' . $clientId . $debug }, 'configure');
 
-        push(@trs, $q->td({}, $clientId), $q->td({}, $name), $q->td({}, $last), $q->td({}, $pid), $q->td({}, $staIp),
-               $q->td({}, $staSsid), $q->td({}, $version), $q->td({}, $edit));
+        push(@trs, $q->Tr({}, $q->td({}, $clientId), $q->td({}, $name), $q->td({}, $last), $q->td({}, $pid), $q->td({}, $staIp),
+               $q->td({}, $staSsid), $q->td({}, $version), $q->td({}, $edit)));
     }
     push(@html,
          $q->h2({}, 'Clients'),
@@ -1081,23 +1116,24 @@ sub _gui_client
     {
         return;
     }
+    my $debug = ($q->param('debug') ? ';debug=1' : '');
+
     push(@html, $q->h2('Client ' . $clientId));
+    push(@html, $q->p({},
+        $q->a({ -href => $q->url() . '?cmd=rmclient;client=' . $clientId . ';redirect=cmd%3Dgui%3Bgui%3Dclients' . $debug },
+              'delete info & config')));
 
     # info (and raw config)
-    my $rawconfig = Dumper($config);
-    $rawconfig =~ s{<}{&lt;}g;
-    $rawconfig =~ s{>}{&gt;}g;
-    my $debug  = ($q->param('debug') ? ';debug=1' : '');
     push(@html,
          $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
                  $q->h3({}, 'Info'),
                  $q->table({},
                            (map { $q->Tr({}, $q->th({}, $_), $q->td({}, $client->{$_})) } sort keys %{$client}),
-                           $q->Tr({}, $q->th({}, 'config'), $q->td({}, $q->pre({}, $rawconfig)))
                           ),
-                 $q->a({ -href => $q->url() . '?cmd=rmclient;client=' . $clientId . ';redirect=cmd%3Dgui%3Bgui%3Dclients' . $debug }, 'delete info & config')
                 )
         );
+
+    #$q->Tr({}, $q->th({}, 'config'), $q->td({}, $q->pre({}, $rawconfig)))
 
     # config: jobs
     my $jobSelectArgs =
@@ -1193,6 +1229,31 @@ sub _gui_client
                 )
         );
 
+
+    # commands
+    my $cmdSelectArgs =
+    {
+        -name         => 'cfgcmd',
+        -values       => [ '', qw(reset reconnect) ],
+        -autocomplete => 'off',
+        -default      => '',
+    };
+
+    push(@html,
+         $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
+                 $q->h3({}, 'Command'),
+                 $q->start_form(-method => 'POST', -action => $q->url() ),
+                 $q->table({},
+                           $q->Tr({}, $q->td({}, 'command:'), $q->td({}, $q->popup_menu($cmdSelectArgs))),
+                           $q->Tr({ }, $q->td({ -colspan => 3, -align => 'center' }, $q->submit(-value => 'send command'))),
+                          ),
+                 $q->hidden(-name => 'cmd', -default => 'cfgcmd'),
+                 $q->hidden(-name => 'client', -default => $clientId),
+                 $q->hidden(-name => 'redirect', -default => 'cmd=gui;client=' . $clientId),
+                 $q->end_form()
+                )
+        );
+
     return $q->div({}, @html), $q->div({ -style => 'clear: both;' });
 }
 
@@ -1230,8 +1291,7 @@ sub _realtime
     $SIG{USR1} = sub { $doCheck = 1; };
 
     $0 = $info->{name} || "client$client";
-
-    $|++;
+    STDOUT->autoflush(1);
     print("hello $client $strlen $info->{name}\r\n");
     while (1)
     {
@@ -1269,10 +1329,11 @@ sub _realtime
         {
             $doCheck = 0;
             printf(STDERR "doCheck\n") if ($debugServer);
+            my $sendCmd = '';
 
             # load database
             my $dbHandle;
-            unless (open($dbHandle, '<', $DBFILE))
+            unless (open($dbHandle, '+>>', $DBFILE))
             {
                 next;
             }
@@ -1284,10 +1345,32 @@ sub _realtime
             my $db;
             eval
             {
+                seek($dbHandle, 0, SEEK_SET);
                 local $/;
                 my $dbJson = <$dbHandle>;
                 $db = JSON::PP->new()->utf8()->decode($dbJson);
             };
+
+            # command pending?
+            if ($db->{cmd}->{$client})
+            {
+                $sendCmd = $db->{cmd}->{$client};
+                $db->{cmd}->{$client} = '';
+                $db->{_dirtiness}++;
+            }
+
+            if ($db->{_dirtiness})
+            {
+                printf(STDERR "updatedb\n") if ($debugServer);
+                delete $db->{_dirtiness};
+                delete $db->{_clientIds};
+                delete $db->{_jobIds};
+                my $dbJson = JSON::PP->new()->utf8(1)->canonical(1)->pretty(0)->encode($db);
+                truncate($dbHandle, 0);
+                seek($dbHandle, 0, SEEK_SET);
+                print($dbHandle $dbJson);
+            }
+
             close($dbHandle);
 
             # exit if we were deleted, or we're no longer in charge
@@ -1298,6 +1381,13 @@ sub _realtime
                 print("\r\nreconnect $now\r\n");
                 sleep(1);
                 exit(0);
+            }
+
+            # send command?
+            if ($sendCmd)
+            {
+                printf(STDERR "client command $sendCmd\n") if ($debugServer);
+                print("\r\ncommand $now $sendCmd\r\n");
             }
 
             # check if we're interested in any changes

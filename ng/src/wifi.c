@@ -509,13 +509,19 @@ static void sWifiTask(void *pArg)
             {
                 static uint32_t lastFail;
                 const uint32_t now = osTime();
-                const uint32_t waitTime = (now - lastFail) > 300000 ? 5000 : 60000;
+                const uint32_t waitTime = (now - lastFail) > 300000 ? 5 : 60;
                 lastFail = now;
-                PRINT("wifi: failure... waiting %ums", waitTime);
+                PRINT("wifi: failure... waiting %us", waitTime);
                 statusMakeNoise(STATUS_NOISE_FAIL);
                 statusSetLed(STATUS_LED_FAIL);
-                osSleep(waitTime);
-
+                osSleep(1000);
+                waitTime--;
+                while (waitTime > 0)
+                {
+                    DEBUG("wifi: wait... %u", waitTime);
+                    osSleep(1000);
+                    waitTime--;
+                }
                 sWifiState = sWifiIsOnline() ? WIFI_STATE_ONLINE : WIFI_STATE_UNKNOWN;
 
                 break;
