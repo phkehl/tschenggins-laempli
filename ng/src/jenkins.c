@@ -167,6 +167,9 @@ static const LEDS_STATE_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
     return pRes;
 }
 
+static JENKINS_STATE_t  sJenkinsStates[JENKINS_MAX_CH];
+static JENKINS_RESULT_t sJenkinsResults[JENKINS_MAX_CH];
+static JENKINS_RESULT_t sJenkinsWorstResult;
 
 void jenkinsSetInfo(const JENKINS_INFO_t *pkInfo)
 {
@@ -186,6 +189,38 @@ void jenkinsSetInfo(const JENKINS_INFO_t *pkInfo)
         PRINT("jenkins: info: #%02d <unused>", pkInfo->chIx);
         ledsSetState(pkInfo->chIx, sJenkinsLedStateFromJenkins(JENKINS_STATE_UNKNOWN, JENKINS_RESULT_UNKNOWN));
     }
+
+    if (pkInfo->chIx < NUMOF(sJenkinsStates))
+    {
+        sJenkinsStates[pkInfo->chIx]  = pkInfo->active ? pkInfo->state  : JENKINS_STATE_UNKNOWN;
+        sJenkinsResults[pkInfo->chIx] = pkInfo->active ? pkInfo->result : JENKINS_RESULT_UNKNOWN;
+    }
+
+    // find worst result
+    JENKINS_RESULT_t worstResult = JENKINS_RESULT_UNKNOWN;
+    for (int ix = 0; ix < NUMOF(sJenkinsResults); ix++)
+    {
+        if (sJenkinsResults[ix] > sJenkinsWorstResult)
+        {
+            worstResult = sJenkinsResults[ix];
+        }
+    }
+
+    // play sound if we changed from failure/warning to success or from success/warning to failure
+    if ( (worstResult != JENKINS_RESULT_UNKNOWN) && (worstResult != sJenkinsWorstResult) )
+    {
+        DEBUG("jenkins: %s -> %s", jenkinsResultToStr(sJenkinsWorstResult), jenkinsResultToStr(worstResult));
+        if (worstResult == JENKINS_RESULT_FAILURE)
+        {
+            PRINT("jenkins: failure!");
+        }
+        else if (worstResult == JENKINS_RESULT_SUCCESS)
+        {
+            PRINT("jenkins: success!");
+        }
+    }
+
+    sJenkinsWorstResult = worstResult;
 }
 
 void jenkinsClearInfo(void)
@@ -195,6 +230,24 @@ void jenkinsClearInfo(void)
         JENKINS_INFO_t info = { .chIx = ix, .active = false };
         jenkinsSetInfo(&info);
     }
+}
+
+void jenkinsMonStatus(void)
+{
+    static char str[NUMOF(sJenkinsStates) * 6 + 2];
+    char *pStr = str;
+    int len = sizeof(str) - 1;
+    for (int ix = 0; (ix < NUMOF(sJenkinsStates)) && (len > 6); ix++)
+    {
+        const char *stateStr  = jenkinsStateToStr(sJenkinsStates[ix]);
+        const char *resultStr = jenkinsResultToStr(sJenkinsResults[ix]);
+        const char stateChar  = sJenkinsStates[ix ] == JENKINS_STATE_UNKNOWN  ? '?' : stateStr[0];
+        const char resultChar = sJenkinsResults[ix] == JENKINS_RESULT_UNKNOWN ? '?' : resultStr[0];
+        const int n = snprintf(pStr, len, " %02i=%c%c", ix, toupper((int)stateChar), toupper((int)resultChar));
+        len -= n;
+        pStr += n;
+    }
+    DEBUG("mon: jenkins:%s", str);
 }
 
 

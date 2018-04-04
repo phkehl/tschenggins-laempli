@@ -78,6 +78,7 @@ static const char * const skConfigNoiseStrs[] =
     [CONFIG_NOISE_NONE]    = "none",
     [CONFIG_NOISE_SOME]    = "some",
     [CONFIG_NOISE_MORE]    = "more",
+    [CONFIG_NOISE_MOST]    = "most",
 };
 
 void configMonStatus(void)
@@ -128,6 +129,7 @@ static CONFIG_NOISE_t sConfigStrToNoise(const char *str)
     if      (strcmp("none", str) == 0) { return CONFIG_NOISE_NONE; }
     else if (strcmp("some", str) == 0) { return CONFIG_NOISE_SOME; }
     else if (strcmp("more", str) == 0) { return CONFIG_NOISE_MORE; }
+    else if (strcmp("most", str) == 0) { return CONFIG_NOISE_MOST; }
     else                               { return CONFIG_NOISE_UNKNOWN; }
 }
 

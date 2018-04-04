@@ -18,6 +18,8 @@
 //! initialise
 void jenkinsInit(void);
 
+void jenkinsMonStatus(void);
+
 #define JENKINS_MAX_CH 20
 
 //! possible job states
@@ -32,7 +34,7 @@ typedef enum JENKINS_STATE_e
 JENKINS_STATE_t jenkinsStrToState(const char *str);
 const char *jenkinsStateToStr(const JENKINS_STATE_t state);
 
-//! possible job results
+//! possible job results, ordered from best to worst
 typedef enum JENKINS_RESULT_e
 {
     JENKINS_RESULT_UNKNOWN = 0,

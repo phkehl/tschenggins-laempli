@@ -14,6 +14,7 @@
 #include "wifi.h"
 #include "backend.h"
 #include "config.h"
+#include "jenkins.h"
 #include "mon.h"
 
 
@@ -144,6 +145,7 @@ static void sMonTask(void *pArg)
         wifiMonStatus();
         backendMonStatus();
         configMonStatus();
+        jenkinsMonStatus();
 
         // print tasks info
         for (int ix = 0; ix < nTasks; ix++)

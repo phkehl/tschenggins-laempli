@@ -61,6 +61,7 @@ typedef enum CONFIG_NOISE_e
     CONFIG_NOISE_NONE,
     CONFIG_NOISE_SOME,
     CONFIG_NOISE_MORE,
+    CONFIG_NOISE_MOST,
 } CONFIG_NOISE_t;
 
 CONFIG_MODEL_t  configGetModel(void);

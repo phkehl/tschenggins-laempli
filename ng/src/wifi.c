@@ -276,14 +276,32 @@ static bool sWifiConnectBackend(void)
     // receive header
     bool backendReady = false;
     struct netbuf *buf = NULL;
+    netconn_set_nonblocking(sWifiData.conn, true);
+    int helloTimeout = 5 * 100;
     while (true)
     {
         const err_t errRecv = netconn_recv(sWifiData.conn, &buf);
+        // no more data at the moment
+        if (errRecv == ERR_WOULDBLOCK)
+        {
+            helloTimeout--;
+            if (helloTimeout < 0)
+            {
+                ERROR("wifi: response timeout");
+                break;
+            }
+            else
+            {
+                osSleep(100);
+                continue;
+            }
+        }
         if (errRecv != ERR_OK)
         {
             ERROR("wifi: read failed: %s", lwipErrStr(errRecv));
             break;
         }
+
         // check data for HTTP response
         // (note: not handling multiple netbufs -- should not be necessary)
         void *data;
@@ -352,8 +370,6 @@ static bool sWifiConnectBackend(void)
 static bool sWifiHandleConnection(void)
 {
     bool res = true;
-
-    netconn_set_nonblocking(sWifiData.conn, true);
 
     bool keepGoing = true;
     while (keepGoing)
@@ -509,7 +525,7 @@ static void sWifiTask(void *pArg)
             {
                 static uint32_t lastFail;
                 const uint32_t now = osTime();
-                int waitTime = (now - lastFail) > 300000 ? 5 : 10;
+                int waitTime = (now - lastFail) > 300000 ? 10 : 60;
                 lastFail = now;
                 statusNoise(STATUS_NOISE_FAIL);
                 statusLed(STATUS_LED_FAIL);

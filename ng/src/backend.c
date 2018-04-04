@@ -251,7 +251,7 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
             {
                 WARNING("backend: command %s ???", pCmd);
                 toneStop();
-                statusNoise(STATUS_NOISE_FAIL);
+                statusNoise(STATUS_NOISE_ERROR);
             }
         }
     }
