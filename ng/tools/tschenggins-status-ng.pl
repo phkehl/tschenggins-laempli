@@ -31,7 +31,7 @@ $Data::Dumper::Sortkeys = 1;
 $Data::Dumper::Terse = 1;
 use Pod::Usage;
 use IO::Handle;
-use Time::HiRes;
+use Time::HiRes qw(time);
 
 my $q = CGI->new();
 
@@ -778,7 +778,7 @@ sub _update
 
         my $id = substr(Digest::MD5::md5_hex("$server$jobName"), -8);
         DEBUG("_update() $server $jobName $jState $jResult $id");
-        $db->{jobs}->{$id}->{ts}     = int(time());
+        $db->{jobs}->{$id}->{ts}     = int(time() + 0.5);
         $db->{jobs}->{$id}->{name}   = $jobName;
         $db->{jobs}->{$id}->{server} = $server;
         $db->{jobs}->{$id}->{state}  = $jState       if ($jState);
@@ -799,7 +799,7 @@ sub _set
     my $st = $db->{jobs}->{$id};
     $db->{jobs}->{$id}->{state}  = $state  if ($state);
     $db->{jobs}->{$id}->{result} = $result if ($result);
-    $db->{jobs}->{$id}->{ts}     = int(time());
+    $db->{jobs}->{$id}->{ts}     = int(time() + 0.5);
     $db->{_dirtiness}++;
     return 1, '';
 }
@@ -1218,8 +1218,7 @@ sub _gui_client
     my $noiseSelectArgs =
     {
         -name         => 'noise',
-        -values       => [ '', qw(none some more) ],
-        -labels       => { 0 => 'none', 1 => 'some', 2 => 'more' },
+        -values       => [ '', qw(none some more most) ],
         -autocomplete => 'off',
         -default      => ($config->{noise} || ''),
     };
@@ -1292,6 +1291,7 @@ sub _realtime
     my ($client, $strlen, $info) = @_;
     print($q->header(-type => 'text/plain', -expires => 'now', charset => 'US-ASCII'));
     my $n = 0;
+    my $nHeartbeat = 0;
     my $lastTs = 0;
     my @lastStatus = ();
     my $lastConfig = 'not a possible config string';
@@ -1308,10 +1308,11 @@ sub _realtime
     {
         sleep(1);
         my $now = time();
+        my $nowInt = int($now + 0.5);
         if ( ($n % 5) == 0 )
         {
-            my $nowInt = int($now + 0.5);
-            printf("\r\nheartbeat $nowInt $n\r\n");
+            $nHeartbeat++;
+            printf("\r\nheartbeat $now $nHeartbeat\r\n");
         }
         $n++;
 
@@ -1361,7 +1362,7 @@ sub _realtime
                 ($db->{clients}->{$client}->{pid} && ($db->{clients}->{$client}->{pid} != $$)) )
             {
                 printf(STDERR "client info gone\n") if ($debugServer);
-                print("\r\nreconnect $now\r\n");
+                print("\r\nreconnect $nowInt\r\n");
                 sleep(1);
                 exit(0);
             }
@@ -1370,7 +1371,7 @@ sub _realtime
             if ($sendCmd)
             {
                 printf(STDERR "client command $sendCmd\n") if ($debugServer);
-                print("\r\ncommand $now $sendCmd\r\n");
+                print("\r\ncommand $nowInt $sendCmd\r\n");
             }
 
             # check if we're interested in any changes
@@ -1382,8 +1383,7 @@ sub _realtime
                 {
                     my %data = map { $_, $db->{config}->{$client}->{$_} } @cfgKeys;
                     my $json = JSON::PP->new()->ascii(1)->canonical(1)->pretty(0)->encode(\%data);
-                    my $now = int(time() + 0.5);
-                    print("\r\nconfig $now $json\r\n");
+                    print("\r\nconfig $nowInt $json\r\n");
                     $lastConfig = $config;
                 }
             }
@@ -1393,7 +1393,7 @@ sub _realtime
                 my ($data, $error) = _jobs($db, $client, $strlen, $info);
                 if ($error)
                 {
-                    print("\r\nerror $now $error\r\n");
+                    print("\r\nerror $nowInt $error\r\n");
                 }
                 elsif ($data)
                 {
@@ -1415,8 +1415,7 @@ sub _realtime
                     if ($#changedJobs > -1)
                     {
                         my $json = JSON::PP->new()->ascii(1)->canonical(1)->pretty(0)->encode(\@changedJobs);
-                        my $now = int(time() + 0.5);
-                        print("\r\nstatus $now $json\r\n");
+                        print("\r\nstatus $nowInt $json\r\n");
                     }
                 }
             }
