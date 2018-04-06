@@ -315,7 +315,7 @@ uint32_t osGetPosixTime(void)
 
 void stuffInit(void)
 {
-    const uint32_t randSeed = hwRand();
+    const uint32_t randSeed = hwrand();
     DEBUG("stuff: init (0x%08x)", randSeed);
     srand(randSeed);
 }

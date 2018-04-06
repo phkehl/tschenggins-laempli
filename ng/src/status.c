@@ -153,11 +153,8 @@ void statusInit(void)
     gpio_write(STATUS_GPIO, true); // off, LED logic is inverted
 
     // setup LED timer
-    TimerHandle_t timer = xTimerCreate("status_led", MS2TICKS(100), true, NULL, sStatusLedTimerFunc);
-    if ( (timer == NULL) || (xTimerStart(timer, 1000) != pdPASS) )
-    {
-        ERROR("status: timer");
-    }
+    static StaticTimer_t sTimer;
+    xTimerCreateStatic("status_led", MS2TICKS(100), true, NULL, sStatusLedTimerFunc, &sTimer);
 
     statusLed(STATUS_LED_NONE);
 }
