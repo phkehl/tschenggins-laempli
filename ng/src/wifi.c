@@ -659,7 +659,10 @@ void wifiInit(void)
 void wifiStart(void)
 {
     DEBUG("wifi: start");
-    xTaskCreate(sWifiTask, "ff_wifi", 768, NULL, 2, NULL);
+
+    static StackType_t sWifiTaskStack[768];
+    static StaticTask_t sWifiTaskTCB;
+    xTaskCreateStatic(sWifiTask, "ff_wifi", NUMOF(sWifiTaskStack), NULL, 4, sWifiTaskStack, &sWifiTaskTCB);
 }
 
 /* ********************************************************************************************** */

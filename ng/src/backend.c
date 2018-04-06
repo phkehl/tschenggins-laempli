@@ -383,9 +383,7 @@ void sBackendProcessStatus(char *resp, const int respLen)
 
                 // send info the Jenkins task
                 jenkinsSetInfo(&jInfo);
-
             }
-
         }
     }
 

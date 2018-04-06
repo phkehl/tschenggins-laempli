@@ -117,7 +117,30 @@ void user_init(void)
     // start stuff
     ledsStart();
     wifiStart();
-
+    jenkinsStart();
 }
+
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer,
+    StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize)
+{
+    static StaticTask_t xIdleTaskTCB;
+    static StackType_t uxIdleTaskStack[configMINIMAL_STACK_SIZE];
+    *ppxIdleTaskTCBBuffer = &xIdleTaskTCB;
+    *ppxIdleTaskStackBuffer = uxIdleTaskStack;
+    *pulIdleTaskStackSize = NUMOF(uxIdleTaskStack);
+}
+void vApplicationGetTimerTaskMemory(StaticTask_t **ppxTimerTaskTCBBuffer,
+    StackType_t **ppxTimerTaskStackBuffer, uint32_t *pulTimerTaskStackSize)
+{
+    static StaticTask_t xTimerTaskTCB;
+    static StackType_t uxTimerTaskStack[configTIMER_TASK_STACK_DEPTH];
+    *ppxTimerTaskTCBBuffer = &xTimerTaskTCB;
+    *ppxTimerTaskStackBuffer = uxTimerTaskStack;
+    *pulTimerTaskStackSize = NUMOF(uxTimerTaskStack);
+}
+#endif // (configSUPPORT_STATIC_ALLOCATION == 1)
+
 
 // eof

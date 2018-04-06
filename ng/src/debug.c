@@ -203,13 +203,9 @@ void debugInit(void)
 
     printf("..................................................\n");
     osSleep(250);
-    sDebugMutex = xSemaphoreCreateMutex();
-    if (!sDebugMutex)
-    {
-        printf("E: debug: mutex");
-        return;
-    }
 
+    static StaticSemaphore_t sMutex;
+    sDebugMutex = xSemaphoreCreateMutexStatic(&sMutex);
 
 #if (TXBUF_SIZE > 0)
 

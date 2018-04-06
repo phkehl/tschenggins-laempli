@@ -450,7 +450,10 @@ void ledsInit(void)
 void ledsStart(void)
 {
     DEBUG("leds: start");
-    xTaskCreate(sLedsTask, "ff_leds", 512, NULL, 4, NULL);
+
+    static StackType_t sLedsTaskStack[512];
+    static StaticTask_t sLedsTaskTCB;
+    xTaskCreateStatic(sLedsTask, "ff_leds", NUMOF(sLedsTaskStack), NULL, 2, sLedsTaskStack, &sLedsTaskTCB);
 }
 
 

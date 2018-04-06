@@ -192,7 +192,9 @@ void monInit(void)
 {
     DEBUG("mon: init");
 
-    xTaskCreate(sMonTask, "ff_mon", 384, NULL, 9, NULL);
+    static StackType_t sMonTaskStack[384];
+    static StaticTask_t sMonTaskTCB;
+    xTaskCreateStatic(sMonTask, "ff_mon", NUMOF(sMonTaskStack), NULL, 9, sMonTaskStack, &sMonTaskTCB);
 }
 
 // eof
