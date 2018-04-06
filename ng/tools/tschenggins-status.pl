@@ -4,16 +4,16 @@
 
 =encoding utf8
 
-=head1 tschenggins-status-ng.pl -- Tschenggins Lämpli Backend
+=head1 tschenggins-status.pl -- Tschenggins Lämpli Backend and User Inferface
 
 Copyright (c) 2017-2018 Philippe Kehl <flipflip at oinkzwurgl dot org>,
 L<https://oinkzwurgl.org/projaeggd/tschenggins-laempli>
 
 =head2 Usage
 
-C<< http://..../tschenggins-status-ng.pl?param=value;param=value;... >>
+C<< http://..../tschenggins-status.pl?param=value;param=value;... >>
 
-C<< ./tschenggins-status-ng.pl param=value param=value ... >>
+C<< ./tschenggins-status.pl param=value param=value ... >>
 
 =cut
 
@@ -29,6 +29,7 @@ use Digest::MD5;
 use Data::Dumper;
 $Data::Dumper::Sortkeys = 1;
 $Data::Dumper::Terse = 1;
+use lib "/mnt/fry/d1/flip/tschenggins-laempli/ng/tools";
 use Pod::Usage;
 use IO::Handle;
 use Time::HiRes qw(time);
@@ -37,13 +38,13 @@ my $q = CGI->new();
 
 my @DEBUGSTRS     = ();
 my $DATADIR       = $FindBin::Bin;
-
 my $VALIDRESULT   = { unknown => 1, success => 2, unstable => 3, failure => 4 };
 my $VALIDSTATE    = { unknown => 1, off => 2, running => 3, idle => 4 };
 my $UNKSTATE      = { name => 'unknown', server => 'unknown', result => 'unknown', state => 'unknown', ts => int(time()) };
 my $JOBNAMERE     = qr{^[-_a-zA-Z0-9]{5,50}$};
+my $SERVERNAMERE  = qr{^[-_a-zA-Z0-9.]{5,50}$};
 my $JOBIDRE       = qr{^[0-9a-z]{8,8}$};
-my $DBFILE        = $ENV{'REMOTE_USER'} ? "$DATADIR/tschenggins-status-ng-$ENV{'REMOTE_USER'}.json" : "$DATADIR/tschenggins-status-ng.json";
+my $DBFILE        = $ENV{'REMOTE_USER'} ? "$DATADIR/tschenggins-status-$ENV{'REMOTE_USER'}.json" : "$DATADIR/tschenggins-status.json";
 
 #DEBUG("DATADIR=%s, VALIDRESULT=%s, VALIDSTATE=%s", $DATADIR, $VALIDRESULT, $VALIDSTATE);
 
@@ -55,7 +56,7 @@ do
 
 =pod
 
-=head2 Possible Parameters
+=head2 Parameters
 
 =over
 
@@ -85,7 +86,7 @@ do
 
 =item * C<strlen> -- chop long strings at length (default 256)
 
-=item * C<name> -- client name
+=item * C<name> -- client or job name
 
 =item * C<staip> -- client station IP address
 
@@ -108,7 +109,7 @@ do
     my $gui      = $q->param('gui')      || ''; # 'jobs', 'clients'
     my $job      = $q->param('job')      || '';
     my $result   = $q->param('result')   || ''; # 'unknown', 'success', 'unstable', 'failure'
-    my $state    = $q->param('state')    || ''; # 'unknown', 'running', 'idle'
+    my $state    = $q->param('state')    || ''; # 'unknown', 'off', 'running', 'idle'
     my $redirect = $q->param('redirect') || '';
     my $ascii    = $q->param('ascii')    || 0;
     my $client   = $q->param('client')   || ''; # client id
@@ -125,7 +126,7 @@ do
     my @states   = (); # $q->multi_param('states');
     my @jobs     = $q->multi_param('jobs');
     my $model    = $q->param('model')    || '';
-    my $driver   = $q->param('driver')   || '';
+    my $driver   = $q->param('driver')   || ''; # TODO: @key-@val
     my $order    = $q->param('order')    || '';
     my $bright   = $q->param('bright')   || '';
     my $noise    = $q->param('noise')    || '';
@@ -138,9 +139,9 @@ do
         #$gui = 'jobs';
     }
 
-    # text/json
+    # application/json POST
     my $contentType = $q->content_type();
-    if ( $contentType && ($contentType eq 'text/json') )
+    if ( $contentType && ($contentType eq 'application/json') )
     {
         my $jsonStr = $q->param('POSTDATA');
         my $jsonObj;
@@ -174,7 +175,7 @@ do
 
     ##### load and lock "database" #####
 
-    my ($dbHandle, $db, $error) = _dbOpen();
+    (my $dbHandle, my $db, $error) = _dbOpen();
     if ($error)
     {
         $cmd = '';
@@ -188,37 +189,20 @@ do
 
 =head2 Commands
 
-=cut
+=head3 Status Commands
 
-=pod
+These commands are used to update the Jenkins jobs, e.g. by the C<tschenggins-watcher.pl> script.
 
-=head3 C<< cmd=help >>
+=over
 
-Print help.
-
-=cut
-
-    # help
-    if ($cmd eq 'help')
-    {
-        my $outFh;
-        open($outFh, '>', \$text);
-        pod2usage({ -output => $outFh, -exitval => 'NOEXIT', -verbose => 3,
-                    #-perldocopt => '-ohtml'
-                  });
-        close($outFh);
-    }
-
-=pod
-
-=head3 C<< cmd=hello >> or C<< cmd=delay >>
+=item  B<< C<< cmd=hello >> or C<< cmd=delay >> >>
 
 Connection check. Responds with "hi there" (immediately or after a delay).
 
 =cut
 
     # connection check
-    elsif ($cmd eq 'hello')
+    if ($cmd eq 'hello')
     {
         $text = 'hi there';
     }
@@ -230,9 +214,10 @@ Connection check. Responds with "hi there" (immediately or after a delay).
 
 =pod
 
-=head3 C<< cmd=update >>
+=item B<< C<< cmd=update [debug=...] [ascii=...] <states=...> [...] >> >>
 
-Interface for C<tschenggins-watcher.pl>.
+This expects a application/json POST request. The C<states> array consists of objects with the following
+fields: C<server>, C<name> and optionally C<state> and/or C<result>.
 
 =cut
 
@@ -249,90 +234,13 @@ Interface for C<tschenggins-watcher.pl>.
 
 =pod
 
-=head3 C<< cmd=gui >>
+=back
 
-The GUI.
+=head3 Client Commands
 
-=cut
+=over
 
-    # GUI
-    elsif ($cmd eq 'gui')
-    {
-        push(@html, _gui($db, $gui, $client));
-    }
-
-=pod
-
-=head3 C<< cmd=set job=<jobid> state=<state string> result=<result string> >>
-
-Set job state and/or result.
-
-=cut
-
-    # set entry state and/or result
-    elsif ($cmd eq 'set')
-    {
-        (my $res, $error) = _set($db, $job, $state, $result);
-        if ($res)
-        {
-            $text = "db updated";
-        }
-    }
-
-=pod
-
-=head3 C<< cmd=add job=<job name> server=<server name> state=<state string> result=<result string> >>
-
-Add job.
-
-=cut
-
-    # add entry
-    elsif ($cmd eq 'add')
-    {
-        (my $res, $error) = _add($db, $server, $job, $state, $result);
-        if ($res)
-        {
-            $text = "db updated";
-        }
-    }
-
-=pod
-
-=head3 C<< cmd=del job=<jobid> >>
-
-Delete job.
-
-=cut
-
-    # delete entry
-    elsif ($cmd eq 'del')
-    {
-        (my $res, $error) = _del($db, $job);
-        if ($res)
-        {
-            $text = "db updated";
-        }
-    }
-
-=pod
-
-=head3 C<< cmd=rawdb >>
-
-Returns the raw database (JSON).
-
-=cut
-
-    # raw db
-    elsif ($cmd eq 'rawdb')
-    {
-        delete $db->{_dirtiness};
-        $data = { db => $db, res => 1 };
-    }
-
-=pod
-
-=head3 C<< cmd=list offset=<number> limit=<number> >>
+=item B<<  C<< cmd=list offset=<number> limit=<number> >> >>
 
 List available jobs with optional offset and/or limit.
 
@@ -346,7 +254,7 @@ List available jobs with optional offset and/or limit.
 
 =pod
 
-=head3 C<< cmd=get job=<jobid> >>
+=item B<<  C<< cmd=get job=<jobid> >> >>
 
 Get job state.
 
@@ -358,9 +266,155 @@ Get job state.
         ($data, $error) = _get($db, $job);
     }
 
+
 =pod
 
-=head3 C<< cmd=rmclient client=<clientid> >>
+=item B<<  C<< cmd=jobs client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> strlen=<number> maxch=<number> >> >>
+
+Returns info for a client and updates client info.
+
+=cut
+
+    elsif ($cmd eq 'jobs')
+    {
+        ($data, $error) = _jobs($db, $client, $strlen,
+            { name => $name, staip => $staip, stassid => $stassid, version => $version, maxch => $maxch });
+    }
+
+=pod
+
+=item B<<  C<< cmd=realtime client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> strlen=<number> maxch=<number> >> >>
+
+Returns info for a client and updates client info. This persistent connection with real-time update as things happen.
+
+=cut
+
+    elsif ($cmd eq 'realtime')
+    {
+        # dummy call like cmd=leds to check the parameters and update the client info in the DB
+        ($data, $error) = _jobs($db, $client, $strlen,
+            { name => $name, staip => $staip, stassid => $stassid, version => $version, maxch => $maxch });
+
+        # clear pending commands
+        $db->{cmd}->{$client} = '';
+        $db->{_dirtiness}++;
+
+        # save pid so that previous instances can terminate in case they're still running
+        # and haven't noticed yet that the Lämpli is gone (Apache waiting "forever" for TCP timeout)
+        unless ($error)
+        {
+            $db->{clients}->{$client}->{pid} = $$;
+            $db->{_dirtiness}++;
+        }
+
+        # continues in call to _realtime() below... (unless $error)
+    }
+
+=pod
+
+=back
+
+=head3 Web Interface Commands
+
+These commands are used by the web interface.
+
+=over
+
+=item B<<  C<< cmd=help >> >>
+
+Print help.
+
+=cut
+
+    # help
+    elsif ($cmd eq 'help')
+    {
+        print($q->header( -type => 'text/html', -expires => 'now', charset => 'UTF-8'));
+        pod2usage({ -verbose => 2,  -exitval => 0, -output => \*STDOUT, -perldocopt => '-ohtml', });
+        exit(0);
+    }
+
+=pod
+
+=item B<<  C<< cmd=gui gui=jobs >> / C<< cmd=gui gui=clients >> / C<< cmd=gui gui=client client=<clientid> >> >>
+
+The web interface.
+
+=cut
+
+    elsif ($cmd eq 'gui')
+    {
+        push(@html, _gui($db, $gui, $client));
+    }
+
+=pod
+
+=item B<<  C<< cmd=set job=<jobid> state=<state string> result=<result string> >> >>
+
+Set job state and/or result.
+
+=cut
+
+    elsif ($cmd eq 'set')
+    {
+        (my $res, $error) = _set($db, $job, $state, $result);
+        if ($res)
+        {
+            $text = "db updated";
+        }
+    }
+
+=pod
+
+=item B<<  C<< cmd=add job=<job name> server=<server name> state=<state string> result=<result string> >> >>
+
+Add job.
+
+=cut
+
+    elsif ($cmd eq 'add')
+    {
+        (my $res, $error) = _add($db, $server, $job, $state, $result);
+        if ($res)
+        {
+            $text = "db updated";
+        }
+    }
+
+=pod
+
+=item B<<  C<< cmd=del job=<jobid> >> >>
+
+Delete job.
+
+=cut
+
+    elsif ($cmd eq 'del')
+    {
+        (my $res, $error) = _del($db, $job);
+        if ($res)
+        {
+            $text = "db updated";
+        }
+    }
+
+=pod
+
+=item B<<  C<< cmd=rawdb >> >>
+
+Returns the raw database (JSON).
+
+=cut
+
+    elsif ($cmd eq 'rawdb')
+    {
+        delete $db->{_dirtiness};
+        $data = { db => $db, res => 1 };
+    }
+
+=pod
+
+=item B<<  C<< cmd=rmclient client=<clientid> >> >>
 
 Remove client info.
 
@@ -382,7 +436,7 @@ Remove client info.
         }
     }
 
-=head3 C<< cmd=cfgjobs client=<clientid> jobs=<jobID> ... >>
+=item B<<  C<< cmd=cfgjobs client=<clientid> jobs=<jobID> ... >> >>
 
 Set client jobs configuration.
 
@@ -411,7 +465,7 @@ Set client jobs configuration.
         }
     }
 
-=head3 C<< cmd=cfgdevice client=<clientid> model=<...> driver=<...> order=<...> bright=<...> noise=<...> >>
+=item B<<  C<< cmd=cfgdevice client=<clientid> model=<...> driver=<...> order=<...> bright=<...> noise=<...> >> >>
 
 Set client device configuration.
 
@@ -444,7 +498,7 @@ Set client device configuration.
 
 =pod
 
-=head3 C<< cmd=cfgcmd cfgcmd=<...> >>
+=item B<<  C<< cmd=cfgcmd cfgcmd=<...> >> >>
 
 Send command to client.
 
@@ -471,52 +525,22 @@ Send command to client.
         }
     }
 
-=pod
-
-=head3 C<< cmd=jobs client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> strlen=<number> maxch=<number> >>
-
-Returns info for a client.
-
-=head3 C<< cmd=realtime client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> strlen=<number> maxch=<number> >>
-
-Returns info for a client. Endless connection with real-time update as things happen.
-
-=cut
-
-    # LEDs results for client
-    elsif ($cmd eq 'jobs')
-    {
-        ($data, $error) = _jobs($db, $client, $strlen,
-            { name => $name, staip => $staip, stassid => $stassid, version => $version, maxch => $maxch });
-    }
-    # special mode: realtime status change notification
-    elsif ($cmd eq 'realtime')
-    {
-        # dummy call like cmd=leds to check the parameters and update the client info in the DB
-        ($data, $error) = _jobs($db, $client, $strlen,
-            { name => $name, staip => $staip, stassid => $stassid, version => $version, maxch => $maxch });
-
-        # clear pending commands
-        $db->{cmd}->{$client} = '';
-        $db->{_dirtiness}++;
-
-        # save pid so that previous instances can terminate in case they're still running
-        # and haven't noticed yet that the Lämpli is gone (Apache waiting "forever" for TCP timeout)
-        unless ($error)
-        {
-            $db->{clients}->{$client}->{pid} = $$;
-            $db->{_dirtiness}++;
-        }
-
-        # continues in call to _realtime() below... (unless $error)
-    }
-
     # illegal command
     else
     {
-        $error = 'illegal command';
+        if (!$error)
+        {
+            $error = 'illegal command';
+        }
     }
 
+=pod
+
+=back
+
+=cut
+
+    ####################################################################################################
 
     ##### close, update database with changes, and unlock #####
 
@@ -593,7 +617,7 @@ Returns info for a client. Endless connection with real-time update as things ha
         if (!$chunked)
         {
             print(
-                  $q->header( -type => 'text/json', -expires => 'now', charset => ($ascii ? 'US-ASCII' : 'UTF-8'),
+                  $q->header( -type => 'application/json', -expires => 'now', charset => ($ascii ? 'US-ASCII' : 'UTF-8'),
                               # avoid "Transfer-Encoding: chunked" by specifying the actual content length
                               # so that the raw output will be exactly and only the json string
                               # (i.e. no https://en.wikipedia.org/wiki/Chunked_transfer_encoding markers)
@@ -606,7 +630,7 @@ Returns info for a client. Endless connection with real-time update as things ha
         else
         {
             print(
-                  $q->header( -type => 'text/json', -expires => 'now', charset => ($ascii ? 'US-ASCII' : 'UTF-8'),
+                  $q->header( -type => 'application/json', -expires => 'now', charset => ($ascii ? 'US-ASCII' : 'UTF-8'),
                               #'-Transfer-Encoding' => 'chunked',
                               #'-Access-Control-Allow-Origin' => '*'
                             )
@@ -652,11 +676,13 @@ sub _dbOpen
     my $error = '';
     unless (open($dbHandle, '+>>', $DBFILE))
     {
-        $error = "failed opening database file";
+        $error = "failed opening database file: $!";
+        return (undef, undef, $error);
     }
     unless (flock($dbHandle, LOCK_EX))
     {
-        $error = "failed locking database file";
+        $error = "failed locking database file: $!";
+        return (undef, undef, $error);
     }
 
     if (!$error)
@@ -718,6 +744,10 @@ sub _dbClose
 {
     my ($dbHandle, $db, $debug, $update) = @_;
 
+    unless ($dbHandle && $db)
+    {
+        return;
+    }
     if ($update && $db->{_dirtiness})
     {
         DEBUG("updating db, dirtiness $db->{_dirtiness}");
@@ -731,6 +761,10 @@ sub _dbClose
     }
     close($dbHandle);
 }
+
+
+####################################################################################################
+# status commands
 
 sub _update
 {
@@ -746,17 +780,16 @@ sub _update
     my $error = '';
     foreach my $st (@states)
     {
-        my $jobName = $st->{name}   || '';
-        my $jState  = $st->{state}  || '';
-        my $jResult = $st->{result} || '';
-        if (!$st->{server})
+        my $jobName  = $st->{name}   || '';
+        my $server   = $st->{server} || '';
+        my $jState   = $st->{state}  || '';
+        my $jResult  = $st->{result} || '';
+        if ($st->{server} !~ m{$SERVERNAMERE})
         {
-            $error = "missing server";
+            $error = "not a valid server name: $server";
             $ok = 0;
             last;
         }
-        my $server = $st->{server};
-
         if ($jobName !~ m{$JOBNAMERE})
         {
             $error = "not a valid job name: $jobName";
@@ -788,48 +821,9 @@ sub _update
     return $ok, $error;
 }
 
-sub _set
-{
-    my ($db, $id, $state, $result) = @_;
-    DEBUG("_set() %s %s %s", $id || 'undef', $state || 'undef', $result || 'undef');
-    if (!$id || !$db->{jobs}->{$id})
-    {
-        return 0, 'illegal job id';
-    }
-    my $st = $db->{jobs}->{$id};
-    $db->{jobs}->{$id}->{state}  = $state  if ($state);
-    $db->{jobs}->{$id}->{result} = $result if ($result);
-    $db->{jobs}->{$id}->{ts}     = int(time() + 0.5);
-    $db->{_dirtiness}++;
-    return 1, '';
-}
 
-sub _add
-{
-    my ($db, $server, $job, $state, $result) = @_;
-    DEBUG("_add() %s %s %s %s", $server || 'undef', $job || 'undef', $state || 'undef', $result || 'undef');
-    if (!$server || !$job || !$state || !$result)
-    {
-        return 0, 'missing parameters';
-    }
-    return _update($db, { server => $server, name => $job, state => $state, result => $result });
-}
-
-sub _del
-{
-    my ($db, $job) = @_;
-    DEBUG("_del() %s", $job || 'undef');
-    if ($db->{jobs}->{$job})
-    {
-        delete $db->{jobs}->{$job};
-        $db->{_dirtiness}++;
-        return 1, '';
-    }
-    else
-    {
-        return 0, 'illegal job id';
-    }
-}
+####################################################################################################
+# client commands
 
 sub _list
 {
@@ -914,6 +908,194 @@ sub _jobs
     $db->{_dirtiness}++;
 
     return $data, '';
+}
+
+# to test:
+# curl --raw -s -v -i "http://..../tschenggins-status.pl?cmd=realtime;client=...;debug=1"
+sub _realtime
+{
+    my ($client, $strlen, $info) = @_;
+    print($q->header(-type => 'text/plain', -expires => 'now', charset => 'US-ASCII'));
+    my $n = 0;
+    my $nHeartbeat = 0;
+    my $lastTs = 0;
+    my @lastStatus = ();
+    my $lastConfig = 'not a possible config string';
+    my $lastCheck = 0;
+    my $startTs = time();
+    my $debugServer = 0;
+    my $doCheck = 0;
+    $SIG{USR1} = sub { $doCheck = 1; };
+
+    $0 = $info->{name} || "client$client";
+    STDOUT->autoflush(1);
+    print("hello $client $strlen $info->{name}\r\n");
+    while (1)
+    {
+        sleep(1);
+        my $now = time();
+        my $nowInt = int($now + 0.5);
+        if ( ($n % 5) == 0 )
+        {
+            $nHeartbeat++;
+            printf("\r\nheartbeat $now $nHeartbeat\r\n");
+        }
+        $n++;
+
+        # don't run forever
+        if ( ($now - $startTs) > (4 * 3600) )
+        {
+            exit(0);
+        }
+
+        # check database...
+        # ...if it has changed
+        my $ts = -f $DBFILE ? (stat($DBFILE))[9] : 0;
+        if ($ts != $lastTs)
+        {
+            $doCheck = 1;
+            $lastTs = $ts;
+        }
+        # ...and every once in a while
+        elsif (($now - $lastCheck) > 10)
+        {
+            $doCheck = 1;
+            $lastCheck = $now;
+        }
+
+        if ($doCheck)
+        {
+            $doCheck = 0;
+            printf(STDERR "doCheck\n") if ($debugServer);
+            my $sendCmd = '';
+
+            # load database
+            my ($dbHandle, $db, $error) = _dbOpen();;
+
+            # command pending?
+            if ($db->{cmd}->{$client})
+            {
+                $sendCmd = $db->{cmd}->{$client};
+                $db->{cmd}->{$client} = '';
+                $db->{_dirtiness}++;
+            }
+
+            # close database
+            _dbClose($dbHandle, $db, 0, $error ? 0 : 1);
+
+            # exit if we were deleted, or we're no longer in charge
+            if (!$db->{clients}->{$client} ||
+                ($db->{clients}->{$client}->{pid} && ($db->{clients}->{$client}->{pid} != $$)) )
+            {
+                printf(STDERR "client info gone\n") if ($debugServer);
+                print("\r\nreconnect $nowInt\r\n");
+                sleep(1);
+                exit(0);
+            }
+
+            # send command?
+            if ($sendCmd)
+            {
+                printf(STDERR "client command $sendCmd\n") if ($debugServer);
+                print("\r\ncommand $nowInt $sendCmd\r\n");
+            }
+
+            # check if we're interested in any changes
+            if ($db && $db->{config} && $db->{config}->{$client})
+            {
+                my @cfgKeys = grep { $_ ne 'jobs' } sort keys %{$db->{config}->{$client}};
+                my $config = join(' ', map { "$_=$db->{config}->{$client}->{$_}" } @cfgKeys);
+                if ($config ne $lastConfig)
+                {
+                    my %data = map { $_, $db->{config}->{$client}->{$_} } @cfgKeys;
+                    my $json = JSON::PP->new()->ascii(1)->canonical(1)->pretty(0)->encode(\%data);
+                    print("\r\nconfig $nowInt $json\r\n");
+                    $lastConfig = $config;
+                }
+            }
+            if ($db && $db->{clients} && $db->{clients}->{$client})
+            {
+                # same as cmd=jobs to get the data but we won't store the database (this updates $db->{clients}->{$client})
+                my ($data, $error) = _jobs($db, $client, $strlen, $info);
+                if ($error)
+                {
+                    print("\r\nerror $nowInt $error\r\n");
+                }
+                elsif ($data)
+                {
+                    # we send only changed jobs info
+                    my @changedJobs = ();
+                    # add index to results, find jobs that have changed
+                    my @jobs = @{$data->{jobs}};
+                    for (my $ix = 0; $ix <= $#jobs; $ix++)
+                    {
+                        my @job = (int($ix), @{$jobs[$ix]});
+                        my $status = join(' ', map { $_ } @job); # join copy of array to avoid stringification of integers
+                        if (!defined $lastStatus[$ix] || ($lastStatus[$ix] ne $status))
+                        {
+                            $lastStatus[$ix] = $status;
+                            push(@changedJobs, \@job);
+                        }
+                    }
+                    # send list of changed jobs
+                    if ($#changedJobs > -1)
+                    {
+                        my $json = JSON::PP->new()->ascii(1)->canonical(1)->pretty(0)->encode(\@changedJobs);
+                        print("\r\nstatus $nowInt $json\r\n");
+                    }
+                }
+            }
+        }
+
+        # FIXME: if we just could read some data from the client here to determine if it is still alive..
+        # reading from STDIN doesn't show any data... :-(
+    }
+}
+
+####################################################################################################
+# web interface commands
+
+sub _set
+{
+    my ($db, $id, $state, $result) = @_;
+    DEBUG("_set() %s %s %s", $id || 'undef', $state || 'undef', $result || 'undef');
+    if (!$id || !$db->{jobs}->{$id})
+    {
+        return 0, 'illegal job id';
+    }
+    my $st = $db->{jobs}->{$id};
+    $db->{jobs}->{$id}->{state}  = $state  if ($state);
+    $db->{jobs}->{$id}->{result} = $result if ($result);
+    $db->{jobs}->{$id}->{ts}     = int(time() + 0.5);
+    $db->{_dirtiness}++;
+    return 1, '';
+}
+
+sub _add
+{
+    my ($db, $server, $job, $state, $result) = @_;
+    DEBUG("_add() %s %s %s %s", $server || 'undef', $job || 'undef', $state || 'undef', $result || 'undef');
+    if (!$server || !$job || !$state || !$result)
+    {
+        return 0, 'missing parameters';
+    }
+    return _update($db, { server => $server, name => $job, state => $state, result => $result });
+}
+
+sub _del
+{
+    my ($db, $job) = @_;
+    DEBUG("_del() %s", $job || 'undef');
+    if ($db->{jobs}->{$job})
+    {
+        delete $db->{jobs}->{$job};
+        $db->{_dirtiness}++;
+        return 1, '';
+    }
+    else
+    {
+        return 0, 'illegal job id';
+    }
 }
 
 sub _gui
@@ -1284,147 +1466,6 @@ sub __gui_results
                      @trs);
 }
 
-# to test:
-# curl --raw -s -v -i "http://..../tschenggins-status-ng.pl?cmd=realtime;client=...;debug=1"
-sub _realtime
-{
-    my ($client, $strlen, $info) = @_;
-    print($q->header(-type => 'text/plain', -expires => 'now', charset => 'US-ASCII'));
-    my $n = 0;
-    my $nHeartbeat = 0;
-    my $lastTs = 0;
-    my @lastStatus = ();
-    my $lastConfig = 'not a possible config string';
-    my $lastCheck = 0;
-    my $startTs = time();
-    my $debugServer = 0;
-    my $doCheck = 0;
-    $SIG{USR1} = sub { $doCheck = 1; };
-
-    $0 = $info->{name} || "client$client";
-    STDOUT->autoflush(1);
-    print("hello $client $strlen $info->{name}\r\n");
-    while (1)
-    {
-        sleep(1);
-        my $now = time();
-        my $nowInt = int($now + 0.5);
-        if ( ($n % 5) == 0 )
-        {
-            $nHeartbeat++;
-            printf("\r\nheartbeat $now $nHeartbeat\r\n");
-        }
-        $n++;
-
-        # don't run forever
-        if ( ($now - $startTs) > (4 * 3600) )
-        {
-            exit(0);
-        }
-
-        # check database...
-        # ...if it has changed
-        my $ts = -f $DBFILE ? (stat($DBFILE))[9] : 0;
-        if ($ts != $lastTs)
-        {
-            $doCheck = 1;
-            $lastTs = $ts;
-        }
-        # ...and every once in a while
-        elsif (($now - $lastCheck) > 10)
-        {
-            $doCheck = 1;
-            $lastCheck = $now;
-        }
-
-        if ($doCheck)
-        {
-            $doCheck = 0;
-            printf(STDERR "doCheck\n") if ($debugServer);
-            my $sendCmd = '';
-
-            # load database
-            my ($dbHandle, $db, $error) = _dbOpen();;
-
-            # command pending?
-            if ($db->{cmd}->{$client})
-            {
-                $sendCmd = $db->{cmd}->{$client};
-                $db->{cmd}->{$client} = '';
-                $db->{_dirtiness}++;
-            }
-
-            # close database
-            _dbClose($dbHandle, $db, 0, $error ? 0 : 1);
-
-            # exit if we were deleted, or we're no longer in charge
-            if (!$db->{clients}->{$client} ||
-                ($db->{clients}->{$client}->{pid} && ($db->{clients}->{$client}->{pid} != $$)) )
-            {
-                printf(STDERR "client info gone\n") if ($debugServer);
-                print("\r\nreconnect $nowInt\r\n");
-                sleep(1);
-                exit(0);
-            }
-
-            # send command?
-            if ($sendCmd)
-            {
-                printf(STDERR "client command $sendCmd\n") if ($debugServer);
-                print("\r\ncommand $nowInt $sendCmd\r\n");
-            }
-
-            # check if we're interested in any changes
-            if ($db && $db->{config} && $db->{config}->{$client})
-            {
-                my @cfgKeys = grep { $_ ne 'jobs' } sort keys %{$db->{config}->{$client}};
-                my $config = join(' ', map { "$_=$db->{config}->{$client}->{$_}" } @cfgKeys);
-                if ($config ne $lastConfig)
-                {
-                    my %data = map { $_, $db->{config}->{$client}->{$_} } @cfgKeys;
-                    my $json = JSON::PP->new()->ascii(1)->canonical(1)->pretty(0)->encode(\%data);
-                    print("\r\nconfig $nowInt $json\r\n");
-                    $lastConfig = $config;
-                }
-            }
-            if ($db && $db->{clients} && $db->{clients}->{$client})
-            {
-                # same as cmd=jobs to get the data but we won't store the database (this updates $db->{clients}->{$client})
-                my ($data, $error) = _jobs($db, $client, $strlen, $info);
-                if ($error)
-                {
-                    print("\r\nerror $nowInt $error\r\n");
-                }
-                elsif ($data)
-                {
-                    # we send only changed jobs info
-                    my @changedJobs = ();
-                    # add index to results, find jobs that have changed
-                    my @jobs = @{$data->{jobs}};
-                    for (my $ix = 0; $ix <= $#jobs; $ix++)
-                    {
-                        my @job = (int($ix), @{$jobs[$ix]});
-                        my $status = join(' ', map { $_ } @job); # join copy of array to avoid stringification of integers
-                        if (!defined $lastStatus[$ix] || ($lastStatus[$ix] ne $status))
-                        {
-                            $lastStatus[$ix] = $status;
-                            push(@changedJobs, \@job);
-                        }
-                    }
-                    # send list of changed jobs
-                    if ($#changedJobs > -1)
-                    {
-                        my $json = JSON::PP->new()->ascii(1)->canonical(1)->pretty(0)->encode(\@changedJobs);
-                        print("\r\nstatus $nowInt $json\r\n");
-                    }
-                }
-            }
-        }
-
-        # FIXME: if we just could read some data from the client here to determine if it is still alive..
-        # reading from STDIN doesn't show any data... :-(
-    }
-}
 
 
 __END__
