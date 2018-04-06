@@ -81,22 +81,22 @@ all: cscope
 # show debug output
 .PHONY: debug
 debug:
-	$(Q)$(PERL) ../tools/debug.pl $(ESPPORT):115200
+	$(Q)$(PERL) tools/debug.pl $(ESPPORT):115200
 
 # print list of IRAM symbols
-$(BUILD_DIR)$(PROGRAM).sym_iram: $(PROGRAM_OUT) ../tools/symbols.pl
+$(BUILD_DIR)$(PROGRAM).sym_iram: $(PROGRAM_OUT) tools/symbols.pl
 	$(vecho) "GEN $@"
-	$(Q)$(OBJDUMP) -t $< | $(PERL) ../tools/symbols.pl iRAM 0x40100000 0x8000 > $@
+	$(Q)$(OBJDUMP) -t $< | $(PERL) tools/symbols.pl iRAM 0x40100000 0x8000 > $@
 
 # print list of IROM symbols
-$(BUILD_DIR)$(PROGRAM).sym_irom: $(PROGRAM_OUT) ../tools/symbols.pl
+$(BUILD_DIR)$(PROGRAM).sym_irom: $(PROGRAM_OUT) tools/symbols.pl
 	$(vecho) "GEN $@"
-	$(Q)$(OBJDUMP) -t $< | $(PERL) ../tools/symbols.pl iROM 0x40200000 0x5c000 > $@
+	$(Q)$(OBJDUMP) -t $< | $(PERL) tools/symbols.pl iROM 0x40200000 0x5c000 > $@
 
 # print list of DRAM symbols
-$(BUILD_DIR)$(PROGRAM).sym_dram: $(PROGRAM_OUT) ../tools/symbols.pl
+$(BUILD_DIR)$(PROGRAM).sym_dram: $(PROGRAM_OUT) tools/symbols.pl
 	$(vecho) "GEN $@"
-	$(Q)$(OBJDUMP) -t $< | $(PERL) ../tools/symbols.pl dRAM 0x3ffe8000 0x14000 > $@
+	$(Q)$(OBJDUMP) -t $< | $(PERL) tools/symbols.pl dRAM 0x3ffe8000 0x14000 > $@
 
 # print object size info
 $(BUILD_DIR)$(PROGRAM).size: $(PROGRAM_OUT) $(BUILD_DIR)$(PROGRAM).sym_iram $(BUILD_DIR)$(PROGRAM).sym_irom  $(BUILD_DIR)$(PROGRAM).sym_dram
@@ -117,12 +117,12 @@ all: $(BUILD_DIR)$(PROGRAM).size
 ###############################################################################
 
 # build version
-BUILDVER    := $(shell $(PERL) ../tools/version.pl)
+BUILDVER    := $(shell $(PERL) tools/version.pl)
 BUILDVEROLD := $(shell $(SED) -n '/FF_BUILDVER/s/.*"\(.*\)".*/\1/p' $(PROGRAM_OBJ_DIR)version_gen.h 2>/dev/null)
 BUILDDATE   := $(shell $(DATE) +"%Y-%m-%d %H:%M")
 GCCVERSION  := $(shell PATH=$(PATH) $(CC) --version | $(HEAD) -n1)
-EORVERSION  := $(shell $(PERL) ../tools/version.pl $(RTOSBASE))
-SDKVERSION  := $(shell $(PERL) ../tools/version.pl $(SDKBASE))
+EORVERSION  := $(shell $(PERL) tools/version.pl $(RTOSBASE))
+SDKVERSION  := $(shell $(PERL) tools/version.pl $(SDKBASE))
 
 # trigger generation of version_gen.h if necessary
 ifneq ($(BUILDVER),$(BUILDVEROLD))
