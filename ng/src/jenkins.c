@@ -173,7 +173,7 @@ static JENKINS_RESULT_t sJenkinsWorstResult;
 
 void jenkinsSetInfo(const JENKINS_INFO_t *pkInfo)
 {
-    // FIXME: check valid channel (here?)
+    // update LEDs
     if (pkInfo->active)
     {
         const char *state  = jenkinsStateToStr(pkInfo->state);
@@ -190,6 +190,7 @@ void jenkinsSetInfo(const JENKINS_INFO_t *pkInfo)
         ledsSetState(pkInfo->chIx, sJenkinsLedStateFromJenkins(JENKINS_STATE_UNKNOWN, JENKINS_RESULT_UNKNOWN));
     }
 
+    // store new result and state
     if (pkInfo->chIx < NUMOF(sJenkinsStates))
     {
         sJenkinsStates[pkInfo->chIx]  = pkInfo->active ? pkInfo->state  : JENKINS_STATE_UNKNOWN;
@@ -200,23 +201,29 @@ void jenkinsSetInfo(const JENKINS_INFO_t *pkInfo)
     JENKINS_RESULT_t worstResult = JENKINS_RESULT_UNKNOWN;
     for (int ix = 0; ix < NUMOF(sJenkinsResults); ix++)
     {
-        if (sJenkinsResults[ix] > sJenkinsWorstResult)
+        if (sJenkinsResults[ix] >= worstResult)
         {
             worstResult = sJenkinsResults[ix];
         }
     }
+    DEBUG("jenkins: worst is now %s", jenkinsResultToStr(worstResult));
 
     // play sound if we changed from failure/warning to success or from success/warning to failure
-    if ( (worstResult != JENKINS_RESULT_UNKNOWN) && (worstResult != sJenkinsWorstResult) )
+    if (worstResult != sJenkinsWorstResult)
     {
-        DEBUG("jenkins: %s -> %s", jenkinsResultToStr(sJenkinsWorstResult), jenkinsResultToStr(worstResult));
-        if (worstResult == JENKINS_RESULT_FAILURE)
+        switch (worstResult)
         {
-            PRINT("jenkins: failure!");
-        }
-        else if (worstResult == JENKINS_RESULT_SUCCESS)
-        {
-            PRINT("jenkins: success!");
+            case JENKINS_RESULT_FAILURE:
+                PRINT("jenkins: failure!");
+                break;
+            case JENKINS_RESULT_SUCCESS:
+                PRINT("jenkins: success!");
+                break;
+            case JENKINS_RESULT_UNSTABLE:
+                PRINT("jenkins: unstable!");
+                break;
+            default:
+                break;
         }
     }
 
@@ -234,10 +241,12 @@ void jenkinsClearInfo(void)
 
 void jenkinsMonStatus(void)
 {
-    static char str[NUMOF(sJenkinsStates) * 6 + 2];
+    static char str[10 * 6 + 2];
     char *pStr = str;
     int len = sizeof(str) - 1;
-    for (int ix = 0; (ix < NUMOF(sJenkinsStates)) && (len > 6); ix++)
+    bool last = false;
+    int ix = 0;
+    while (!last)
     {
         const char *stateStr  = jenkinsStateToStr(sJenkinsStates[ix]);
         const char *resultStr = jenkinsResultToStr(sJenkinsResults[ix]);
@@ -246,8 +255,16 @@ void jenkinsMonStatus(void)
         const int n = snprintf(pStr, len, " %02i=%c%c", ix, toupper((int)stateChar), toupper((int)resultChar));
         len -= n;
         pStr += n;
+        ix++;
+        last = (ix >= NUMOF(sJenkinsStates)) || (len < 1);
+        if ( ((ix % 10) == 0) || last )
+        {
+            DEBUG("mon: jenkins:%s", str);
+            pStr = str;
+            len = sizeof(str) - 1;
+        }
     }
-    DEBUG("mon: jenkins:%s", str);
+    DEBUG("mon: jenkins: worst=%s", jenkinsResultToStr(sJenkinsWorstResult));
 }
 
 
