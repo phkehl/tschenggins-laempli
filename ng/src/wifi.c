@@ -534,8 +534,11 @@ static void sWifiTask(void *pArg)
                 while (waitTime > 0)
                 {
                     osSleep(1000);
-                    DEBUG("wifi: wait... %d", waitTime);
-                    if (waitTime <= 5)
+                    if ( (waitTime < 10) || ((waitTime % 10) == 0) )
+                    {
+                        DEBUG("wifi: wait... %d", waitTime);
+                    }
+                    if (waitTime <= 3)
                     {
                         statusNoise(STATUS_NOISE_TICK);
                     }

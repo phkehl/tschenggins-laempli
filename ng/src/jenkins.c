@@ -11,6 +11,8 @@
 #include "debug.h"
 #include "stuff.h"
 #include "leds.h"
+#include "config.h"
+#include "tone.h"
 #include "jenkins.h"
 
 static const char * const skJenkinsStateStrs[] =
@@ -186,6 +188,7 @@ void jenkinsSetInfo(const JENKINS_INFO_t *pkInfo)
 
 void jenkinsClearInfo(void)
 {
+    sJenkinsWorstResult = JENKINS_RESULT_UNKNOWN;
     for (uint16_t ix = 0; ix < JENKINS_MAX_CH; ix++)
     {
         JENKINS_INFO_t info = { .chIx = ix, .active = false };
@@ -260,24 +263,37 @@ void sJenkinsUpdate(void)
     DEBUG("jenkins: worst is now %s", jenkinsResultToStr(worstResult));
 
     // play sound if we changed from failure/warning to success or from success/warning to failure
-    if (worstResult != sJenkinsWorstResult)
+    // TODO: play more sounds if CONFIG_NOISE_MORE
+    if (sJenkinsWorstResult != JENKINS_RESULT_UNKNOWN)
     {
-        switch (worstResult)
+        if (worstResult != sJenkinsWorstResult)
         {
-            case JENKINS_RESULT_FAILURE:
-                PRINT("jenkins: failure!");
-                break;
-            case JENKINS_RESULT_SUCCESS:
-                PRINT("jenkins: success!");
-                break;
-            case JENKINS_RESULT_UNSTABLE:
-                PRINT("jenkins: unstable!");
-                break;
-            default:
-                break;
+            switch (worstResult)
+            {
+                case JENKINS_RESULT_FAILURE:
+                    PRINT("jenkins: failure!");
+                    if (configGetNoise() >= CONFIG_NOISE_MORE)
+                    {
+                        toneStop();
+                        toneBuiltinMelody("ImperialShort");
+                    }
+                    break;
+                case JENKINS_RESULT_SUCCESS:
+                    PRINT("jenkins: success!");
+                    if (configGetNoise() >= CONFIG_NOISE_MORE)
+                    {
+                        toneStop();
+                        toneBuiltinMelody("IndianaShort");
+                    }
+                    break;
+                case JENKINS_RESULT_UNSTABLE:
+                    PRINT("jenkins: unstable!");
+                    break;
+                default:
+                    break;
+            }
         }
     }
-
     sJenkinsWorstResult = worstResult;
 }
 

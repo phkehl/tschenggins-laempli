@@ -212,7 +212,7 @@ void debugInit(void)
     // clear tx fifo
     uart_clear_txfifo(UART_NUM);
 
-    DEBUG("debugInit() buf=%u fifo=%u", sizeof(svDebugBuf), UART_FIFO_MAX);
+    DEBUG("debug: init buf=%u fifo=%u", sizeof(svDebugBuf), UART_FIFO_MAX);
 
     set_write_stdout(sWriteStdoutFunc);
 
@@ -233,7 +233,7 @@ void debugInit(void)
 
 #else
 
-    DEBUG("debugInit() (blocking, unbuffered)");
+    DEBUG("debug: init (blocking, unbuffered)");
     //sdk_os_install_putc1(sPutcFunc); // nope!
     set_write_stdout(sWriteStdoutFunc);
 

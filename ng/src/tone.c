@@ -93,7 +93,7 @@ void toneMelody(const int16_t *pkFreqDur)
         }
     }
 
-    DEBUG("toneMelody() %ums, %u", totalDur, nNotes);
+    //DEBUG("toneMelody() %ums, %u", totalDur, nNotes);
 
     // configure hw timer
     timer_set_divider(FRC1, TIMER_CLKDIV_1);
