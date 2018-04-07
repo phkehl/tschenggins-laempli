@@ -1,13 +1,13 @@
 # predefined configuration example
 # pass to makefile: make clean && make all CFGFILE=...
 
-# station SSID (default is empty)
+# station SSID
 STASSID "..."
 
-# station password (default is empty)
+# station password
 STAPASS  "..."
 
-# backend URL (default is empty)
+# backend URL
 BACKENDURL  "..."
 
 

@@ -10,7 +10,7 @@
 #define configSUPPORT_STATIC_ALLOCATION            1
 //#define configTIMER_QUEUE_LENGTH                 3
 #define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()   /* nothing */
-#define portGET_RUN_TIME_COUNTER_VALUE()           RTC.COUNTER
+#define portGET_RUN_TIME_COUNTER_VALUE()           (RTC.COUNTER)
 //#define configUSE_STATS_FORMATTING_FUNCTIONS     1
 //#define configMINIMAL_STACK_SIZE                 128
 

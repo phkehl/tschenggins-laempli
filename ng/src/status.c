@@ -24,7 +24,6 @@ static uint8_t sNum;
 static void sStatusLedTimerFunc(TimerHandle_t timer)
 {
     static uint32_t tick = 0;
-
     if (sPeriod && sNum)
     {
         const uint8_t phase = tick % sPeriod;
@@ -154,7 +153,8 @@ void statusInit(void)
 
     // setup LED timer
     static StaticTimer_t sTimer;
-    xTimerCreateStatic("status_led", MS2TICKS(100), true, NULL, sStatusLedTimerFunc, &sTimer);
+    TimerHandle_t timer = xTimerCreateStatic("status_led", MS2TICKS(100), true, NULL, sStatusLedTimerFunc, &sTimer);
+    xTimerStart(timer, 1000);
 
     statusLed(STATUS_LED_NONE);
 }
