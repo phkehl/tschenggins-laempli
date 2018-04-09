@@ -13,6 +13,7 @@
 #define portGET_RUN_TIME_COUNTER_VALUE()           (RTC.COUNTER)
 //#define configUSE_STATS_FORMATTING_FUNCTIONS     1
 //#define configMINIMAL_STACK_SIZE                 128
-
+#define configTIMER_SERVICE_TASK_NAME              "freertos_timer"
+#define configIDLE_TASK_NAME                       "idle_task"
 
 #include_next<FreeRTOSConfig.h>

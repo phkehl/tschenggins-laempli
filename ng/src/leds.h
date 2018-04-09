@@ -21,19 +21,28 @@ void ledsInit(void);
 //! start
 void ledsStart(void);
 
-
-typedef struct LEDS_STATE_s
+typedef enum LEDS_FX_e
 {
+    LEDS_FX_STILL,
+    LEDS_FX_PULSE,
+    LEDS_FX_FLICKER,
+
+} LEDS_FX_t;
+
+
+typedef struct LEDS_PARAM_s
+{
+    // base colour
     uint8_t hue;
     uint8_t sat;
     uint8_t val;
 
-    int8_t  dVal;
-    uint8_t minVal;
-    uint8_t maxVal;
-} LEDS_STATE_t;
+    // effect
+    LEDS_FX_t fx;
 
-void ledsSetState(const uint16_t ledIx, const LEDS_STATE_t *pkState);
+} LEDS_PARAM_t;
+
+void ledsSetState(const uint16_t ledIx, const LEDS_PARAM_t *pkParam);
 
 
 #endif // __LEDS_H__

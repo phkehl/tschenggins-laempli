@@ -87,10 +87,10 @@ const char *jenkinsResultToStr(const JENKINS_RESULT_t result)
     return "???";
 }
 
-static const LEDS_STATE_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t state, const JENKINS_RESULT_t result)
+static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t state, const JENKINS_RESULT_t result)
 {
-    static const LEDS_STATE_t skLedStateOff = { 0 };
-    const LEDS_STATE_t *pRes = &skLedStateOff;
+    static const LEDS_PARAM_t skLedStateOff = { 0 };
+    const LEDS_PARAM_t *pRes = &skLedStateOff;
 
     switch (state)
     {
@@ -100,25 +100,25 @@ static const LEDS_STATE_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
             {
                 case JENKINS_RESULT_SUCCESS:
                 {
-                    static const LEDS_STATE_t skLedState = { .hue = 85, .sat = 255, .val = 255, .minVal = 30, .maxVal = 255, .dVal = 2 };
+                    static const LEDS_PARAM_t skLedState = { .hue = 85, .sat = 255, .val = 255, .fx = LEDS_FX_PULSE };
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNSTABLE:
                 {
-                    static const LEDS_STATE_t skLedState = { .hue = 38, .sat = 255, .val = 255, .minVal = 30, .maxVal = 255, .dVal = 2 };
+                    static const LEDS_PARAM_t skLedState = { .hue = 38, .sat = 255, .val = 255, .fx = LEDS_FX_PULSE };
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_FAILURE:
                 {
-                    static const LEDS_STATE_t skLedState = { .hue = 0, .sat = 255, .val = 255, .minVal = 30, .maxVal = 255, .dVal = 2 };
+                    static const LEDS_PARAM_t skLedState = { .hue = 0, .sat = 255, .val = 255, .fx = LEDS_FX_PULSE };
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNKNOWN:
                 {
-                    static const LEDS_STATE_t skLedState = { .hue = 0, .sat = 0, .val = 255, .minVal = 30, .maxVal = 255, .dVal = 2 };
+                    static const LEDS_PARAM_t skLedState = { .hue = 0, .sat = 255, .val = 255, .fx = LEDS_FX_PULSE };
                     pRes = &skLedState;
                     break;
                 }
@@ -131,25 +131,25 @@ static const LEDS_STATE_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
             {
                 case JENKINS_RESULT_SUCCESS:
                 {
-                    static const LEDS_STATE_t skLedState = { .hue = 85, .sat = 255, .val = 255 };
+                    static const LEDS_PARAM_t skLedState = { .hue = 85, .sat = 255, .val = 255, .fx = LEDS_FX_STILL };
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNSTABLE:
                 {
-                    static const LEDS_STATE_t skLedState = { .hue = 38, .sat = 255, .val = 255 };
+                    static const LEDS_PARAM_t skLedState = { .hue = 38, .sat = 255, .val = 255, .fx = LEDS_FX_STILL };
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_FAILURE:
                 {
-                    static const LEDS_STATE_t skLedState = { .hue = 0, .sat = 255, .val = 255 };
+                    static const LEDS_PARAM_t skLedState = { .hue = 0, .sat = 255, .val = 255, .fx = LEDS_FX_STILL };
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNKNOWN:
                 {
-                    static const LEDS_STATE_t skLedState = { .hue = 0, .sat = 0, .val = 255 };
+                    static const LEDS_PARAM_t skLedState = { .hue = 0, .sat = 255, .val = 255, .fx = LEDS_FX_STILL };
                     pRes = &skLedState;
                     break;
                 }
@@ -158,7 +158,7 @@ static const LEDS_STATE_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
         }
         case JENKINS_STATE_UNKNOWN:
         {
-            static const LEDS_STATE_t skLedState = { .hue = 0, .sat = 0, .val = 100 };
+            static const LEDS_PARAM_t skLedState = { .hue = 0, .sat = 0, .val = 128, .fx = LEDS_FX_FLICKER };
             pRes = &skLedState;
             break;
         }

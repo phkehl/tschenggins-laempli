@@ -5,6 +5,8 @@
     - Copyright (c) 2017-2018 Philippe Kehl (flipflip at oinkzwurgl dot org),
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
+    - Credits: see source code
+
     \addtogroup FF_LEDS
 
     This uses the following GPIOs and the HSPI peripheral:
@@ -293,15 +295,144 @@ static void sLedsFlush(const CONFIG_DRIVER_t driver)
 
 /* *********************************************************************************************** */
 
+typedef struct LEDS_STATE_s
+{
+    LEDS_PARAM_t param;
+    bool    inited;
+    uint8_t val;
+    int8_t  delta;
+    uint8_t count;
+
+} LEDS_STATE_t;
+
 static LEDS_STATE_t sLedsStates[LEDS_NUM];
 
-void ledsSetState(const uint16_t ledIx, const LEDS_STATE_t *pkState)
+#define LEDS_PULSE_MIN_VAL 10
+
+void ledsSetState(const uint16_t ledIx, const LEDS_PARAM_t *pkParam)
 {
     if (ledIx < LEDS_NUM)
     {
-        sLedsStates[ledIx] = *pkState;
+        memset(&sLedsStates[ledIx], 0, sizeof(*sLedsStates));
+        sLedsStates[ledIx].param = *pkParam;
     }
 }
+
+static void sLedsRenderFx(LEDS_STATE_t *pState, uint8_t *pHue, uint8_t *pSat, uint8_t *pVal)
+{
+    if (!pState->inited)
+    {
+        switch (pState->param.fx)
+        {
+            case LEDS_FX_STILL:
+                break;
+            case LEDS_FX_PULSE:
+                pState->delta = -2;
+                pState->val = 255;
+                break;
+            case LEDS_FX_FLICKER:
+                pState->count = 0;
+                break;
+        }
+        pState->inited = true;
+    }
+
+    uint8_t hue = 0, sat = 0, val = 0;
+
+    switch (pState->param.fx)
+    {
+        case LEDS_FX_STILL:
+        {
+            hue = pState->param.hue;
+            sat = pState->param.sat;
+            val = pState->param.val;
+            break;
+        }
+        case LEDS_FX_PULSE:
+        {
+            const uint8_t minVal = MAX(10, pState->param.val / 10);
+            if (pState->val < minVal)
+            {
+                pState->val = minVal;
+            }
+            else if (pState->val > pState->param.val)
+            {
+                pState->val = pState->param.val;
+            }
+            if (pState->delta > 0)
+            {
+                if ( ((int)pState->val + (int)pState->delta) <= (int)pState->param.val )
+                {
+                    pState->val += pState->delta;
+                }
+                else
+                {
+                    pState->delta = -pState->delta;
+                }
+            }
+            else if (pState->delta < 0)
+            {
+                if ( ((int)pState->val + (int)pState->delta) >= (int)minVal )
+                {
+                    pState->val += pState->delta;
+                }
+                else
+                {
+                    pState->delta = -pState->delta;
+                }
+            }
+            hue = pState->param.hue;
+            hue = pState->param.sat;
+            val = pState->val;
+            break;
+        }
+        case LEDS_FX_FLICKER:
+        {
+            // probabilites by "Eric", commented on
+            // https://cpldcpu.wordpress.com/2016/01/05/reverse-engineering-a-real-candle/#comment-1809
+            // Probability  Random LED Brightness                               value 0..255
+            //  50%          77% -  80% (its barely noticeable)                 196..204
+            //  30%          80% - 100% (very noticeable, sim. air flicker)     204..255
+            //   5%          50% -  80% (very noticeable, blown out flame)      128..204
+            //   5%          40% -  50% (very noticeable, blown out flame)      102..128
+            //  10%          30% -  40% (very noticeable, blown out flame)       77..102
+            // Probability  Random Time (Duration)
+            //  90%          20 ms
+            //   3%          20 - 30 ms
+            //   3%          10 - 20 ms
+            //   4%           0 - 10 ms
+            if (pState->count == 0)
+            {
+                const int pBright = rand() % 100;
+                if      (pBright < 50)  { pState->val = 196 + (rand() % (204 - 196)); }
+                else if (pBright < 80)  { pState->val = 204 + (rand() % (255 - 204)); }
+                else if (pBright < 85)  { pState->val = 128 + (rand() % (204 - 128)); }
+                else if (pBright < 90)  { pState->val = 102 + (rand() % (128 - 102)); }
+                else                    { pState->val =  77 + (rand() % (102 -  77)); }
+
+                const int pTime = rand() % 100;
+                if      (pTime < 90) { pState->count =  20                         / (1000 / LEDS_FPS / 2); }
+                else if (pTime < 93) { pState->count = (20 + (rand() % (30 - 20))) / (1000 / LEDS_FPS / 2); }
+                else if (pTime < 96) { pState->count = (10 + (rand() % (20 - 10))) / (1000 / LEDS_FPS / 2); }
+                else                 { pState->count = (      rand() %  10       ) / (1000 / LEDS_FPS / 2); }
+            }
+            else
+            {
+                pState->count--;
+            }
+            hue = pState->param.hue;
+            hue = pState->param.sat;
+            val = pState->val / (pState->param.val != 0 ? (256 / pState->param.val) : 1);
+            break;
+        }
+    }
+
+    *pHue = hue;
+    *pSat = sat;
+    *pVal = val;
+}
+
+
 
 
 static void sLedsTask(void *pArg)
@@ -369,6 +500,10 @@ static void sLedsTask(void *pArg)
         sLedsClear();
         for (uint16_t ix = 0; ix < NUMOF(sLedsStates); ix++)
         {
+            uint8_t h = 0, s = 0, v = 0;
+            sLedsRenderFx(&sLedsStates[ix], &h, &s, &v);
+            sLedsSetHSV(ix, h, s, v);
+#if 0
             LEDS_STATE_t *pState = &sLedsStates[ix];
             if (pState->dVal != 0)
             {
@@ -404,6 +539,7 @@ static void sLedsTask(void *pArg)
                 }
             }
             sLedsSetHSV(ix, pState->hue, pState->sat, pState->val);
+#endif
         }
 
         vTaskDelayUntil(&sTick, MS2TICKS(1000 / LEDS_FPS));
