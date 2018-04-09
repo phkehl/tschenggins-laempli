@@ -300,12 +300,13 @@ typedef struct LEDS_STATE_s
     LEDS_PARAM_t param;
     bool    inited;
     uint8_t val;
-    int8_t  delta;
-    uint8_t count;
+    int     count;
 
 } LEDS_STATE_t;
 
 static LEDS_STATE_t sLedsStates[LEDS_NUM];
+
+static SemaphoreHandle_t sLedsStateMutex;
 
 #define LEDS_PULSE_MIN_VAL 10
 
@@ -313,10 +314,32 @@ void ledsSetState(const uint16_t ledIx, const LEDS_PARAM_t *pkParam)
 {
     if (ledIx < LEDS_NUM)
     {
-        memset(&sLedsStates[ledIx], 0, sizeof(*sLedsStates));
-        sLedsStates[ledIx].param = *pkParam;
+        xSemaphoreTake(sLedsStateMutex, portMAX_DELAY);
+        //if (memcmp(&sLedsStates[ledIx].param, pkParam, sizeof(*pkParam)) != 0)
+        {
+            memset(&sLedsStates[ledIx], 0, sizeof(*sLedsStates));
+            sLedsStates[ledIx].param = *pkParam;
+        }
+        xSemaphoreGive(sLedsStateMutex);
     }
 }
+
+static const int sLedsPulseAmpl[] =
+{
+#if (LEDS_FPS == 100)
+    // floor(sin(0:pi/2/100:pi).*100)
+    0, 1, 3, 4, 6, 7, 9, 10, 12, 14, 15, 17, 18, 20, 21, 23, 24, 26, 27, 29, 30, 32, 33, 35, 36, 38, 39,
+    41, 42, 43, 45, 46, 48, 49, 50, 52, 53, 54, 56, 57, 58, 60, 61, 62, 63, 64, 66, 67, 68, 69, 70, 71,
+    72, 73, 75, 76, 77, 78, 79, 79, 80, 81, 82, 83, 84, 85, 86, 86, 87, 88, 89, 89, 90, 91, 91, 92, 92,
+    93, 94, 94, 95, 95, 96, 96, 96, 97, 97, 97, 98, 98, 98, 99, 99, 99, 99, 99, 99, 99, 99, 99, 100, 99,
+    99, 99, 99, 99, 99, 99, 99, 99, 98, 98, 98, 97, 97, 97, 96, 96, 96, 95, 95, 94, 94, 93, 92, 92, 91,
+    91, 90, 89, 89, 88, 87, 86, 86, 85, 84, 83, 82, 81, 80, 79, 79, 78, 77, 76, 75, 73, 72, 71, 70, 69,
+    68, 67, 66, 64, 63, 62, 61, 60, 58, 57, 56, 54, 53, 52, 50, 49, 48, 46, 45, 43, 42, 41, 39, 38, 36,
+    35, 33, 32, 30, 29, 27, 26, 24, 23, 21, 20, 18, 17, 15, 14, 12, 10, 9, 7, 6, 4, 3, 1, 0,
+#else
+#  error missing LUT for LEDS_FPS value
+#endif
+};
 
 static void sLedsRenderFx(LEDS_STATE_t *pState, uint8_t *pHue, uint8_t *pSat, uint8_t *pVal)
 {
@@ -327,8 +350,7 @@ static void sLedsRenderFx(LEDS_STATE_t *pState, uint8_t *pHue, uint8_t *pSat, ui
             case LEDS_FX_STILL:
                 break;
             case LEDS_FX_PULSE:
-                pState->delta = -2;
-                pState->val = 255;
+                pState->count = 0;
                 break;
             case LEDS_FX_FLICKER:
                 pState->count = 0;
@@ -351,38 +373,11 @@ static void sLedsRenderFx(LEDS_STATE_t *pState, uint8_t *pHue, uint8_t *pSat, ui
         case LEDS_FX_PULSE:
         {
             const uint8_t minVal = MAX(10, pState->param.val / 10);
-            if (pState->val < minVal)
-            {
-                pState->val = minVal;
-            }
-            else if (pState->val > pState->param.val)
-            {
-                pState->val = pState->param.val;
-            }
-            if (pState->delta > 0)
-            {
-                if ( ((int)pState->val + (int)pState->delta) <= (int)pState->param.val )
-                {
-                    pState->val += pState->delta;
-                }
-                else
-                {
-                    pState->delta = -pState->delta;
-                }
-            }
-            else if (pState->delta < 0)
-            {
-                if ( ((int)pState->val + (int)pState->delta) >= (int)minVal )
-                {
-                    pState->val += pState->delta;
-                }
-                else
-                {
-                    pState->delta = -pState->delta;
-                }
-            }
+            pState->val = minVal + (( (pState->param.val - minVal) * sLedsPulseAmpl[pState->count] ) / 100);
+            pState->count++;
+            pState->count %= NUMOF(sLedsPulseAmpl);
             hue = pState->param.hue;
-            hue = pState->param.sat;
+            sat = pState->param.sat;
             val = pState->val;
             break;
         }
@@ -431,9 +426,6 @@ static void sLedsRenderFx(LEDS_STATE_t *pState, uint8_t *pHue, uint8_t *pSat, ui
     *pSat = sat;
     *pVal = val;
 }
-
-
-
 
 static void sLedsTask(void *pArg)
 {
@@ -494,54 +486,17 @@ static void sLedsTask(void *pArg)
             }
         }
 
-
         // render next frame..
         static uint32_t sTick;
         sLedsClear();
         for (uint16_t ix = 0; ix < NUMOF(sLedsStates); ix++)
         {
             uint8_t h = 0, s = 0, v = 0;
+            xSemaphoreTake(sLedsStateMutex, portMAX_DELAY);
             sLedsRenderFx(&sLedsStates[ix], &h, &s, &v);
+            xSemaphoreGive(sLedsStateMutex);
             sLedsSetHSV(ix, h, s, v);
-#if 0
-            LEDS_STATE_t *pState = &sLedsStates[ix];
-            if (pState->dVal != 0)
-            {
-                if (pState->val < pState->minVal)
-                {
-                    pState->val = pState->minVal;
-                }
-                else if (pState->val > pState->maxVal)
-                {
-                    pState->val = pState->maxVal;
-                }
-                if (pState->dVal > 0)
-                {
-                    if ( ((int)pState->val + (int)pState->dVal) <= (int)pState->maxVal )
-                    {
-                        pState->val += pState->dVal;
-                    }
-                    else
-                    {
-                        pState->dVal = -pState->dVal;
-                    }
-                }
-                else if (pState->dVal < 0)
-                {
-                    if ( ((int)pState->val + (int)pState->dVal) >= (int)pState->minVal )
-                    {
-                        pState->val += pState->dVal;
-                    }
-                    else
-                    {
-                        pState->dVal = -pState->dVal;
-                    }
-                }
-            }
-            sLedsSetHSV(ix, pState->hue, pState->sat, pState->val);
-#endif
         }
-
         vTaskDelayUntil(&sTick, MS2TICKS(1000 / LEDS_FPS));
         sLedsFlush(configDriver);
     }
@@ -586,6 +541,9 @@ void ledsInit(void)
 void ledsStart(void)
 {
     DEBUG("leds: start");
+
+    static StaticSemaphore_t sMutex;
+    sLedsStateMutex = xSemaphoreCreateMutexStatic(&sMutex);
 
     static StackType_t sLedsTaskStack[512];
     static StaticTask_t sLedsTaskTCB;

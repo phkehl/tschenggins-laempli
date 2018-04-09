@@ -100,25 +100,25 @@ static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
             {
                 case JENKINS_RESULT_SUCCESS:
                 {
-                    static const LEDS_PARAM_t skLedState = { .hue = 85, .sat = 255, .val = 255, .fx = LEDS_FX_PULSE };
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 255, 255, PULSE);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNSTABLE:
                 {
-                    static const LEDS_PARAM_t skLedState = { .hue = 38, .sat = 255, .val = 255, .fx = LEDS_FX_PULSE };
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 255, 255, PULSE);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_FAILURE:
                 {
-                    static const LEDS_PARAM_t skLedState = { .hue = 0, .sat = 255, .val = 255, .fx = LEDS_FX_PULSE };
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 255, 255, PULSE);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNKNOWN:
                 {
-                    static const LEDS_PARAM_t skLedState = { .hue = 0, .sat = 255, .val = 255, .fx = LEDS_FX_PULSE };
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 0, 255, PULSE);
                     pRes = &skLedState;
                     break;
                 }
@@ -131,25 +131,25 @@ static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
             {
                 case JENKINS_RESULT_SUCCESS:
                 {
-                    static const LEDS_PARAM_t skLedState = { .hue = 85, .sat = 255, .val = 255, .fx = LEDS_FX_STILL };
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 255, 255, STILL);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNSTABLE:
                 {
-                    static const LEDS_PARAM_t skLedState = { .hue = 38, .sat = 255, .val = 255, .fx = LEDS_FX_STILL };
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 255, 255, STILL);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_FAILURE:
                 {
-                    static const LEDS_PARAM_t skLedState = { .hue = 0, .sat = 255, .val = 255, .fx = LEDS_FX_STILL };
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 255, 255, STILL);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNKNOWN:
                 {
-                    static const LEDS_PARAM_t skLedState = { .hue = 0, .sat = 255, .val = 255, .fx = LEDS_FX_STILL };
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 0, 200, STILL);
                     pRes = &skLedState;
                     break;
                 }
@@ -158,7 +158,7 @@ static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
         }
         case JENKINS_STATE_UNKNOWN:
         {
-            static const LEDS_PARAM_t skLedState = { .hue = 0, .sat = 0, .val = 128, .fx = LEDS_FX_FLICKER };
+            static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 0, 128, FLICKER);
             pRes = &skLedState;
             break;
         }
@@ -172,7 +172,6 @@ static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
 
 static JENKINS_INFO_t sJenkinsInfo[JENKINS_MAX_CH];
 static JENKINS_RESULT_t sJenkinsWorstResult;
-
 static QueueHandle_t sJenkinsInfoQueue;
 
 void jenkinsSetInfo(const JENKINS_INFO_t *pkInfo)
@@ -249,7 +248,6 @@ void sJenkinsUpdate(void)
         }
     }
 
-
     // find worst result
     JENKINS_RESULT_t worstResult = JENKINS_RESULT_UNKNOWN;
     for (int ix = 0; ix < NUMOF(sJenkinsInfo); ix++)
@@ -260,10 +258,11 @@ void sJenkinsUpdate(void)
             worstResult = pkInfo->result;
         }
     }
-    DEBUG("jenkins: worst is now %s", jenkinsResultToStr(worstResult));
+    DEBUG("jenkins: worst is now %s (was %s)", jenkinsResultToStr(worstResult), jenkinsResultToStr(sJenkinsWorstResult));
 
     // play sound if we changed from failure/warning to success or from success/warning to failure
     // TODO: play more sounds if CONFIG_NOISE_MORE
+    // FIXME: also check for state == idle?
     if (sJenkinsWorstResult != JENKINS_RESULT_UNKNOWN)
     {
         if (worstResult != sJenkinsWorstResult)

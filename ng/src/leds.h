@@ -42,6 +42,9 @@ typedef struct LEDS_PARAM_s
 
 } LEDS_PARAM_t;
 
+#define LEDS_MAKE_PARAM(_hue, _sat, _val, _fx) { .hue = (_hue), .sat = (_sat), .val = (_val), .fx = CONCAT(LEDS_FX_, _fx) }
+
+
 void ledsSetState(const uint16_t ledIx, const LEDS_PARAM_t *pkParam);
 
 
