@@ -243,7 +243,7 @@ sub getJenkinsJob
     my $jDuration = 0;
     if ( $config && $config->{disabled} && ($config->{disabled} =~ m{true}i) )
     {
-        $jState = 'unknown';
+        $jState = 'unknown'; # off
     }
     elsif ($build && $build->{result} && ($build->{result} =~ m{^\s*(success|failure|unstable)\s*$}i) )
     {

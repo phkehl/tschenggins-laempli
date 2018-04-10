@@ -171,6 +171,7 @@ static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
 
 
 static JENKINS_INFO_t sJenkinsInfo[JENKINS_MAX_CH];
+static bool sJenkinsInfoDirty[NUMOF(sJenkinsInfo)];
 static JENKINS_RESULT_t sJenkinsWorstResult;
 static QueueHandle_t sJenkinsInfoQueue;
 
@@ -209,6 +210,7 @@ static void sJenkinsStoreInfo(const JENKINS_INFO_t *pkInfo)
             memset(pInfo, 0, sizeof(*pInfo));
             pInfo->chIx = ix;
         }
+        sJenkinsInfoDirty[pkInfo->chIx] = true;
     }
 
     // inform
@@ -237,14 +239,18 @@ void sJenkinsUpdate(void)
     // update LEDs
     for (int ix = 0; ix < NUMOF(sJenkinsInfo); ix++)
     {
-        const JENKINS_INFO_t *pkInfo = &sJenkinsInfo[ix];
-        if (pkInfo->active)
+        if (sJenkinsInfoDirty[ix])
         {
-            ledsSetState(pkInfo->chIx, sJenkinsLedStateFromJenkins(pkInfo->state, pkInfo->result));
-        }
-        else
-        {
-            ledsSetState(pkInfo->chIx, sJenkinsLedStateFromJenkins(JENKINS_STATE_UNKNOWN, JENKINS_RESULT_UNKNOWN));
+            sJenkinsInfoDirty[ix] = false;
+            const JENKINS_INFO_t *pkInfo = &sJenkinsInfo[ix];
+            if (pkInfo->active)
+            {
+                ledsSetState(pkInfo->chIx, sJenkinsLedStateFromJenkins(pkInfo->state, pkInfo->result));
+            }
+            else
+            {
+                ledsSetState(pkInfo->chIx, sJenkinsLedStateFromJenkins(JENKINS_STATE_UNKNOWN, JENKINS_RESULT_UNKNOWN));
+            }
         }
     }
 
@@ -253,9 +259,13 @@ void sJenkinsUpdate(void)
     for (int ix = 0; ix < NUMOF(sJenkinsInfo); ix++)
     {
         const JENKINS_INFO_t *pkInfo = &sJenkinsInfo[ix];
-        if (pkInfo->result >= worstResult)
+        // ignore jobs in unknown and off state
+        if (pkInfo->state > JENKINS_STATE_OFF)
         {
-            worstResult = pkInfo->result;
+            if (pkInfo->result >= worstResult)
+            {
+                worstResult = pkInfo->result;
+            }
         }
     }
     DEBUG("jenkins: worst is now %s (was %s)", jenkinsResultToStr(worstResult), jenkinsResultToStr(sJenkinsWorstResult));
@@ -334,7 +344,8 @@ void jenkinsMonStatus(void)
         const char *resultStr = jenkinsResultToStr(pkInfo->result);
         const char stateChar  = pkInfo->state  == JENKINS_STATE_UNKNOWN  ? '?' : stateStr[0];
         const char resultChar = pkInfo->result == JENKINS_RESULT_UNKNOWN ? '?' : resultStr[0];
-        const int n = snprintf(pStr, len, " %02i=%c%c", ix, toupper((int)stateChar), toupper((int)resultChar));
+        const int n = snprintf(pStr, len, " %02i=%c%c", ix,
+            toupper((int)stateChar), pkInfo->state > JENKINS_STATE_OFF ? toupper((int)resultChar) : resultChar);
         len -= n;
         pStr += n;
         ix++;
