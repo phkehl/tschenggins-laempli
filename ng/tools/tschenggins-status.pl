@@ -1149,9 +1149,10 @@ sub _gui_jobs
     {
         -name         => 'job',
         -values       => [ '', @{$db->{_jobIds}} ],
-        -labels       => { map { $_, "$db->{jobs}->{$_}->{server}: $db->{jobs}->{$_}->{name}" } @{$db->{_jobIds}} },
+        -labels       => { '' => '<empty>', map { $_, "$db->{jobs}->{$_}->{server}: $db->{jobs}->{$_}->{name}" } @{$db->{_jobIds}} },
         -autocomplete => 'off',
         -default      => '',
+        -size         => 10,
     };
     my $stateSelectArgs =
     {
@@ -1159,6 +1160,8 @@ sub _gui_jobs
         -values       => [ '', sort { $VALIDSTATE->{$a} <=> $VALIDSTATE->{$b} } keys %{$VALIDSTATE} ],
         -autocomplete => 'off',
         -default      => '',
+        -labels       => { '' => '<empty>' },
+        -linebreak    => 1,
     };
     my $resultSelectArgs =
     {
@@ -1166,6 +1169,8 @@ sub _gui_jobs
         -values       => [ '', sort { $VALIDRESULT->{$a} <=> $VALIDRESULT->{$b} } keys %{$VALIDRESULT} ],
         -autocomplete => 'off',
         -default      => '',
+        -labels       => { '' => '<empty>' },
+        -linebreak    => 1,
     };
 
     # override
@@ -1180,11 +1185,11 @@ sub _gui_jobs
                                  ),
                            $q->Tr(
                                   $q->td('state: '),
-                                  $q->td($q->popup_menu($stateSelectArgs)),
+                                  $q->td($q->radio_group($stateSelectArgs)),
                                  ),
                            $q->Tr(
                                   $q->td('result: '),
-                                  $q->td($q->popup_menu($resultSelectArgs)),
+                                  $q->td($q->radio_group($resultSelectArgs)),
                                  ),
                            $q->Tr($q->td({ -colspan => 2, -align => 'center' },
                                          $q->submit(-value => 'override')))
@@ -1223,11 +1228,11 @@ sub _gui_jobs
                                  ),
                            $q->Tr(
                                   $q->td('state: '),
-                                  $q->td($q->popup_menu($stateSelectArgs)),
+                                  $q->td($q->radio_group($stateSelectArgs)),
                                  ),
                            $q->Tr(
                                   $q->td('result: '),
-                                  $q->td($q->popup_menu($resultSelectArgs)),
+                                  $q->td($q->radio_group($resultSelectArgs)),
                                  ),
                            $q->Tr($q->td({ -colspan => 2, -align => 'center' },
                                          $q->submit(-value => 'create')))
