@@ -6,7 +6,7 @@
 # This watches a given Jenkins jobs directory for changes and publishes them
 # to the jenkins-status.pl on a webserver.
 #
-# Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>
+# Copyright (c) 2017-2018 Philippe Kehl <flipflip at oinkzwurgl dot org>
 # https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 #
 ################################################################################
@@ -20,6 +20,8 @@
 use strict;
 use warnings;
 
+use feature 'state';
+
 use FindBin;
 use lib "$FindBin::Bin";
 
@@ -27,16 +29,16 @@ use Time::HiRes qw(time sleep usleep);
 use LWP::UserAgent;
 use Linux::Inotify2;
 use POSIX;
-use XML::Simple;
+use XML::LibXML;
 use JSON::PP;
-use Clone;
 use Sys::Hostname;
-#use BSD::Resource;
+use Path::Tiny;
+use BSD::Resource;
 
 use Ffi::Debug ':all';
 
 # limit our resource usage
-#setrlimit( RLIMIT_VMEM, 0.35 * ( 1 << 30 ), 1 * ( 1 << 30 ) );
+setrlimit( RLIMIT_VMEM, 0.35 * ( 1 << 30 ), 1 * ( 1 << 30 ) );
 
 
 ################################################################################
@@ -44,21 +46,21 @@ use Ffi::Debug ':all';
 
 my $CFG =
 {
-    verbosity   => 0,
-    backend     => '',
-    agent       => 'tschenggins-watcher/1.0',
-    checkperiod => 300,
-    server      => Sys::Hostname::hostname(),
-    daemonise   => 0,
+    verbosity      => 0,
+    backend        => '',
+    agent          => 'tschenggins-watcher/2.0',
+    checkperiod    => 60,
+    server         => Sys::Hostname::hostname(),
+    daemonise      => 0,
+    backendtimeout => 5,
 };
-
-my @pendingUpdates = ();
 
 do
 {
     my @jobdirs = ();
 
     # parse command line
+    my %jobDirsSeen = ();
     while (my $arg = shift(@ARGV))
     {
         if    ($arg eq '-v') { $Ffi::Debug::VERBOSITY++; $CFG->{verbosity}++; }
@@ -67,9 +69,25 @@ do
         elsif ($arg eq '-s') { $CFG->{server} = shift(@ARGV); }
         elsif ($arg eq '-d') { $CFG->{daemonise} = 1; }
         elsif ($arg eq '-h') { help(); }
-        elsif (-d $arg && -f "$arg/config.xml" && -d "$arg/builds")
+        elsif ($arg !~ m{^-})
         {
-            push(@jobdirs, $arg);
+            my $dir = path($arg);
+            if ($dir->exists() && $dir->is_dir())
+            {
+                if (!$jobDirsSeen{$dir})
+                {
+                    push(@jobdirs, $dir);
+                }
+                else
+                {
+                    WARNING("Ignoring duplicate dir $dir!");
+                }
+                $jobDirsSeen{$dir}++;
+            }
+            else
+            {
+                WARNING("Ignoring nonexistent dir $dir!");
+            }
         }
         else
         {
@@ -130,8 +148,8 @@ do
 sub help
 {
     PRINT(
-          "jenkins-watcher.pl",
-          "Copyright (c) 2017 Philippe Kehl <flipflip at oinkzwurgl dot org>",
+          "$CFG->{agent}",
+          "Copyright (c) 2017-2018 Philippe Kehl <flipflip at oinkzwurgl dot org>",
           "https://oinkzwurgl.org/projaeggd/tschenggins-laempli",
           "",
           "Usage:",
@@ -144,9 +162,13 @@ sub help
           "  -q  decreases verbosity",
           "  -v  increases verbosity",
           "  -b <statusurl>  URL for the jenkins-status.pl backend",
-          "  -s <server>  the Jenkins server name (default on this machine: $CFG->{hostname})",
-          "  -d  run in background",
+          "  -s <server>  the Jenkins server name (default on this machine: $CFG->{server})",
+          "  -d  run in background (daemonise)",
           "  <jobdir> one or more Jenkins job directories to monitor",
+          "",
+          "Note that this uses the Linux 'inotify' interface to detect changes in the",
+          "Jenkins job output directories. As such it only works on local filesystems",
+          "and not on remote filesystems (NFS, Samba/SMB, ...).",
           "",
           "Examples:",
           "",
@@ -166,41 +188,46 @@ sub run
 
     PRINT("Initialising...");
     my $in = Linux::Inotify2->new() || die($!);
-    $in->blocking(0);
 
     my $state = {};
 
     foreach my $jobDir (@jobdirs)
     {
-        my $jobName = $jobDir; $jobName =~ s{.*/}{};
-        my $buildsDir = "$jobDir/builds";
+        my $jobName = $jobDir->basename();
+        my $buildsDir = path("$jobDir/builds");
 
         # keep a state per job
         $state->{$jobName} =
         {
             jobName => $jobName, jobDir => $jobDir, buildsDir => $buildsDir,
-            jState => 'dontknow', jResult => 'dontknow',
+            jState => 'dontknow', jStateDirty => 0,
+            jResult => 'dontknow', jResultDirty => 0,
         };
 
         # get initial state
-        my $lastBuildNo = (reverse sort { $a <=> $b }
-                           grep { $_ =~ m{^\d+$} }
-                           map { $_ =~ s{.*/}{}; $_ } glob("$buildsDir/[0-9]*"))[0];
-        my ($jState, $jResult) = getJenkinsJob("$jobDir/config.xml", $lastBuildNo ? "$buildsDir/$lastBuildNo/build.xml" : undef);
+        my $jState = 'unknown';
+        my $jResult = 'unknown';
+        my ($latestBuildDir, $previousBuildDir) =
+          reverse sort { $a->basename() <=> $b->basename() } $buildsDir->children(qr{^[0-9]+$});
+        if ($latestBuildDir)
+        {
+            ($jState, $jResult) = getJenkinsJob($jobDir, $latestBuildDir);
+        }
+        if ( ($jState eq 'running') && $previousBuildDir )
+        {
+            (undef, $jResult) =  getJenkinsJob($jobDir, $previousBuildDir);
+        }
         setState($state->{$jobName}, $jState, $jResult);
 
         # watch for new job output directories being created
-        $in->watch($buildsDir, IN_CREATE, sub { jobcreated($state->{$jobName}, $in, @_); });
+        $in->watch($buildsDir, IN_CREATE, sub { jobCreatedCb($state, $jobName, $in, @_); });
 
-        DEBUG("Watching '%s' in '%s'.", $jobName, $buildsDir);
+        DEBUG("Watching '%s' in '%s' (current state %s and result %s).", $jobName, "$buildsDir", $jState, $jResult);
     }
-
-    # update all
-    update(values %{$state});
-
 
     # keep watching...
     my $lastCheck = 0;
+    $in->blocking(0);
     while (1)
     {
         $in->poll();
@@ -209,10 +236,8 @@ sub run
         {
             PRINT("Watching %i jobs for '%s'.", $#jobdirs + 1, $CFG->{server});
             $lastCheck = time();
-            if ($#pendingUpdates > -1)
-            {
-                update();
-            }
+            # retry previously failed updates
+            updateBackend($state);
         }
 
         usleep(250e3);
@@ -221,36 +246,110 @@ sub run
 
 sub getJenkinsJob
 {
-    my ($configXmlFile, $buildXmlFile) = @_;
-    my $config;
-    eval
-    {
-        local $SIG{__DIE__} = 'IGNORE';
-        if ($configXmlFile)
-        {
-            $config = XML::Simple::XMLin($configXmlFile);
-        }
-    };
+    my ($jobDir, $buildDir) = @_;
 
-    my $build;
+    # load job config file
+    my $configFile = "$jobDir/config.xml";
+    if (!-f $configFile)
+    {
+        WARNING("Missing $configFile!");
+        return;
+    }
+    my $config = loadXml($configFile);
+    if (!$config || ($config->nodeName() ne 'project'))
+    {
+        WARNING("Invalid $configFile (%s)!", $config ? $config->nodeName() : undef);
+        return;
+    }
+
+    # check if job is disabled
+    my ($disabled) = $config->findnodes('./disabled');
+    $disabled = ($disabled && ($disabled->textContent() =~ m{true}i)) ? 1 : 0;
+    #DEBUG("disabled=%s", $disabled);
+
+    # check result and duration
+    my $buildFile = "$buildDir/build.xml";
+    my $build = loadXml($buildFile);
+    if ($build && ($build->nodeName() ne 'build'))
+    {
+        WARNING("Invalid build (project) type (%s)!", $build->nodeName());
+        return;
+    }
+    my ($result, $duration);
+    if ($build)
+    {
+        ($result)   = $build->findnodes('./result');
+        ($duration) = $build->findnodes('./duration');
+        $result   = $result   ? lc($result->textContent())                 : undef;
+        $duration = $duration ? int($duration->textContent() * 1e-3 + 0.5) : undef;
+    }
+
+    # determine answer
+    DEBUG("build=%s disabled=%s result=%s duration=%s",
+          $build ? "present" : "missing", $disabled, $result, $duration);
+
+    # job explicitly disabled --> state=off
+    my $state;
+    if ($disabled)
+    {
+        $state = 'off';
+    }
+    # job not disabled: we have a result: state=idle, we don't have a result yet: state=running
+    else
+    {
+        $state = $result ? 'idle' : 'running';
+    }
+
+    # we have a duration, i.e. the job has completed and should have a result
+    if (defined $duration && defined $result)
+    {
+        if ($result =~ m{(success|failure|unstable)})
+        {
+            $result = $result;
+        }
+        elsif ($result =~ m{(aborted|not_built)})
+        {
+            $result = 'unknown';
+        }
+        else
+        {
+            $result = 'unknown';
+        }
+    }
+    else
+    {
+        $result = 'unknown';
+    }
+
+    return ($state, $result);
+}
+
+sub loadXml
+{
+    my ($xmlFile) = @_;
+
+    my $parser = XML::LibXML->new( line_numbers => 1, no_basefix => 0 );
+    my $doc;
     eval
     {
         local $SIG{__DIE__} = 'IGNORE';
-        $build = XML::Simple::XMLin($buildXmlFile);
+        $doc = $parser->parse_file($xmlFile);
     };
-    my $jState = $buildXmlFile ? (-f $buildXmlFile ? 'idle' : 'running') : 'unknown';
-    my $jResult = 'unknown';
-    my $jDuration = 0;
-    if ( $config && $config->{disabled} && ($config->{disabled} =~ m{true}i) )
+    if ($@)
     {
-        $jState = 'unknown';
+        my $e = $@;
+        my $str = ref($e) ? $e->as_string() : $e;
+        my @lines = grep { $_ } split(/\n/, $str);
+        foreach my $line (@lines)
+        {
+            $line =~ s{^[^:]+/ProtocolSpec/}{};
+            DEBUG("Warning: %s", $line);
+        }
     }
-    elsif ($build && $build->{result} && ($build->{result} =~ m{^\s*(success|failure|unstable)\s*$}i) )
-    {
-        $jResult = lc($1);
-        $jDuration = $build->{duration} ? $build->{duration} * 1e-3 : 0;
-    }
-    return ($jState, $jResult, $jDuration);
+
+    my $root = $doc ? $doc->documentElement() : undef;
+    DEBUG("loadXml(%s): %s", $xmlFile, $root ? $root->nodeName() : undef);
+    return $root;
 }
 
 sub setState
@@ -263,7 +362,7 @@ sub setState
     my $jStateDirty  = ($st->{jState}  ne $jState ) ? 1 : 0;
     my $jResultDirty = ($st->{jResult} ne $jResult) ? 1 : 0;
 
-    PRINT("%-40s state: %-20s result: %-20s", $st->{jobName},
+    PRINT("Job: %-40s state: %-20s result: %-20s", $st->{jobName},
           $jStateDirty  ? "$st->{jState} -> $jState"   : $jState,
           $jResultDirty ? "$st->{jResult} -> $jResult" : $jResult);
 
@@ -276,113 +375,133 @@ sub setState
 
 
 ################################################################################
-# callbacks
+# inotify callbacks
 
 # called when something was created in the builds directory
-sub jobcreated
+sub jobCreatedCb
 {
-    my ($st, $in, $e) = @_;
+    my ($state, $jobName, $in, $e) = @_;
     my $buildDir = $e->fullname();
 
     # does it look like a build directory?
     if ( -d $buildDir && ($buildDir =~ m{/\d+$}) )
     {
-        # watch created and moved files
-        $in->watch($buildDir, IN_CREATE | IN_MOVED_TO, sub { jobdone($st, @_); });
+        # watch for created and moved files
+        $in->watch($buildDir, IN_CREATE | IN_MOVED_TO, sub { jobDoneCb($state, $jobName, @_); });
 
-        DEBUG("Job '%s' has started, watching '%s'.", $st->{jobName}, $buildDir);
+        DEBUG("Job '%s' has started, watching '%s'.", $jobName, $buildDir);
 
         # set status
-        setState($st, 'running');
+        setState($state->{$jobName}, 'running');
 
         # update backend
-        update($st);
+        updateBackend($state);
     }
 }
 
 # called when things change in the build directory, checks if job is done
-sub jobdone
+sub jobDoneCb
 {
-    my ($st, $e) = @_;
+    my ($state, $jobName, $e) = @_;
     my $file = $e->fullname();
-    #DEBUG("Job '%s' has new file '%s'.", $st->{jobName}, $file);
+    #DEBUG("Job '%s' has new file '%s'.", $jobName, $file);
 
     # the job is done once the build.xml file appears
     if ($file =~ m{/build.xml$})
     {
         # get result
-        my ($jState, $jResult, $jDuration) = getJenkinsJob(undef, $file);
-        if ($jDuration > 0)
-        {
-            DEBUG("Job '%s' has stopped, duration=%.1fm, result is '%s'.", $st->{jobName}, $jDuration / 60, $jResult);
+        my ($jState, $jResult) = getJenkinsJob($state->{$jobName}->{jobDir}, path($file)->parent());
+        DEBUG("Job '%s' has stopped, state is %s and result is '%s'.", $jobName, $jState, $jResult);
 
-            # set status
-            setState($st, $jState, $jResult);
+        # set status
+        setState($state->{$jobName}, $jState, $jResult);
 
-            # update backend
-            update($st);
+        # update backend
+        updateBackend($state);
 
-            # remove the watch on the build directory
-            $e->w()->cancel();
-        }
+        # remove the watch on the build directory
+        $e->w()->cancel();
     }
 }
+
 
 ################################################################################
 # update jenkins-status.pl
 
-sub update
+sub updateBackend
 {
-    my @states;
-    foreach my $st (grep { $_->{jStateDirty} || $_->{jResultdirty} } @_)
+    my ($state) = @_;
+
+    # check what changed
+    my @newUpdates = ();
+    foreach my $jobName (sort keys %{$state})
     {
-        my $_st = { name => $st->{jobName}, server => $CFG->{server} };
-        if ($st->{jStateDirty})
+        my $st = $state->{$jobName};
+        if ($st->{jStateDirty} || $st->{jResultdirty})
         {
-            $_st->{state} = $st->{jState};
-            $st->{jStateDirty} = 0;
+            my $_st = { name => $st->{jobName}, server => $CFG->{server} };
+            if ($st->{jStateDirty})
+            {
+                $_st->{state} = $st->{jState};
+                $st->{jStateDirty} = 0;
+            }
+            if ($st->{jResultDirty})
+            {
+                $_st->{result} = $st->{jResult};
+                $st->{jResultDirty} = 0;
+            }
+            push(@newUpdates, $_st);
         }
-        if ($st->{jResultDirty})
-        {
-            $_st->{result} = $st->{jResult};
-            $st->{jResultDirty} = 0;
-        }
-        push(@states, $_st);
     }
-    DEBUG("update() %s", \@states);
 
     # send to backend if configured
     if ($CFG->{backend})
     {
-        my @removedUpdates = splice(@pendingUpdates, 0, 50);
-        if ($#removedUpdates > -1)
+        # sometimes sending the data to the backend may fail, so we try re-sending those newUpdates on
+        # the next update (latest after $CFG->{checkperiod} seconds)
+        state @pendingUpdates;
+        #DEBUG("pendingUpdates=%s", \@pendingUpdates);
+
+        my $maxPendingStates = 50;
+        my $nRemovedStates = 0;
+        while ($#pendingUpdates > ($maxPendingStates - 1))
         {
-            WARNING("Dropped %i pending updates.", $#removedUpdates + 1);
+            splice(@pendingUpdates, 0, 1);
+            $nRemovedStates++;
+        }
+        if ($nRemovedStates > 0)
+        {
+            WARNING("Dropped %i pending updates.", $nRemovedStates);
         }
 
-        my @updates = (@pendingUpdates, @states);
+        my @updates = (@pendingUpdates, @newUpdates);
         if ($#updates > -1)
         {
-            my $userAgent = LWP::UserAgent->new( timeout => 5, agent => $CFG->{agent} );
+            my $t0 = time();
+            DEBUG("updates=%s", \@updates);
+            my $userAgent = LWP::UserAgent->new( timeout => $CFG->{backendtimeout}, agent => $CFG->{agent} );
             my $json = JSON::PP->new()->utf8(1)->canonical(1)->pretty(0)->encode(
                 { debug => ($CFG->{verbosity} > 0 ? 1 : 0), cmd => 'update', states => \@updates } );
             my $resp = $userAgent->post($CFG->{backend}, 'Content-Type' => 'text/json', Content => $json);
             DEBUG("%s: %s", $resp->status_line(), $resp->decoded_content());
+            my $dt = time() - $t0;
             if ($resp->is_success())
             {
-                PRINT("Successfully updated backend with %i states (%i pending).", $#states + 1, $#pendingUpdates + 1);
+                PRINT("Successfully updated backend with %i new and %i pending states (%.3fs).",
+                      $#newUpdates + 1, $#pendingUpdates + 1, $dt);
             }
             else
             {
-                ERROR("Failed updating backend with %i states: %s", $#states + 1, $resp->status_line());
+                ERROR("Failed updating backend with %i new and %i pending states (%.3fs): %s",
+                      $#newUpdates + 1, , $#pendingUpdates + 1, $dt, $resp->status_line());
 
                 # try again next time
-                push(@pendingUpdates, map { Clone::clone($_) } @states);
+                push(@pendingUpdates, @newUpdates);
             }
         }
         else
         {
-            WARNING("Nothing to update?!");
+            DEBUG("Nothing to update.");
         }
     }
 }
