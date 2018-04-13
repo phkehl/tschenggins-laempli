@@ -416,7 +416,7 @@ static void sLedsRenderFx(LEDS_STATE_t *pState, uint8_t *pHue, uint8_t *pSat, ui
                 pState->count--;
             }
             hue = pState->param.hue;
-            hue = pState->param.sat;
+            sat = pState->param.sat;
             val = pState->val / (pState->param.val != 0 ? (256 / pState->param.val) : 1);
             break;
         }

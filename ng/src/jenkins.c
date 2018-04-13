@@ -131,19 +131,19 @@ static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
             {
                 case JENKINS_RESULT_SUCCESS:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 255, 255, STILL);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 150, 255, STILL);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNSTABLE:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 255, 255, STILL);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 150, 255, STILL);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_FAILURE:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 255, 255, STILL);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 150, 255, STILL);
                     pRes = &skLedState;
                     break;
                 }
@@ -158,9 +158,33 @@ static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
         }
         case JENKINS_STATE_UNKNOWN:
         {
-            static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 0, 128, FLICKER);
-            pRes = &skLedState;
-            break;
+            switch (result)
+            {
+                case JENKINS_RESULT_SUCCESS:
+                {
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 255, 128, FLICKER);
+                    pRes = &skLedState;
+                    break;
+                }
+                case JENKINS_RESULT_UNSTABLE:
+                {
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 255, 128, FLICKER);
+                    pRes = &skLedState;
+                    break;
+                }
+                case JENKINS_RESULT_FAILURE:
+                {
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 255, 128, FLICKER);
+                    pRes = &skLedState;
+                    break;
+                }
+                case JENKINS_RESULT_UNKNOWN:
+                {
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 0, 128, FLICKER);
+                    pRes = &skLedState;
+                    break;
+                }
+            }
         }
         default:
             break;
