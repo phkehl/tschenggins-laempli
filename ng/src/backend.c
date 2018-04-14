@@ -73,7 +73,7 @@ void backendDisconnect(void)
     sLastHeartbeat = 0;
     sLastHello = 0;
     sBytesReceived = 0;
-    jenkinsClearInfo();
+    jenkinsClearInfo(); // FIXME: set all state=unknown instead?
 }
 
 void backendMonStatus(void)
