@@ -70,10 +70,18 @@ bool backendConnect(char *resp, const int len)
 void backendDisconnect(void)
 {
     DEBUG("backend: disconnect");
+    const uint32_t now = osTime();
+    if ( (now - sLastHello) > (1000 * BACKEND_STABLE_CONN_THRS) )
+    {
+        jenkinsUnknownAll();
+    }
+    else
+    {
+        jenkinsClearAll();
+    }
     sLastHeartbeat = 0;
     sLastHello = 0;
     sBytesReceived = 0;
-    jenkinsClearInfo(); // FIXME: set all state=unknown instead?
 }
 
 void backendMonStatus(void)

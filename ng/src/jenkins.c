@@ -15,6 +15,8 @@
 #include "tone.h"
 #include "jenkins.h"
 
+/* ***** external interface ********************************************************************* */
+
 static const char * const skJenkinsStateStrs[] =
 {
     [JENKINS_STATE_UNKNOWN] = "unknown", [JENKINS_STATE_OFF] = "off",
@@ -63,7 +65,7 @@ JENKINS_RESULT_t jenkinsStrToResult(const char *str)
     return result;
 }
 
-const char *jenkinsStateToStr(const JENKINS_STATE_t state)
+const char *sJenkinsStateToStr(const JENKINS_STATE_t state)
 {
     switch (state)
     {
@@ -75,7 +77,7 @@ const char *jenkinsStateToStr(const JENKINS_STATE_t state)
     return "???";
 }
 
-const char *jenkinsResultToStr(const JENKINS_RESULT_t result)
+const char *sJenkinsResultToStr(const JENKINS_RESULT_t result)
 {
     switch (result)
     {
@@ -87,6 +89,66 @@ const char *jenkinsResultToStr(const JENKINS_RESULT_t result)
     return "???";
 }
 
+
+typedef enum JENKINS_MSG_TYPE_e
+{
+    JENKINS_MSG_TYPE_INFO,
+    JENKINS_MSG_TYPE_CLEAR_ALL,
+    JENKINS_MSG_TYPE_UNKNOWN_ALL,
+} JENKINS_MSG_TYPE_t;
+
+typedef struct JENKINS_MSG_s
+{
+    JENKINS_MSG_TYPE_t type;
+    union
+    {
+        JENKINS_INFO_t info;
+    };
+} JENKINS_MSG_t;
+
+static QueueHandle_t sJenkinsMsgQueue;
+
+void jenkinsSetInfo(const JENKINS_INFO_t *pkInfo)
+{
+    if (pkInfo != NULL)
+    {
+        JENKINS_MSG_t msg;
+        memset(&msg, 0, sizeof(msg));
+        msg.type = JENKINS_MSG_TYPE_INFO;
+        memcpy(&msg.info, pkInfo, sizeof(msg.info));
+        if (xQueueSend(sJenkinsMsgQueue, &msg, 10) != pdTRUE)
+        {
+            ERROR("jenkins: queue full");
+        }
+    }
+}
+
+void jenkinsClearAll(void)
+{
+    JENKINS_MSG_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.type = JENKINS_MSG_TYPE_CLEAR_ALL;
+    if (xQueueSend(sJenkinsMsgQueue, &msg, 10) != pdTRUE)
+    {
+        ERROR("jenkins: queue full");
+    }
+}
+
+void jenkinsUnknownAll(void)
+{
+    JENKINS_MSG_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.type = JENKINS_MSG_TYPE_UNKNOWN_ALL;
+    if (xQueueSend(sJenkinsMsgQueue, &msg, 10) != pdTRUE)
+    {
+        ERROR("jenkins: queue full");
+    }
+}
+
+
+/* ***** internal things ************************************************************************ */
+
+// convert Jenkins state and result to LED colour and mode
 static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t state, const JENKINS_RESULT_t result)
 {
     static const LEDS_PARAM_t skLedStateOff = { 0 };
@@ -131,19 +193,19 @@ static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
             {
                 case JENKINS_RESULT_SUCCESS:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 150, 255, STILL);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 255, 255, STILL);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNSTABLE:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 150, 255, STILL);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 255, 255, STILL);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_FAILURE:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 150, 255, STILL);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 255, 255, STILL);
                     pRes = &skLedState;
                     break;
                 }
@@ -162,19 +224,19 @@ static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
             {
                 case JENKINS_RESULT_SUCCESS:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 255, 128, FLICKER);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 180, 128, FLICKER);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNSTABLE:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 255, 128, FLICKER);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 220, 128, FLICKER);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_FAILURE:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 255, 128, FLICKER);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 180, 128, FLICKER);
                     pRes = &skLedState;
                     break;
                 }
@@ -193,33 +255,16 @@ static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
     return pRes;
 }
 
-
+// current info for all channels
 static JENKINS_INFO_t sJenkinsInfo[JENKINS_MAX_CH];
+
+// current dirty flag for all channels
 static bool sJenkinsInfoDirty[NUMOF(sJenkinsInfo)];
+
+// curent worst result
 static JENKINS_RESULT_t sJenkinsWorstResult;
-static QueueHandle_t sJenkinsInfoQueue;
 
-void jenkinsSetInfo(const JENKINS_INFO_t *pkInfo)
-{
-    if (pkInfo != NULL)
-    {
-        if (xQueueSend(sJenkinsInfoQueue, pkInfo, 10) != pdTRUE)
-        {
-            ERROR("jenkins: queue full");
-        }
-    }
-}
-
-void jenkinsClearInfo(void)
-{
-    sJenkinsWorstResult = JENKINS_RESULT_UNKNOWN;
-    for (uint16_t ix = 0; ix < JENKINS_MAX_CH; ix++)
-    {
-        JENKINS_INFO_t info = { .chIx = ix, .active = false };
-        jenkinsSetInfo(&info);
-    }
-}
-
+// store info
 static void sJenkinsStoreInfo(const JENKINS_INFO_t *pkInfo)
 {
     // store new info
@@ -242,8 +287,8 @@ static void sJenkinsStoreInfo(const JENKINS_INFO_t *pkInfo)
     {
         if (pInfo->active)
         {
-            const char *state  = jenkinsStateToStr(pInfo->state);
-            const char *result = jenkinsResultToStr(pInfo->result);
+            const char *state  = sJenkinsStateToStr(pInfo->state);
+            const char *result = sJenkinsResultToStr(pInfo->result);
             const uint32_t now = osGetPosixTime();
             const uint32_t age = now - pInfo->time;
             PRINT("jenkins: info: #%02d %-"STRINGIFY(JENKINS_JOBNAME_LEN)"s %-"STRINGIFY(JENKINS_SERVER_LEN)"s %-7s %-8s %6.1fh",
@@ -256,6 +301,29 @@ static void sJenkinsStoreInfo(const JENKINS_INFO_t *pkInfo)
     }
 }
 
+// clear all info
+static void sJenkinsClearAll(void)
+{
+    PRINT("jenkins: clear all");
+    memset(&sJenkinsInfo, 0, sizeof(sJenkinsInfo));
+    sJenkinsWorstResult = JENKINS_RESULT_UNKNOWN;
+}
+
+// set all channels to state unknown
+static void sJenkinsUnknownAll(void)
+{
+    PRINT("jenkins: unknown all");
+    for (int ix = 0; ix < NUMOF(sJenkinsInfo); ix++)
+    {
+        if (sJenkinsInfo[ix].active)
+        {
+            sJenkinsInfo[ix].state = JENKINS_STATE_UNKNOWN;
+            sJenkinsInfoDirty[ix] = true;
+        }
+    }
+}
+
+// update all dirty channels, re-calculate worst result, play sounds
 void sJenkinsUpdate(void)
 {
     DEBUG("jenkins: update");
@@ -269,12 +337,16 @@ void sJenkinsUpdate(void)
             const JENKINS_INFO_t *pkInfo = &sJenkinsInfo[ix];
             if (pkInfo->active)
             {
-                ledsSetState(pkInfo->chIx, sJenkinsLedStateFromJenkins(pkInfo->state, pkInfo->result));
+                ledsSetState(ix, sJenkinsLedStateFromJenkins(pkInfo->state, pkInfo->result));
             }
             else
             {
-                ledsSetState(pkInfo->chIx, sJenkinsLedStateFromJenkins(JENKINS_STATE_UNKNOWN, JENKINS_RESULT_UNKNOWN));
+                ledsSetState(ix, sJenkinsLedStateFromJenkins(JENKINS_STATE_UNKNOWN, JENKINS_RESULT_UNKNOWN));
             }
+        }
+        else
+        {
+            ledsSetState(ix, sJenkinsLedStateFromJenkins(JENKINS_STATE_UNKNOWN, JENKINS_RESULT_UNKNOWN));
         }
     }
 
@@ -283,16 +355,12 @@ void sJenkinsUpdate(void)
     for (int ix = 0; ix < NUMOF(sJenkinsInfo); ix++)
     {
         const JENKINS_INFO_t *pkInfo = &sJenkinsInfo[ix];
-        // ignore jobs in unknown and off state
-        if (pkInfo->state > JENKINS_STATE_OFF)
+        if (pkInfo->result >= worstResult)
         {
-            if (pkInfo->result >= worstResult)
-            {
-                worstResult = pkInfo->result;
-            }
+            worstResult = pkInfo->result;
         }
     }
-    DEBUG("jenkins: worst is now %s (was %s)", jenkinsResultToStr(worstResult), jenkinsResultToStr(sJenkinsWorstResult));
+    DEBUG("jenkins: worst is now %s (was %s)", sJenkinsResultToStr(worstResult), sJenkinsResultToStr(sJenkinsWorstResult));
 
     // play sound if we changed from failure/warning to success or from success/warning to failure
     // TODO: play more sounds if CONFIG_NOISE_MORE
@@ -330,29 +398,43 @@ void sJenkinsUpdate(void)
     sJenkinsWorstResult = worstResult;
 }
 
-
+// Jenkins task, waits for messages and updates LEDs accordingly
 static void sJenkinsTask(void *pArg)
 {
     while (true)
     {
-        static JENKINS_INFO_t info;
-        static bool dirty;
-        if (xQueueReceive(sJenkinsInfoQueue, &info, 100))
+        static JENKINS_MSG_t msg;
+        static bool doUpdate;
+
+        while (xQueueReceive(sJenkinsMsgQueue, &msg, 100))
         {
-            sJenkinsStoreInfo(&info);
-            dirty = true;
-        }
-        else
-        {
-            if (dirty)
+            switch (msg.type)
             {
-                sJenkinsUpdate();
-                dirty = false;
+                case JENKINS_MSG_TYPE_INFO:
+                    sJenkinsStoreInfo(&msg.info);
+                    doUpdate = true;
+                    break;
+                case JENKINS_MSG_TYPE_CLEAR_ALL:
+                    sJenkinsClearAll();
+                    doUpdate = true;
+                    break;
+                case JENKINS_MSG_TYPE_UNKNOWN_ALL:
+                    sJenkinsUnknownAll();
+                    doUpdate = true;
+                    break;
             }
+        }
+
+        if (doUpdate)
+        {
+            sJenkinsUpdate();
+            doUpdate = false;
         }
     }
 }
 
+
+/* ***** init and monitoring stuff ************************************************************** */
 
 void jenkinsMonStatus(void)
 {
@@ -364,11 +446,11 @@ void jenkinsMonStatus(void)
     while (!last)
     {
         const JENKINS_INFO_t *pkInfo = &sJenkinsInfo[ix];
-        const char *stateStr  = jenkinsStateToStr(pkInfo->state);
-        const char *resultStr = jenkinsResultToStr(pkInfo->result);
+        const char *stateStr  = sJenkinsStateToStr(pkInfo->state);
+        const char *resultStr = sJenkinsResultToStr(pkInfo->result);
         const char stateChar  = pkInfo->state  == JENKINS_STATE_UNKNOWN  ? '?' : stateStr[0];
         const char resultChar = pkInfo->result == JENKINS_RESULT_UNKNOWN ? '?' : resultStr[0];
-        const int n = snprintf(pStr, len, " %02i=%c%c", ix,
+        const int n = snprintf(pStr, len, " %02i%c%c%c", ix, pkInfo->active ? '=' : '-',
             toupper((int)stateChar), pkInfo->state > JENKINS_STATE_OFF ? toupper((int)resultChar) : resultChar);
         len -= n;
         pStr += n;
@@ -381,18 +463,19 @@ void jenkinsMonStatus(void)
             len = sizeof(str) - 1;
         }
     }
-    DEBUG("mon: jenkins: worst=%s", jenkinsResultToStr(sJenkinsWorstResult));
+    DEBUG("mon: jenkins: worst=%s", sJenkinsResultToStr(sJenkinsWorstResult));
 }
 
-#define JENKINS_INFO_QUEUE_LEN 5
+#define JENKINS_MSG_QUEUE_LEN 5
 
 void jenkinsInit(void)
 {
     DEBUG("jenkins: init");
 
     static StaticQueue_t sQueue;
-    static uint8_t sQueueBuf[sizeof(JENKINS_INFO_t) * JENKINS_INFO_QUEUE_LEN];
-    sJenkinsInfoQueue = xQueueCreateStatic(JENKINS_INFO_QUEUE_LEN, sizeof(JENKINS_INFO_t), sQueueBuf, &sQueue);
+    static uint8_t sQueueBuf[sizeof(JENKINS_INFO_t) * JENKINS_MSG_QUEUE_LEN];
+    sJenkinsMsgQueue = xQueueCreateStatic(JENKINS_MSG_QUEUE_LEN, sizeof(JENKINS_MSG_t), sQueueBuf, &sQueue);
+    sJenkinsClearAll();
 }
 
 void jenkinsStart(void)

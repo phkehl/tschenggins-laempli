@@ -525,7 +525,8 @@ static void sWifiTask(void *pArg)
             {
                 static uint32_t lastFail;
                 const uint32_t now = osTime();
-                int waitTime = (now - lastFail) > 300000 ? 10 : 60;
+                int waitTime = (now - lastFail) > (1000 * BACKEND_STABLE_CONN_THRS) ?
+                    BACKEND_RECONNECT_INTERVAL : (10 * BACKEND_RECONNECT_INTERVAL);
                 lastFail = now;
                 statusNoise(STATUS_NOISE_FAIL);
                 statusLed(STATUS_LED_FAIL);
