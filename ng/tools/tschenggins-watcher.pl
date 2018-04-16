@@ -213,14 +213,21 @@ sub run
         {
             ($jState, $jResult) = getJenkinsJob($jobDir, $latestBuildDir);
         }
-        if ( ($jState eq 'running') && $previousBuildDir )
+        if ($jState)
         {
-            (undef, $jResult) =  getJenkinsJob($jobDir, $previousBuildDir);
+            if ( ($jState eq 'running') && $previousBuildDir )
+            {
+                (undef, $jResult) =  getJenkinsJob($jobDir, $previousBuildDir);
+            }
         }
-        setState($state->{$jobName}, $jState, $jResult);
 
-        # watch for new job output directories being created
-        $in->watch($buildsDir, IN_CREATE, sub { jobCreatedCb($state, $jobName, $in, @_); });
+        if ($jState && $jResult)
+        {
+            setState($state->{$jobName}, $jState, $jResult);
+
+            # watch for new job output directories being created
+            $in->watch($buildsDir, IN_CREATE, sub { jobCreatedCb($state, $jobName, $in, @_); });
+        }
 
         DEBUG("Watching '%s' in '%s' (current state %s and result %s).", $jobName, "$buildsDir", $jState, $jResult);
     }
