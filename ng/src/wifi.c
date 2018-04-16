@@ -413,8 +413,11 @@ static bool sWifiHandleConnection(void)
         }
         else
         {
-            //DEBUG("wifi: recv [%u] %s", len, (const char *)resp);
-            const BACKEND_STATUS_t status = backendHandle((char *)resp, (int)len);
+            // convert response to string (nul-terminate it)
+            char *respStr = (char *)resp;
+            respStr[len] = '\0';
+            //DEBUG("wifi: recv [%u] %s", len, respStr);
+            const BACKEND_STATUS_t status = backendHandle(respStr, (int)len);
             switch (status)
             {
                 case BACKEND_STATUS_OKAY:                                      break;
