@@ -87,8 +87,9 @@ void backendDisconnect(void)
 void backendMonStatus(void)
 {
     const uint32_t now = osTime();
-    DEBUG("mon: backend: count=%u uptime=%u heartbeat=%u bytes=%u",
+    DEBUG("mon: backend: count=%u uptime=%u (%s) heartbeat=%u bytes=%u",
         sConnCount, sLastHello ? now - sLastHello : 0,
+        sLastHello ? ((now - sLastHello) > (1000 * BACKEND_STABLE_CONN_THRS) ? "stable" : "unstable" ) : "n/a",
         sLastHeartbeat ? now - sLastHeartbeat : 0, sBytesReceived);
 }
 
