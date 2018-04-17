@@ -814,6 +814,8 @@ sub _update
         $db->{jobs}->{$id}->{ts}     = int(time() + 0.5);
         $db->{jobs}->{$id}->{name}   = $jobName;
         $db->{jobs}->{$id}->{server} = $server;
+        $db->{jobs}->{$id}->{state}  //= 'unknown';
+        $db->{jobs}->{$id}->{result} //= 'unknown';
         $db->{jobs}->{$id}->{state}  = $jState       if ($jState);
         $db->{jobs}->{$id}->{result} = $jResult      if ($jResult);
         $db->{_dirtiness}++;
