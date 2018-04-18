@@ -330,7 +330,8 @@ Print help.
     elsif ($cmd eq 'help')
     {
         print($q->header( -type => 'text/html', -expires => 'now', charset => 'UTF-8'));
-        pod2usage({ -verbose => 2,  -exitval => 0, -output => \*STDOUT, -perldocopt => '-ohtml', });
+        #pod2usage({ -verbose => 2,  -exitval => 0, -output => \*STDOUT, -perldocopt => '-ohtml', }); # only newer Perls :-(
+        exec("perldoc -ohtml $0");
         exit(0);
     }
 
