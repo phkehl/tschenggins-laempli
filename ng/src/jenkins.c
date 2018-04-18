@@ -306,7 +306,10 @@ static void sJenkinsClearAll(void)
 {
     PRINT("jenkins: clear all");
     memset(&sJenkinsInfo, 0, sizeof(sJenkinsInfo));
-    sJenkinsWorstResult = JENKINS_RESULT_UNKNOWN;
+    for (int ix = 0; ix < NUMOF(sJenkinsInfo); ix++)
+    {
+        sJenkinsInfoDirty[ix] = true;
+    }
 }
 
 // set all channels to state unknown
@@ -343,10 +346,6 @@ void sJenkinsUpdate(void)
             {
                 ledsSetState(ix, sJenkinsLedStateFromJenkins(JENKINS_STATE_UNKNOWN, JENKINS_RESULT_UNKNOWN));
             }
-        }
-        else
-        {
-            ledsSetState(ix, sJenkinsLedStateFromJenkins(JENKINS_STATE_UNKNOWN, JENKINS_RESULT_UNKNOWN));
         }
     }
 
