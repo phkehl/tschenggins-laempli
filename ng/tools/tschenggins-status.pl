@@ -583,11 +583,13 @@ Send command to client.
         $pre =~ s{>}{&gt;}gs;
         my $css = '';
         #$css .= "* { margin: 0; padding: 0; }\n";
-        $css .= "body { font-family: sans-serif; background-color: hsl(160, 100%, 95%); }\n";
+        $css .= "body, select, input { font-family: sans-serif; background-color: hsl(160, 100%, 95%); font-size: 100%; }\n";
         $css .= "table { padding: 0; border: 1px solid #000; border-collapse: collapse; }\n";
         $css .= "table td, table th { margin: 0; padding: 0.1em 0.25em 0.1em 0.25em;  border: 1px solid #000; }\n";
         $css .= "table th { font-weight: bold; background-color: #ddd; text-align: left; border-bottom: 1px solid #000; }\n";
-        $css .= "table tr:hover td { background-color: hsl(160, 100%, 85%); }\n";
+        $css .= "table tr:hover td, table tr:hover td select, table tr:hover td input { background-color: hsl(160, 100%, 90%); }\n";
+        $css .= "label { display: block; cursor: pointer; }\n";
+        $css .= "label:hover, input:hover, option:hover { background-color: hsl(160, 100%, 80%); }\n";
 
         print(
               $q->header( -type => 'text/html', -expires => 'now', charset => 'UTF-8',
@@ -1167,7 +1169,7 @@ sub _gui_jobs
         -autocomplete => 'off',
         -default      => '',
         -labels       => { '' => '<empty>' },
-        -linebreak    => 1,
+        -linebreak    => 0,
     };
     my $resultSelectArgs =
     {
@@ -1176,7 +1178,7 @@ sub _gui_jobs
         -autocomplete => 'off',
         -default      => '',
         -labels       => { '' => '<empty>' },
-        -linebreak    => 1,
+        -linebreak    => 0,
     };
 
     # override
@@ -1325,7 +1327,7 @@ sub _gui_client
     }
     my $debug = ($q->param('debug') ? ';debug=1' : '');
 
-    push(@html, $q->h2('Client ' . $clientId . '(' . ($config->{name} || '') . ')' ));
+    push(@html, $q->h2('Client ' . $clientId . ' (' . ($config->{name} || '') . ')' ));
     push(@html, $q->p({},
         $q->a({ -href => $q->url() . '?cmd=rmclient;client=' . $clientId . ';redirect=cmd%3Dgui%3Bgui%3Dclients' . $debug },
               'delete info & config')));
