@@ -466,7 +466,7 @@ Set client jobs configuration.
         }
     }
 
-=item B<<  C<< cmd=cfgdevice client=<clientid> model=<...> driver=<...> order=<...> bright=<...> noise=<...> >> >>
+=item B<<  C<< cmd=cfgdevice client=<clientid> model=<...> driver=<...> order=<...> bright=<...> noise=<...> name=<...> >> >>
 
 Set client device configuration.
 
@@ -475,16 +475,18 @@ Set client device configuration.
     # set client device configuration
     elsif ($cmd eq 'cfgdevice')
     {
-        DEBUG("cfg $client $model $driver $order $bright $noise");
-        if ($client && $db->{config}->{$client}) # && $model && $driver && $order && $bright && $noise)
+        DEBUG("cfg $client $model $driver $order $bright $noise $name");
+        if ($client && $db->{config}->{$client}) # && $model && $driver && $order && $bright && $noise && $name)
         {
             $db->{config}->{$client}->{model}  = $model;
             $db->{config}->{$client}->{driver} = $driver;
             $db->{config}->{$client}->{order}  = $order;
             $db->{config}->{$client}->{bright} = $bright;
             $db->{config}->{$client}->{noise}  = $noise;
+            $name =~ s{[^a-z0-9A-Z]}{_}g;
+            $db->{config}->{$client}->{name}   = substr($name, 0, 20);
             $db->{_dirtiness}++;
-            $text = "client $client set config $model $driver $order $bright $noise";
+            $text = "client $client set config $model $driver $order $bright $noise $name";
             # signal server
             if ($db->{clients}->{$client}->{pid})
             {
@@ -585,6 +587,7 @@ Send command to client.
         $css .= "table { padding: 0; border: 1px solid #000; border-collapse: collapse; }\n";
         $css .= "table td, table th { margin: 0; padding: 0.1em 0.25em 0.1em 0.25em;  border: 1px solid #000; }\n";
         $css .= "table th { font-weight: bold; background-color: #ddd; text-align: left; border-bottom: 1px solid #000; }\n";
+        $css .= "table tr:hover td { background-color: hsl(160, 100%, 85%); }\n";
 
         print(
               $q->header( -type => 'text/html', -expires => 'now', charset => 'UTF-8',
@@ -1279,6 +1282,7 @@ sub _gui_clients
         my $client = $db->{clients}->{$clientId};
         my $config = $db->{config}->{$clientId};
         my $name     = $client->{name} || 'unknown';
+        my $cfgName  = $config->{name} || 'unknown';
         my $last     = $client->{ts} ? sprintf('%.1f hours ago', (time() - $client->{ts}) / 3600.0) : 'unknown';
         my $pid      = $client->{pid} || 'n/a';
         my $staIp    = $client->{staip} || 'unknown';
@@ -1288,15 +1292,15 @@ sub _gui_clients
         my $debug  = ($q->param('debug') ? ';debug=1' : '');
         my $edit   = $q->a({ -href => $q->url() . '?cmd=gui;client=' . $clientId . $debug }, 'configure');
 
-        push(@trs, $q->Tr({}, $q->td({}, $clientId), $q->td({}, $name), $q->td({}, $last), $q->td({}, $pid), $q->td({}, $staIp),
+        push(@trs, $q->Tr({}, $q->td({}, $clientId), $q->td({}, $name), $q->td({}, $cfgName), $q->td({}, $last), $q->td({}, $pid), $q->td({}, $staIp),
                $q->td({}, $staSsid), $q->td({}, $version), $q->td({}, $edit)));
     }
     push(@html,
          $q->h2({}, 'Clients'),
          $q->table({},
-                   $q->Tr(
+                   $q->Tr({},
                           $q->th({}, 'ID'),
-                          $q->th({}, 'name'),
+                          $q->th({ -colspan => 2 }, 'name'),
                           $q->th({}, 'connected'),
                           $q->th({}, 'PID'),
                           $q->th({}, 'station IP'),
@@ -1321,7 +1325,7 @@ sub _gui_client
     }
     my $debug = ($q->param('debug') ? ';debug=1' : '');
 
-    push(@html, $q->h2('Client ' . $clientId));
+    push(@html, $q->h2('Client ' . $clientId . '(' . ($config->{name} || '') . ')' ));
     push(@html, $q->p({},
         $q->a({ -href => $q->url() . '?cmd=rmclient;client=' . $clientId . ';redirect=cmd%3Dgui%3Bgui%3Dclients' . $debug },
               'delete info & config')));
@@ -1412,6 +1416,14 @@ sub _gui_client
         -autocomplete => 'off',
         -default      => ($config->{noise} || ''),
     };
+    my $nameInputArgs =
+    {
+        -type         => 'text',
+        -name         => 'name',
+        -size         => 20,
+        -value        => ($config->{name} || ''),
+        -autocomplete => 'off',
+    };
     push(@html,
          $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
                  $q->h3({}, 'Device'),
@@ -1422,6 +1434,7 @@ sub _gui_client
                            $q->Tr({}, $q->td({}, 'LED colour order:'), $q->td({}, $q->popup_menu($orderSelectArgs))),
                            $q->Tr({}, $q->td({}, 'LED brightness:'), $q->td({}, $q->popup_menu($brightSelectArgs))),
                            $q->Tr({}, $q->td({}, 'noise:'), $q->td({}, $q->popup_menu($noiseSelectArgs))),
+                           $q->Tr({}, $q->td({}, 'name:'), $q->td({}, $q->input($nameInputArgs))),
                            $q->Tr({ }, $q->td({ -colspan => 3, -align => 'center' }, $q->submit(-value => 'apply config'))),
                           ),
                  $q->hidden(-name => 'cmd', -default => 'cfgdevice'),
