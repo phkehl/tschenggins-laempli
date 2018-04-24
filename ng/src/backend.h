@@ -28,6 +28,10 @@ typedef enum BACKEND_STATUS_e
 
 #define BACKEND_STABLE_CONN_THRS  300 // [s]
 #define BACKEND_RECONNECT_INTERVAL 10 // [s]
+#define BACKEND_RECONNECT_INTERVAL_SLOW 300 // [s]
+#if (BACKEND_RECONNECT_INTERVAL_SLOW <= BACKEND_RECONNECT_INTERVAL)
+#  error Nope!
+#endif
 
 bool backendConnect(char *resp, const int len);
 

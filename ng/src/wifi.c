@@ -89,8 +89,10 @@ static bool sWifiInit(void)
     memset(&sWifiData, 0, sizeof(sWifiData));
 
     // initialise WIFI hardware
+
     sdk_wifi_station_disconnect();
     sdk_wifi_station_set_auto_connect(false);
+
     if (sdk_wifi_station_dhcpc_status() == DHCP_STOPPED)
     {
         if (!sdk_wifi_station_dhcpc_start())
@@ -132,6 +134,14 @@ static bool sWifiInit(void)
     return true;
 }
 
+// shutdown wifi
+static bool sWifiShutdown(void)
+{
+    DEBUG("wifi: shutdown");
+    sdk_wifi_station_disconnect();
+    return true;
+}
+
 // connect to wifi
 static bool sWifiConnect(void)
 {
@@ -158,7 +168,7 @@ static bool sWifiConnect(void)
     bool connected = false;
     {
         const uint32_t now = osTime();
-        const uint32_t timeout = now + 15000;
+        const uint32_t timeout = now + 30000;
         uint8_t lastStatus = 0xff;
         while (osTime() < timeout)
         {
@@ -187,6 +197,7 @@ static bool sWifiConnect(void)
             {
                 sWifiData.staIp = ipinfo.ip;
                 connected = true;
+                PRINT("wifi: online after %.3fs", (double)(osTime() - now) * 1e-3);
                 break;
             }
             osSleep(100);
@@ -529,11 +540,15 @@ static void sWifiTask(void *pArg)
                 static uint32_t lastFail;
                 const uint32_t now = osTime();
                 int waitTime = (now - lastFail) > (1000 * BACKEND_STABLE_CONN_THRS) ?
-                    BACKEND_RECONNECT_INTERVAL : (10 * BACKEND_RECONNECT_INTERVAL);
+                    BACKEND_RECONNECT_INTERVAL : BACKEND_RECONNECT_INTERVAL_SLOW;
                 lastFail = now;
                 statusNoise(STATUS_NOISE_FAIL);
                 statusLed(STATUS_LED_FAIL);
                 PRINT("wifi: failure... waiting %us", waitTime);
+                if (waitTime > BACKEND_RECONNECT_INTERVAL)
+                {
+                    sWifiShutdown();
+                }
                 osSleep(500);
                 while (waitTime > 0)
                 {
@@ -650,10 +665,11 @@ void wifiMonStatus(void)
 #else
     const char *name   = "???";
 #endif
+    DEBUG("mon: wifi: name=%s ssid="FF_CFG_STASSID" pass=%d", name, sizeof(FF_CFG_STAPASS) - 1);
     uint8_t mac[6];
     sdk_wifi_get_macaddr(STATION_IF, mac);
-    DEBUG("mon: wifi: name=%s ip="IPSTR" mask="IPSTR" gw="IPSTR" mac="MACSTR,
-        name, IP2STR(&ipinfo.ip), IP2STR(&ipinfo.netmask), IP2STR(&ipinfo.gw), MAC2STR(mac));
+    DEBUG("mon: wifi: ip="IPSTR" mask="IPSTR" gw="IPSTR" mac="MACSTR,
+        IP2STR(&ipinfo.ip), IP2STR(&ipinfo.netmask), IP2STR(&ipinfo.gw), MAC2STR(mac));
 }
 
 
