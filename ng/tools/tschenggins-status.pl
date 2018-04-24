@@ -590,6 +590,7 @@ Send command to client.
         $css .= "table tr:hover td, table tr:hover td select, table tr:hover td input { background-color: hsl(160, 100%, 90%); }\n";
         $css .= "label { display: block; cursor: pointer; }\n";
         $css .= "label:hover, input:hover, option:hover { background-color: hsl(160, 100%, 80%); }\n";
+        $css .= "td.online { color: hsl(125, 100%, 40%); } td.offline { color:hsl(0, 100%, 40%); }\n";
 
         print(
               $q->header( -type => 'text/html', -expires => 'now', charset => 'UTF-8',
@@ -988,6 +989,14 @@ sub _realtime
                 $db->{_dirtiness}++;
             }
 
+            # assume that while we're running the connection is still up
+            if ($db->{clients}->{$client} &&
+                (!$db->{clients}->{$client}->{check} || (($nowInt - $db->{clients}->{$client}->{check}) > 10)))
+            {
+                $db->{clients}->{$client}->{check} = $nowInt;
+                $db->{_dirtiness}++;
+            }
+
             # close database
             _dbClose($dbHandle, $db, 0, $error ? 0 : 1);
 
@@ -1281,11 +1290,14 @@ sub _gui_clients
     my @trs = ();
     foreach my $clientId (sort  @{$db->{_clientIds}})
     {
+        my $now = time();
         my $client = $db->{clients}->{$clientId};
         my $config = $db->{config}->{$clientId};
         my $name     = $client->{name} || 'unknown';
         my $cfgName  = $config->{name} || 'unknown';
-        my $last     = $client->{ts} ? sprintf('%.1f hours ago', (time() - $client->{ts}) / 3600.0) : 'unknown';
+        my $last     = $client->{ts} ? sprintf('%.1f hours ago', ($now - $client->{ts}) / 3600.0) : 'unknown';
+        my $online   = $client->{check} && (($now - $client->{check}) < 15) ? 'online' : 'offline';
+        my $check    = $online eq 'online' ? int($now - $client->{check} + 0.5) : 'n/a';
         my $pid      = $client->{pid} || 'n/a';
         my $staIp    = $client->{staip} || 'unknown';
         my $staSsid  = $client->{stassid} || 'unknown';
@@ -1294,7 +1306,8 @@ sub _gui_clients
         my $debug  = ($q->param('debug') ? ';debug=1' : '');
         my $edit   = $q->a({ -href => $q->url() . '?cmd=gui;client=' . $clientId . $debug }, 'configure');
 
-        push(@trs, $q->Tr({}, $q->td({}, $clientId), $q->td({}, $name), $q->td({}, $cfgName), $q->td({}, $last), $q->td({}, $pid), $q->td({}, $staIp),
+        push(@trs, $q->Tr({}, $q->td({}, $clientId), $q->td({}, $name), $q->td({}, $cfgName),
+                          $q->td({ -class => $online }, "$last ($check)"), $q->td({}, $pid), $q->td({}, $staIp),
                $q->td({}, $staSsid), $q->td({}, $version), $q->td({}, $edit)));
     }
     push(@html,
