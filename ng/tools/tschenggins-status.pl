@@ -584,12 +584,13 @@ Send command to client.
         my $css = '';
         #$css .= "* { margin: 0; padding: 0; }\n";
         $css .= "body, select, input { font-family: sans-serif; background-color: hsl(160, 100%, 95%); font-size: 100%; }\n";
-        $css .= "table { padding: 0; border: 1px solid #000; border-collapse: collapse; }\n";
+        $css .= "table { padding: 0; border: 0.1em solid #000; border-collapse: collapse; }\n";
         $css .= "table td, table th { margin: 0; padding: 0.1em 0.25em 0.1em 0.25em;  border: 1px solid #000; }\n";
         $css .= "table th { font-weight: bold; background-color: #ddd; text-align: left; border-bottom: 1px solid #000; }\n";
         $css .= "table tr:hover td, table tr:hover td select, table tr:hover td input { background-color: hsl(160, 100%, 90%); }\n";
+        $css .= "input, select { border: 0.1em solid #aaa; border-radius: 0.25em; }\n";
         $css .= "label { display: block; cursor: pointer; }\n";
-        $css .= "label:hover, input:hover, option:hover { background-color: hsl(160, 100%, 80%); }\n";
+        $css .= "label:hover, tr:hover td input:hover, option:hover, select:hover { background-color: hsl(160, 100%, 80%); border-color: #444; }\n";
         $css .= "td.online { color: hsl(125, 100%, 40%); } td.offline { color:hsl(0, 100%, 40%); }\n";
 
         print(
@@ -1307,8 +1308,9 @@ sub _gui_clients
         my $edit   = $q->a({ -href => $q->url() . '?cmd=gui;client=' . $clientId . $debug }, 'configure');
 
         push(@trs, $q->Tr({}, $q->td({}, $clientId), $q->td({}, $name), $q->td({}, $cfgName),
-                          $q->td({ -class => $online }, "$last ($check)"), $q->td({}, $pid), $q->td({}, $staIp),
-               $q->td({}, $staSsid), $q->td({}, $version), $q->td({}, $edit)));
+                          $q->td({ -align => 'center' }, $last), $q->td({ -class => $online, -align => 'center' }, "$pid $check"),
+                          $q->td({ -align => 'center' }, $staIp),
+               $q->td({ -align => 'center' }, $staSsid), $q->td({ -align => 'center' }, $version), $q->td({}, $edit)));
     }
     push(@html,
          $q->h2({}, 'Clients'),
