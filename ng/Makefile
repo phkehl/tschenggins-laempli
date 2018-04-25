@@ -14,7 +14,7 @@ RTOSBASE := /home/flip/sandbox/esp-open-rtos
 PATH        := $(SDKBASE)/xtensa-lx106-elf/bin:$(SDKBASE)/esptool:$(PATH)
 
 # build config
-PROGRAM         = tschenggins-laempli-ng
+PROGRAM         = tschenggins-laempli
 PROGRAM_SRC_DIR = ./src ./3rdparty
 PROGRAM_INC_DIR = ./src ./3rdparty $(PROGRAM_OBJ_DIR)
 

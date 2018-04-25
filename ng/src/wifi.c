@@ -114,11 +114,12 @@ static bool sWifiInit(void)
             return false;
         }
     }
-    if (sdk_wifi_get_opmode() != PHY_MODE_11N)
+    // PHY_MODE_11N doesn't work well
+    if (sdk_wifi_get_opmode() != PHY_MODE_11G)
     {
-        if (!sdk_wifi_set_phy_mode(PHY_MODE_11N))
+        if (!sdk_wifi_set_phy_mode(PHY_MODE_11G))
         {
-            ERROR("wifi: sdk_wifi_set_phy_mode(PHY_MODE_11N) fail!");
+            ERROR("wifi: sdk_wifi_set_phy_mode(PHY_MODE_11G) fail!");
             return false;
         }
     }

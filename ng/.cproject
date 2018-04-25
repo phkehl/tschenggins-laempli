@@ -24,9 +24,9 @@
 							<builder id="cdt.managedbuild.builder.gnu.cross.441904472" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" superClass="cdt.managedbuild.builder.gnu.cross"/>
 							<tool id="cdt.managedbuild.tool.gnu.cross.c.compiler.793071881" name="Cross GCC Compiler" superClass="cdt.managedbuild.tool.gnu.cross.c.compiler">
 								<option id="gnu.c.compiler.option.include.paths.1067345750" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/tschenggins-laemlpli-ng/esp-open-rtos/lwip}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/tschenggins-laemlpli-ng/esp-open-rtos/lwip/include}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/tschenggins-laemlpli-ng/esp-open-rtos/lwip/lwip/src/include}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/tschenggins-laempli/esp-open-rtos/lwip}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/tschenggins-laempli/esp-open-rtos/lwip/include}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/tschenggins-laempli/esp-open-rtos/lwip/lwip/src/include}&quot;"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.670553408" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
@@ -53,12 +53,12 @@
 		</cconfiguration>
 	</storageModule>
 	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-		<project id="tschenggins-laemlpli-ng.null.1505200482" name="tschenggins-laemlpli-ng"/>
+		<project id="tschenggins-laempli.null.1505200482" name="tschenggins-laemlpli-ng"/>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
 		<configuration configurationName="Default">
-			<resource resourceType="PROJECT" workspacePath="/tschenggins-laemlpli-ng"/>
+			<resource resourceType="PROJECT" workspacePath="/tschenggins-laempli"/>
 		</configuration>
 		<configuration configurationName="xtensa-lx106-elf"/>
 	</storageModule>

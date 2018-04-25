@@ -21,7 +21,7 @@
 uint8_t getSystemName(char *name, const uint8_t size)
 {
     memset(name, 0, size);
-    strncpy(name, "tschenggins-laempli-ng", size);
+    strncpy(name, "tschenggins-laempli", size);
     name[size - 1] = '\0';
     if (size >= 12)
     {
