@@ -82,6 +82,13 @@ typedef struct WIFI_DATA_s
 static WIFI_STATE_t sWifiState;
 static WIFI_DATA_t sWifiData;
 
+//#define PHY_MODE PHY_MODE_11N // doesn't work well
+#define PHY_MODE PHY_MODE_11G
+
+//#define SLEEP_MODE WIFI_SLEEP_MODEM
+//#define SLEEP_MODE WIFI_SLEEP_LIGHT
+#define SLEEP_MODE WIFI_SLEEP_NONE
+
 // initialise wifi hardware
 static bool sWifiInit(void)
 {
@@ -114,23 +121,27 @@ static bool sWifiInit(void)
             return false;
         }
     }
-    // PHY_MODE_11N doesn't work well
-    if (sdk_wifi_get_opmode() != PHY_MODE_11G)
+
+#ifdef PHY_MODE
+    if (sdk_wifi_get_opmode() != PHY_MODE)
     {
-        if (!sdk_wifi_set_phy_mode(PHY_MODE_11G))
+        if (!sdk_wifi_set_phy_mode(PHY_MODE))
         {
-            ERROR("wifi: sdk_wifi_set_phy_mode(PHY_MODE_11G) fail!");
+            ERROR("wifi: sdk_wifi_set_phy_mode("STRINGIFY(PHY_MODE)") fail!");
             return false;
         }
     }
-    if (sdk_wifi_get_sleep_type() != WIFI_SLEEP_MODEM)
+#endif // PHY_MODE
+#ifdef SLEEP_MODE
+    if (sdk_wifi_get_sleep_type() != SLEEP_MODE)
     {
-        if (!sdk_wifi_set_sleep_type(WIFI_SLEEP_MODEM))
+        if (!sdk_wifi_set_sleep_type(SLEEP_MODE))
         {
-            ERROR("wifi: sdk_wifi_set_sleep_type(WIFI_SLEEP_MODEM) fail!");
+            ERROR("wifi: sdk_wifi_set_sleep_type("STRINGIFY(SLEEP_MODE)") fail!");
             return false;
         }
     }
+#endif // SLEEP_MODE
 
     return true;
 }
