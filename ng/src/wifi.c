@@ -85,9 +85,9 @@ static WIFI_DATA_t sWifiData;
 //#define PHY_MODE PHY_MODE_11N // doesn't work well
 #define PHY_MODE PHY_MODE_11G
 
-//#define SLEEP_MODE WIFI_SLEEP_MODEM
+#define SLEEP_MODE WIFI_SLEEP_MODEM
 //#define SLEEP_MODE WIFI_SLEEP_LIGHT
-#define SLEEP_MODE WIFI_SLEEP_NONE
+//#define SLEEP_MODE WIFI_SLEEP_NONE
 
 // initialise wifi hardware
 static bool sWifiInit(void)
@@ -98,7 +98,6 @@ static bool sWifiInit(void)
     // initialise WIFI hardware
 
     sdk_wifi_station_disconnect();
-    sdk_wifi_station_set_auto_connect(false);
 
     if (sdk_wifi_station_dhcpc_status() == DHCP_STOPPED)
     {
@@ -178,42 +177,46 @@ static bool sWifiConnect(void)
 
     // wait for connection to come up
     bool connected = false;
+    const uint32_t now = osTime();
+    const uint32_t timeout = now + 30000;
+    uint8_t lastStatus = 0xff;
+    int n = 0;
+    while (osTime() < timeout)
     {
-        const uint32_t now = osTime();
-        const uint32_t timeout = now + 30000;
-        uint8_t lastStatus = 0xff;
-        while (osTime() < timeout)
+        const uint8_t status = sdk_wifi_station_get_connect_status();
+        struct ip_info ipinfo;
+        sdk_wifi_get_ip_info(STATION_IF, &ipinfo);
+        const bool statusChanged = (status != lastStatus);
+        const bool printStatus = ((n % 50) ==  0);
+        if (statusChanged || printStatus )
         {
-            const uint8_t status = sdk_wifi_station_get_connect_status();
-            struct ip_info ipinfo;
-            sdk_wifi_get_ip_info(STATION_IF, &ipinfo);
-            if (status != lastStatus)
+            switch (status)
             {
-                switch (status)
-                {
-                    case STATION_WRONG_PASSWORD:
-                    case STATION_NO_AP_FOUND:
-                    case STATION_CONNECT_FAIL:
-                        WARNING("wifi: status=%s ip="IPSTR" mask="IPSTR" gw="IPSTR,
-                            sdkStationConnectStatusStr(status),
-                            IP2STR(&ipinfo.ip), IP2STR(&ipinfo.netmask), IP2STR(&ipinfo.gw));
-                        break;
-                    default:
-                        DEBUG("wifi: status=%s ip="IPSTR" mask="IPSTR" gw="IPSTR,
-                            sdkStationConnectStatusStr(status),
-                            IP2STR(&ipinfo.ip), IP2STR(&ipinfo.netmask), IP2STR(&ipinfo.gw));
-                }
-                lastStatus = status;
+                case STATION_WRONG_PASSWORD:
+                case STATION_NO_AP_FOUND:
+                case STATION_CONNECT_FAIL:
+                    WARNING("wifi: status=%s ip="IPSTR" mask="IPSTR" gw="IPSTR" (%s, %us left)",
+                        sdkStationConnectStatusStr(status),
+                        IP2STR(&ipinfo.ip), IP2STR(&ipinfo.netmask), IP2STR(&ipinfo.gw),
+                        statusChanged ? "changed" : "still trying", (timeout - osTime() + 500) / 1000);
+                    break;
+                default:
+                    DEBUG("wifi: status=%s ip="IPSTR" mask="IPSTR" gw="IPSTR" (%s, %us left)",
+                        sdkStationConnectStatusStr(status),
+                        IP2STR(&ipinfo.ip), IP2STR(&ipinfo.netmask), IP2STR(&ipinfo.gw),
+                    statusChanged ? "changed" : "still trying", (timeout - osTime() + 500) / 1000);
             }
-            if ( (status == STATION_GOT_IP) && (ipinfo.ip.addr != 0) )
-            {
-                sWifiData.staIp = ipinfo.ip;
-                connected = true;
-                PRINT("wifi: online after %.3fs", (double)(osTime() - now) * 1e-3);
-                break;
-            }
-            osSleep(100);
+            lastStatus = status;
         }
+        if ( (status == STATION_GOT_IP) && (ipinfo.ip.addr != 0) )
+        {
+            sWifiData.staIp = ipinfo.ip;
+            connected = true;
+            PRINT("wifi: online after %.3fs", (double)(osTime() - now) * 1e-3);
+            break;
+        }
+        osSleep(100);
+        n++;
     }
 
     return connected;
@@ -689,6 +692,8 @@ void wifiInit(void)
 {
     DEBUG("wifi: init");
     //sdk_wifi_status_led_install(2, PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2);
+    sdk_wifi_station_set_auto_connect(false);
+    sdk_wifi_station_disconnect();
 }
 
 void wifiStart(void)
