@@ -948,7 +948,7 @@ sub _realtime
         if ( ($n % 5) == 0 )
         {
             $nHeartbeat++;
-            printf("\r\nheartbeat $now $nHeartbeat\r\n");
+            printf("\r\nheartbeat $nowInt $nHeartbeat\r\n");
         }
         $n++;
 
