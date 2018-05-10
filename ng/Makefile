@@ -83,6 +83,16 @@ all: cscope
 debug:
 	$(Q)$(PERL) tools/debug.pl $(ESPPORT):115200
 
+# symbol table
+$(BUILD_DIR)$(PROGRAM).sym: $(PROGRAM_OUT)
+	$(vecho) "GEN $@"
+	$(Q)$(OBJDUMP) -t $< > $@
+
+# full listing
+$(BUILD_DIR)$(PROGRAM).lst: $(PROGRAM_OUT)
+	$(vecho) "GEN $@"
+	$(Q)$(OBJDUMP) -h -S $< > $@
+
 # print list of IRAM symbols
 $(BUILD_DIR)$(PROGRAM).sym_iram: $(PROGRAM_OUT) tools/symbols.pl
 	$(vecho) "GEN $@"
@@ -111,7 +121,7 @@ $(BUILD_DIR)$(PROGRAM).size: $(PROGRAM_OUT) $(BUILD_DIR)$(PROGRAM).sym_iram $(BU
 	$(Q)$(GREP) -h ^total $(subst .size,.sym_iram,$@) $(subst .size,.sym_irom,$@) $(subst .size,.sym_dram,$@) | $(TEE) -a $@
 
 # add sizes and symbol lists to the main build target
-all: $(BUILD_DIR)$(PROGRAM).size
+all: $(BUILD_DIR)$(PROGRAM).size $(BUILD_DIR)$(PROGRAM).lst $(BUILD_DIR)$(PROGRAM).sym
 
 
 ###############################################################################

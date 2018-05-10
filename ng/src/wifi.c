@@ -38,8 +38,7 @@
 // the state of the wifi (network) connection
 typedef enum WIFI_STATE_e
 {
-    WIFI_STATE_UNKNOWN = 0, // don't know --> initialise
-    WIFI_STATE_OFFLINE,     // initialised, offline --> connect station
+    WIFI_STATE_OFFLINE = 0, // offline --> wait for station connect
     WIFI_STATE_ONLINE,      // station online --> connect to backend
     WIFI_STATE_CONNECTED,   // backend connected
     WIFI_STATE_FAIL,        // failure (e.g. connection lost) --> initialise
@@ -49,7 +48,6 @@ static const char *sWifiStateStr(const WIFI_STATE_t state)
 {
     switch (state)
     {
-        case WIFI_STATE_UNKNOWN:    return "UNKNOWN";
         case WIFI_STATE_OFFLINE:    return "OFFLINE";
         case WIFI_STATE_ONLINE:     return "ONLINE";
         case WIFI_STATE_CONNECTED:  return "CONNECTED";
@@ -82,103 +80,15 @@ typedef struct WIFI_DATA_s
 static WIFI_STATE_t sWifiState;
 static WIFI_DATA_t sWifiData;
 
-//#define PHY_MODE PHY_MODE_11N // doesn't work well
-#define PHY_MODE PHY_MODE_11G
+#define WIFI_CONNECT_TIMEOUT 30
 
-#define SLEEP_MODE WIFI_SLEEP_MODEM
-//#define SLEEP_MODE WIFI_SLEEP_LIGHT
-//#define SLEEP_MODE WIFI_SLEEP_NONE
-
-// initialise wifi hardware
-static bool sWifiInit(void)
+// wait for wifi station connect
+static bool sWifiWaitConnect(void)
 {
-    // initialise (reset) data
-    memset(&sWifiData, 0, sizeof(sWifiData));
-
-    // initialise WIFI hardware
-
-    sdk_wifi_station_disconnect();
-
-    if (sdk_wifi_station_dhcpc_status() == DHCP_STOPPED)
-    {
-        if (!sdk_wifi_station_dhcpc_start())
-        {
-            ERROR("wifi: sdk_wifi_station_dhcpc_start() fail!");
-            return false;
-        }
-    }
-    if (sdk_wifi_get_opmode() != STATION_MODE)
-    {
-        if (!sdk_wifi_set_opmode(STATION_MODE))
-        {
-            ERROR("wifi: sdk_wifi_set_opmode() fail!");
-            return false;
-        }
-        if (!sdk_wifi_set_opmode_current(STATION_MODE))
-        {
-            ERROR("wifi: sdk_wifi_set_opmode_current() fail!");
-            return false;
-        }
-    }
-
-#ifdef PHY_MODE
-    if (sdk_wifi_get_opmode() != PHY_MODE)
-    {
-        if (!sdk_wifi_set_phy_mode(PHY_MODE))
-        {
-            ERROR("wifi: sdk_wifi_set_phy_mode("STRINGIFY(PHY_MODE)") fail!");
-            return false;
-        }
-    }
-#endif // PHY_MODE
-#ifdef SLEEP_MODE
-    if (sdk_wifi_get_sleep_type() != SLEEP_MODE)
-    {
-        if (!sdk_wifi_set_sleep_type(SLEEP_MODE))
-        {
-            ERROR("wifi: sdk_wifi_set_sleep_type("STRINGIFY(SLEEP_MODE)") fail!");
-            return false;
-        }
-    }
-#endif // SLEEP_MODE
-
-    return true;
-}
-
-// shutdown wifi
-static bool sWifiShutdown(void)
-{
-    DEBUG("wifi: shutdown");
-    sdk_wifi_station_disconnect();
-    return true;
-}
-
-// connect to wifi
-static bool sWifiConnect(void)
-{
-    struct sdk_station_config config =
-    {
-        .ssid = FF_CFG_STASSID, .password = FF_CFG_STAPASS, .bssid_set = false, .bssid = { 0 }
-    };
-    sdk_wifi_station_set_config(&config);
-
-    //sdk_wifi_station_set_hostname(sWifiData.staName);
-    getSystemName(sWifiData.staName, sizeof(sWifiData.staName));
-#if LWIP_NETIF_HOSTNAME
-    struct netif *netif = sdk_system_get_netif(STATION_IF);
-    netif_set_hostname(netif, sWifiData.staName);
-#endif
-
-    if (!sdk_wifi_station_connect())
-    {
-        ERROR("wifi: sdk_wifi_station_connect() fail");
-        return false;
-    }
-
     // wait for connection to come up
     bool connected = false;
     const uint32_t now = osTime();
-    const uint32_t timeout = now + 30000;
+    const uint32_t timeout = now + (WIFI_CONNECT_TIMEOUT * 1000);
     uint8_t lastStatus = 0xff;
     int n = 0;
     while (osTime() < timeout)
@@ -188,7 +98,7 @@ static bool sWifiConnect(void)
         sdk_wifi_get_ip_info(STATION_IF, &ipinfo);
         const bool statusChanged = (status != lastStatus);
         const bool printStatus = ((n % 50) ==  0);
-        if (statusChanged || printStatus )
+        if (statusChanged || printStatus)
         {
             switch (status)
             {
@@ -472,7 +382,16 @@ static bool sWifiIsOnline(void)
 
 static void sWifiTask(void *pArg)
 {
-    WIFI_STATE_t oldState = WIFI_STATE_UNKNOWN;
+    // doesn't seem to work in wifiInit() (user_init())
+    //sdk_wifi_station_set_hostname(sWifiData.staName);
+#if LWIP_NETIF_HOSTNAME
+    struct netif *netif = sdk_system_get_netif(STATION_IF);
+    sdk_wifi_station_disconnect();
+    netif_set_hostname(netif, sWifiData.staName);
+    sdk_wifi_station_connect();
+#endif
+
+    WIFI_STATE_t oldState = WIFI_STATE_OFFLINE;
     while (true)
     {
         if (oldState != sWifiState)
@@ -483,31 +402,13 @@ static void sWifiTask(void *pArg)
 
         switch (sWifiState)
         {
-            // initialise
-            case WIFI_STATE_UNKNOWN:
-            {
-                PRINT("wifi: state unknown, initialising...");
-                statusNoise(STATUS_NOISE_OTHER);
-                statusLed(STATUS_LED_OFFLINE);
-                osSleep(100);
-                if (!sWifiInit())
-                {
-                    sWifiState = WIFI_STATE_FAIL;
-                }
-                else
-                {
-                    sWifiState = WIFI_STATE_OFFLINE;
-                }
-                break;
-            }
-
-            // we're offline --> connect station
+            // we're offline --> wait for station connect
             case WIFI_STATE_OFFLINE:
             {
-                PRINT("wifi: state offline, connecting station...");
+                PRINT("wifi: state offline, waiting for station connect...");
                 statusNoise(STATUS_NOISE_ABORT);
                 statusLed(STATUS_LED_UPDATE);
-                if (sWifiConnect())
+                if (sWifiWaitConnect())
                 {
                     sWifiState = WIFI_STATE_ONLINE;
                 }
@@ -534,6 +435,7 @@ static void sWifiTask(void *pArg)
                 break;
             }
 
+            // connected to backend --> handle connection
             case WIFI_STATE_CONNECTED:
             {
                 PRINT("wifi: state connected...");
@@ -541,7 +443,7 @@ static void sWifiTask(void *pArg)
                 statusLed(STATUS_LED_HEARTBEAT);
                 if (sWifiHandleConnection())
                 {
-                    sWifiState = sWifiIsOnline() ? WIFI_STATE_ONLINE : WIFI_STATE_UNKNOWN;
+                    sWifiState = sWifiIsOnline() ? WIFI_STATE_ONLINE : WIFI_STATE_OFFLINE;
                 }
                 else
                 {
@@ -550,6 +452,7 @@ static void sWifiTask(void *pArg)
                 break;
             }
 
+            // something has failed --> wait a bit
             case WIFI_STATE_FAIL:
             {
                 static uint32_t lastFail;
@@ -560,11 +463,6 @@ static void sWifiTask(void *pArg)
                 statusNoise(STATUS_NOISE_FAIL);
                 statusLed(STATUS_LED_FAIL);
                 PRINT("wifi: failure... waiting %us", waitTime);
-                if (waitTime > BACKEND_RECONNECT_INTERVAL)
-                {
-                    sWifiShutdown();
-                }
-                osSleep(500);
                 while (waitTime > 0)
                 {
                     osSleep(1000);
@@ -578,7 +476,7 @@ static void sWifiTask(void *pArg)
                     }
                     waitTime--;
                 }
-                sWifiState = sWifiIsOnline() ? WIFI_STATE_ONLINE : WIFI_STATE_UNKNOWN;
+                sWifiState = sWifiIsOnline() ? WIFI_STATE_ONLINE : WIFI_STATE_OFFLINE;
 
                 break;
             }
@@ -640,7 +538,7 @@ void sWifiScanDoneCb(void *pArg, sdk_scan_status_t status)
 
 static void sWifiTask(void *pArg)
 {
-    sdk_wifi_set_opmode_current(ONLINE_MODE);
+    sdk_wifi_set_opmode_current(STATION_MODE);
     while (true)
     {
         static uint32_t sTick;
@@ -676,10 +574,14 @@ void wifiMonStatus(void)
     sdk_wifi_get_ip_info(STATION_IF, &ipinfo);
 #if LWIP_NETIF_HOSTNAME
     struct netif *netif = sdk_system_get_netif(STATION_IF);
-    const char *name   = netif_get_hostname(netif);
+    const char *name = netif_get_hostname(netif);
 #else
-    const char *name   = "???";
+    const char *name = NULL;
 #endif
+    if (name == NULL)
+    {
+        name = "???";
+    }
     DEBUG("mon: wifi: name=%s ssid="FF_CFG_STASSID" pass=%d", name, sizeof(FF_CFG_STAPASS) - 1);
     uint8_t mac[6];
     sdk_wifi_get_macaddr(STATION_IF, mac);
@@ -688,12 +590,72 @@ void wifiMonStatus(void)
 }
 
 
+//#define PHY_MODE PHY_MODE_11N // doesn't work well
+#define PHY_MODE PHY_MODE_11G
+
+#define SLEEP_MODE WIFI_SLEEP_MODEM
+//#define SLEEP_MODE WIFI_SLEEP_LIGHT
+//#define SLEEP_MODE WIFI_SLEEP_NONE
+
 void wifiInit(void)
 {
     DEBUG("wifi: init");
+
+    memset(&sWifiData, 0, sizeof(sWifiData));
+    getSystemName(sWifiData.staName, sizeof(sWifiData.staName));
+
     //sdk_wifi_status_led_install(2, PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2);
-    sdk_wifi_station_set_auto_connect(false);
-    sdk_wifi_station_disconnect();
+
+    //if (sdk_wifi_station_dhcpc_status() == DHCP_STOPPED)
+    //{
+    //    if (!sdk_wifi_station_dhcpc_start())
+    //    {
+    //        ERROR("wifi: sdk_wifi_station_dhcpc_start() fail!");
+    //        return false;
+    //    }
+    //}
+    //if (sdk_wifi_get_opmode() != STATION_MODE)
+    {
+        if (!sdk_wifi_set_opmode(STATION_MODE))
+        {
+            ERROR("wifi: sdk_wifi_set_opmode() fail!");
+            //return false;
+        }
+        if (!sdk_wifi_set_opmode_current(STATION_MODE))
+        {
+            ERROR("wifi: sdk_wifi_set_opmode_current() fail!");
+            //return false;
+        }
+    }
+
+#ifdef PHY_MODE
+    //if (sdk_wifi_get_opmode() != PHY_MODE)
+    {
+        if (!sdk_wifi_set_phy_mode(PHY_MODE))
+        {
+            ERROR("wifi: sdk_wifi_set_phy_mode("STRINGIFY(PHY_MODE)") fail!");
+            //return false;
+        }
+    }
+#endif // PHY_MODE
+#ifdef SLEEP_MODE
+    //if (sdk_wifi_get_sleep_type() != SLEEP_MODE)
+    {
+        if (!sdk_wifi_set_sleep_type(SLEEP_MODE))
+        {
+            ERROR("wifi: sdk_wifi_set_sleep_type("STRINGIFY(SLEEP_MODE)") fail!");
+            //return false;
+        }
+    }
+#endif // SLEEP_MODE
+
+    struct sdk_station_config config =
+    {
+        .ssid = FF_CFG_STASSID, .password = FF_CFG_STAPASS, .bssid_set = false, .bssid = { 0 }
+    };
+    sdk_wifi_station_set_config(&config);
+
+    sdk_wifi_station_set_auto_connect(true);
 }
 
 void wifiStart(void)
