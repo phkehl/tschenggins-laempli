@@ -6,7 +6,6 @@
 
 #include "rtttl.h"
 
-#include <c_types.h> // ESP8266 SDK
 
 
 // based on:

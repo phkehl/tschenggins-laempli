@@ -1,7 +1,7 @@
 // FreeRTOS config overrides (for settings in FreeRTOS/Source/include/FreeRTOSConfig.h)
 
 #define configUSE_PREEMPTION                       1
-#define configTICK_RATE_HZ                         1000
+//#define configTICK_RATE_HZ                         1000
 #define configUSE_TRACE_FACILITY                   1
 #define configMAX_TASK_NAME_LEN                    16
 #define configGENERATE_RUN_TIME_STATS              1
