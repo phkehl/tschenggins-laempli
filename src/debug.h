@@ -50,3 +50,5 @@ void HEXDUMP(const void *pkData, int size);
 
 
 #endif // __DEBUG_H__
+//@}
+// eof

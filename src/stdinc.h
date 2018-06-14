@@ -33,3 +33,5 @@
 extern bool sdk_wifi_set_opmode_current(uint8_t opmode);
 
 #endif // __STDINC_H__
+//@}
+// eof

@@ -24,3 +24,5 @@ void wifiStart(void);
 void wifiMonStatus(void);
 
 #endif // __WIFI_H__
+//@}
+// eof

@@ -46,3 +46,5 @@ void statusNoise(const STATUS_NOISE_t noise);
 void statusMelody(const char *name);
 
 #endif // __STATUS_H__
+//@}
+// eof

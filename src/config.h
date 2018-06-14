@@ -74,3 +74,5 @@ bool configParseJson(char *resp, const int respLen);
 
 
 #endif // __CONFIG_H__
+//@}
+// eof

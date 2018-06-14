@@ -90,3 +90,5 @@ void jenkinsUnknownAll(void);
 void jenkinsClearAll(void);
 
 #endif // __JENKINS_H__
+//@}
+// eof
