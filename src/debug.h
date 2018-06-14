@@ -6,7 +6,10 @@
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
     This implements buffered and non-blocking debugging output (uses interrupts and the UART
-    hardware FIFO, drops output if the buffer is full).
+    hardware FIFO, drops output if the buffer is full). The various DEBUG(), PRINT() etc. functions
+    are line-oriented and use a mutex to guarantee intact lines in the output. (Hence they're not
+    usable from interrupts!). The output goes via the normal stdout handle, so that it mixes well
+    with direct printf() calls (incl. those from the SDK).
 
     \defgroup FF_DEBUG DEBUG
     \ingroup FF
