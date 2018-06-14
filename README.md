@@ -5,13 +5,44 @@ https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
 ## Introduction
 
+This is a Jenkins (jobs) status indicator. It uses RGB LEDs to indicate the
+build status. The colours indicate the result (success, warning, failure,
+unknown) and the the LEDs pulsate while jobs are running. It can use WS2801 or
+SK9822/APA102 LEDs. Chewie roars if something goes wrong (red, failure) and he
+whistles the Indiana Jones theme when things go back to green (success) again.
+
+The setup for watching the Jenkins jobs status is slightly different from many
+other similar projects. Instead of accessing the Jenkins (API) directly from the
+client, it connects to a custom backend to obtain the current status and changes
+of the status of the jobs.
+
+he backend is a simple CGI script (in Perl, of course ;-). The status updates
+work almost real-time by pushing the information to the client (the Lämpli)
+withouth special stuff, such as web sockets or the like. It "abuses" HTTP by
+running the CGI script endlessly (or as long as the web server or the
+connectivity allows). The script keeps sending data to the client (hearbeats,
+status updates), which should keep things going for hours in most setups
+(incl. many shared hosting services).
+
+In parallel, a second scripts runs on the Jenkins server. It watches the Jenkins
+jobs for changes in the status and pushes those to the webserver (where the CGI
+script is watching for changes to the data). The data is kept in a single-file
+"database" (a JSON file). The watcher script does not use the Jenkins API
+either, but instead watches the job's output diretories for changes. This allows
+for the near real-time status updates (as opposed to polling the Jenkins API
+every now and then).
+
+This also allows making things work in a setup where the (client) wireless
+network is separate from the (Jenkins) server network. For example in a company
+the wireless network may only allow public internet access and the client would
+not be able to connect to the Jenkins server directly. And running a VPN client
+on the ESP8266 would be challenging, or impossible. In this case the backend can
+live in the internet, which is reachable from the wireless and the server
+networks. Note that currently this software only supports http:// access to the
+backend.
+
 ![Tschenggins Lämpli Model 1](old/fs/laempli.png)
 ![Tschenggins Lämpli Model 3](doc/laempli3.jpg)
-
-The colours indicate the result (success, warning, failure, unknown) and the the
-LEDs pulsate while jobs are running. Chewie roars if something goes wrong (red,
-failure) and he whistles the Indiana Jones theme when things go back to green
-(success) again.
 
 ## Building
 
