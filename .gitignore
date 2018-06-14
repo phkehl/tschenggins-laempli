@@ -1,7 +1,12 @@
-cfg-ffi.txt
-cfg-u*.txt
+firmware
+build
+cfg-*
+cscope.*
+local.mk
+esp-open-rtos
+.#*
 privat
-cscope.out
-obj
-*~
+
+
+
 

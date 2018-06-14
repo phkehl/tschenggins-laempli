@@ -2,9 +2,7 @@
 
 #ifndef __BASE64_H__
 #define __BASE64_H__
-
-#include <stdbool.h>
-#include <stddef.h>
+#include "stdinc.h"
 
 // decode base64 to string
 bool base64dec(const char *src, char *dst, const int dstlen);

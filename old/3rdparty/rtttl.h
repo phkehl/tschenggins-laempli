@@ -12,7 +12,6 @@ void rtttlMelody(const char *melodyStr, int16_t *pFreqDur, const int nFreqDur);
 
 const char *rtttlBuiltinMelody(const char *name);
 
-const char *rtttlBuiltinMelodyRandom(void);
 
 // tone frequencies, from Arduino's "toneMelody" example's pitches.h
 #define RTTTL_NOTE_B0  31

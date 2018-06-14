@@ -3,6 +3,9 @@
 
 #include "base64.h"
 
+#include "c_types.h" // ESP8266 SDK
+#include "osapi.h" // ESP8266 SDK
+
 static const char base64_chars[] =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -22,9 +25,9 @@ static const char base64_digits[] =
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-bool base64dec(const char *src, char *dst, const int dstlen)
+bool ICACHE_FLASH_ATTR base64dec(const char *src, char *dst, const int dstlen)
 {
-    const int inlen = strlen(src);
+    const int inlen = os_strlen(src);
 
     if ( ((inlen % 4) != 0) || (dstlen < BASE64_DECLEN(inlen)) )
     {
@@ -60,7 +63,7 @@ bool base64dec(const char *src, char *dst, const int dstlen)
 
 bool base64enc(const char *src, char *dst, const int dstlen)
 {
-    const int srclen = strlen(src);
+    const int srclen = os_strlen(src);
     const int reqdstlen = BASE64_ENCLEN(srclen);
     dst[0] = '\0';
     if (dstlen < reqdstlen)
