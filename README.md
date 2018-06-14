@@ -5,7 +5,7 @@ https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
 ## Introduction
 
-![Tschenggins Lämpli Model 1](fs/laempli.png)
+![Tschenggins Lämpli Model 1](old/fs/laempli.png)
 ![Tschenggins Lämpli Model 3](doc/laempli3.jpg)
 
 The colours indicate the result (success, warning, failure, unknown) and the the
