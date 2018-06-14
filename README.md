@@ -3,6 +3,10 @@
 by Philippe Kehl <flipflip at oinkzwurgl dot org>,
 https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
+
+![Tschenggins Lämpli Model 1](old/fs/laempli.png)
+![Tschenggins Lämpli Model 3](doc/laempli3.jpg)
+
 ## Introduction
 
 This is a Jenkins (jobs) status indicator. It uses RGB LEDs to indicate the
@@ -43,16 +47,13 @@ backend.
 
 Interested hackers may find useful code for their projects here. There is an
 implementation of buffered and non-blocking debug output (uses interrupts and
-the UART hardware FIFO, drops output if the buffer is full) in `src/debug.c`.
-Tones and melodies can be played with `src/tone.c`. Or a nice monitor task
-(prints memory usage, task list and CPU usage, etc.) in `src/mon.c`. Or the
-WS2801 and SK9822/APA102 LED drivers (using interrupt driven, buffered,
-non-blocking SPI) in `src/leds.c`. Or perhaps one of the utility routines, such
-as stringification for various ESP SDK enumerators and status codes, in
-`src/stuff.c`.
-
-![Tschenggins Lämpli Model 1](old/fs/laempli.png)
-![Tschenggins Lämpli Model 3](doc/laempli3.jpg)
+the UART hardware FIFO, drops output if the buffer is full) in
+[`src/debug.c`](src/debug.c).  Tones and melodies can be played with
+`src/tone.c`. Or a nice monitor task (prints memory usage, task list and CPU
+usage, etc.) in `src/mon.c`. Or the WS2801 and SK9822/APA102 LED drivers (using
+interrupt driven, buffered, non-blocking SPI) in `src/leds.c`. Or perhaps one of
+the utility routines, such as stringification for various ESP SDK enumerators
+and status codes, in `src/stuff.c`.
 
 ## Building
 
