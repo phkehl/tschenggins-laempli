@@ -1124,7 +1124,8 @@ sub _gui
     my @html = ();
 
     push(@html,
-         $q->p({}, 'Menu: ',
+         $q->p({},
+               'Menu: ',
                $q->a({ -href => ($q->url() . '?cmd=gui;gui=jobs') }, 'jobs'),
                ', ',
                $q->a({ -href => ($q->url() . '?cmd=gui;gui=clients') }, 'clients'),
@@ -1132,7 +1133,9 @@ sub _gui
                $q->a({ -href => ($q->url() . '?cmd=help') }, 'help'),
                ', ',
                $q->a({ -href => ($q->url() . '?cmd=rawdb;debug=1') }, 'raw db'),
-              )
+              ),
+         $q->p({},
+               'Database: ' . ($ENV{'REMOTE_USER'} ? $ENV{'REMOTE_USER'} : '(default)')),
          #$q->hr(),
         );
 
