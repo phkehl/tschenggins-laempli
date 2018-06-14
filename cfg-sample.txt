@@ -7,7 +7,7 @@ STASSID "..."
 # station password
 STAPASS  "..."
 
-# backend URL
+# backend URL (http://user:pass@..../path/to/tschenggins-status.pl, "user:pass@" is optional)
 BACKENDURL  "..."
 
 
