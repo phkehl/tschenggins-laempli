@@ -13,7 +13,8 @@
 
 #include <esp/hwrand.h>
 
-#include "base64.h"
+#include <bearssl.h>
+#include <base64.h>
 
 #include "debug.h"
 #include "stuff.h"
@@ -310,6 +311,91 @@ uint32_t osGetPosixTime(void)
     const uint32_t now = osTime();
     //DEBUG("osGetPosixTime() %u %u-%u=%u", sOsTimePosix, now, sOsTimeOs, now - sOsTimeOs);
     return sOsTimePosix + ((now - sOsTimeOs) / 1000);
+}
+
+const char *bearSslErrStr(int error, bool *pFatal)
+{
+    bool fatal = false;
+    if (error > BR_ERR_SEND_FATAL_ALERT)
+    {
+        fatal = true;
+        error -= BR_ERR_SEND_FATAL_ALERT;
+    }
+    if (error > BR_ERR_RECV_FATAL_ALERT)
+    {
+        fatal = true;
+        error -= BR_ERR_RECV_FATAL_ALERT;
+    }
+    if (pFatal != NULL)
+    {
+        *pFatal = fatal;
+    }
+    switch (error)
+    {
+        // bear_ssl.h
+        case BR_ERR_OK:                       return "OK";
+        case BR_ERR_BAD_PARAM:                return "BAD_PARAM";
+        case BR_ERR_BAD_STATE:                return "BAD_STATE";
+        case BR_ERR_UNSUPPORTED_VERSION:      return "UNSUPPORTED_VERSION";
+        case BR_ERR_BAD_VERSION:              return "BAD_VERSION";
+        case BR_ERR_BAD_LENGTH:               return "BAD_LENGTH";
+        case BR_ERR_TOO_LARGE:                return "TOO_LARGE";
+        case BR_ERR_BAD_MAC:                  return "BAD_MAC";
+        case BR_ERR_NO_RANDOM:                return "NO_RANDOM";
+        case BR_ERR_UNKNOWN_TYPE:             return "UNKNOWN_TYPE";
+        case BR_ERR_UNEXPECTED:               return "ERR_UNEXPECTED";
+        case BR_ERR_BAD_CCS:                  return "BAD_CCS";
+        case BR_ERR_BAD_ALERT:                return "BAD_ALERT";
+        case BR_ERR_BAD_HANDSHAKE:            return "BAD_HANDSHAKE";
+        case BR_ERR_OVERSIZED_ID:             return "OVERSIZED_ID";
+        case BR_ERR_BAD_CIPHER_SUITE:         return "CIPHER_SUITE";
+        case BR_ERR_BAD_COMPRESSION:          return "BAD_COMPRESSION";
+        case BR_ERR_BAD_FRAGLEN:              return "BAD_FRAGLEN";
+        case BR_ERR_BAD_SECRENEG:             return "BAD_SECRENEG";
+        case BR_ERR_EXTRA_EXTENSION:          return "EXTRA_EXTENSION";
+        case BR_ERR_BAD_SNI:                  return "BAD_SNI";
+        case BR_ERR_BAD_HELLO_DONE:           return "BAD_HELLO_DONE";
+        case BR_ERR_LIMIT_EXCEEDED:           return "LIMIT_EXCEEDED";
+        case BR_ERR_BAD_FINISHED:             return "BAD_FINISHED";
+        case BR_ERR_RESUME_MISMATCH:          return "RESUME_MISMATCH";
+        case BR_ERR_INVALID_ALGORITHM:        return "INVALID_ALGORITHM";
+        case BR_ERR_BAD_SIGNATURE:            return "BAD_SIGNATURE";
+        case BR_ERR_WRONG_KEY_USAGE:          return "WRONG_KEY_USAGE";
+        case BR_ERR_NO_CLIENT_AUTH:           return "NO_CLIENT_AUTH";
+        case BR_ERR_IO:                       return "IO";
+        // bearssl_x509.h
+        case BR_ERR_X509_OK:                  return "X509_OK";
+        case BR_ERR_X509_INVALID_VALUE:       return "X509_INVALID_VALUE";
+        case BR_ERR_X509_TRUNCATED:           return "X509_TRUNCATED";
+        case BR_ERR_X509_EMPTY_CHAIN:         return "X509_EMPTY_CHAIN";
+        case BR_ERR_X509_INNER_TRUNC:         return "X509_INNER_TRUNC";
+        case BR_ERR_X509_BAD_TAG_CLASS:       return "X509_BAD_TAG_CLASS";
+        case BR_ERR_X509_BAD_TAG_VALUE:       return "X509_BAD_TAG_VALUE";
+        case BR_ERR_X509_INDEFINITE_LENGTH:   return "X509_INDEFINITE_LENGTH";
+        case BR_ERR_X509_EXTRA_ELEMENT:       return "X509_EXTRA_ELEMENT";
+        case BR_ERR_X509_UNEXPECTED:          return "X509_UNEXPECTED";
+        case BR_ERR_X509_NOT_CONSTRUCTED:     return "X509_NOT_CONSTRUCTED";
+        case BR_ERR_X509_NOT_PRIMITIVE:       return "X509_NOT_PRIMITIVE";
+        case BR_ERR_X509_PARTIAL_BYTE:        return "X509_PARTIAL_BYTE";
+        case BR_ERR_X509_BAD_BOOLEAN:         return "X509_BAD_BOOLEAN";
+        case BR_ERR_X509_OVERFLOW:            return "X509_OVERFLOW";
+        case BR_ERR_X509_BAD_DN:              return "X509_BAD_DN";
+        case BR_ERR_X509_BAD_TIME:            return "X509_BAD_TIME";
+        case BR_ERR_X509_UNSUPPORTED:         return "X509_UNSUPPORTED";
+        case BR_ERR_X509_LIMIT_EXCEEDED:      return "X509_LIMIT_EXCEEDED";
+        case BR_ERR_X509_WRONG_KEY_TYPE:      return "X509_KEY_TYPE";
+        case BR_ERR_X509_BAD_SIGNATURE:       return "X509_BAD_SIGNATURE";
+        case BR_ERR_X509_TIME_UNKNOWN:        return "X509_TIME_UNKNOWN";
+        case BR_ERR_X509_EXPIRED:             return "X509_EXPIRED";
+        case BR_ERR_X509_DN_MISMATCH:         return "X509_DN_MISMATCH";
+        case BR_ERR_X509_BAD_SERVER_NAME:     return "X509_BAD_SERVER_NAME";
+        case BR_ERR_X509_CRITICAL_EXTENSION:  return "X509_CRITICAL_EXTENSION";
+        case BR_ERR_X509_NOT_CA:              return "X509_NOT_CA";
+        case BR_ERR_X509_FORBIDDEN_KEY_USAGE: return "X509_FORBIDDEN_KEY_USAGE";
+        case BR_ERR_X509_WEAK_PUBLIC_KEY:     return "X509_WEAK_PUBLIC_KEY";
+        case BR_ERR_X509_NOT_TRUSTED:         return "X509_NOT_TRUSTED";
+    }
+    return "???";
 }
 
 

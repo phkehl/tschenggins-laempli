@@ -184,6 +184,9 @@ int reqParamsFromUrl(const char *url, char *buf, const int bufSize,
 //! lwip error stringification
 const char *lwipErrStr(const int8_t error);
 
+//! BearSSL error stringification
+const char *bearSslErrStr(int error, bool *pFatal);
+
 //@}
 
 
