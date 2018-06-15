@@ -240,10 +240,25 @@ void debugInit(void)
 #endif
 }
 
-
 void HEXDUMP(const void *pkData, int size)
 {
-
+    const char hexdigits[] = "0123456789abcdef";
+    const char *data = pkData;
+    for (int ix = 0; ix < size; )
+    {
+        char buf[128];
+        memset(buf, ' ', sizeof(buf));
+        for (int ix2 = 0; ix2 < 16; ix2++)
+        {
+            const uint8_t c = data[ix + ix2];
+            buf[3 * ix2    ] = hexdigits[ (c >> 4) & 0xf ];
+            buf[3 * ix2 + 1] = hexdigits[  c       & 0xf ];
+            buf[3 * 16 + 2 + ix2] = isprint((int)c) ? c : '.';
+            buf[3 * 16 + 3 + ix2] = '\0';
+        }
+        DEBUG("0x%08x  %s", (uint32_t)data + ix, buf);
+        ix += 16;
+    }
 }
 
 
