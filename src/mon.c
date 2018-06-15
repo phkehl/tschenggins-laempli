@@ -19,6 +19,7 @@
 
 
 #define MON_PERIOD 5000
+#define MON_FIRST 1000
 #define MAX_TASKS 10
 
 
@@ -42,10 +43,12 @@ static int sTaskSortFunc(const void *a, const void *b)
     return (int)((const TaskStatus_t *)a)->xTaskNumber - (int)((const TaskStatus_t *)b)->xTaskNumber;
 }
 
-
 static void sMonTask(void *pArg)
 {
     TaskStatus_t *pTasks = NULL;
+
+    static uint32_t sTick;
+    sTick = -MS2TICKS(MON_PERIOD - MON_FIRST);
 
     while (true)
     {
@@ -55,7 +58,6 @@ static void sMonTask(void *pArg)
         }
 
         // wait until it's time to dump the status
-        static uint32_t sTick;
         vTaskDelayUntil(&sTick, MS2TICKS(MON_PERIOD));
 
         const int nTasks = uxTaskGetNumberOfTasks();
