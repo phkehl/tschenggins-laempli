@@ -236,7 +236,7 @@ $(FW_FILE_FIRMWARE): $(FW_FILE)
 clean: fw-files-clean
 .PHONY: fw-files-clean
 fw-files-clean:
-	$(Q)$(RM) $(FW_FILE_RBOOT_BIN) $(FW_FILE_RBOOT_CONF) $(FW_FILE_FIRMWARE)
+	$(Q)$(RM) -f $(FW_FILE_RBOOT_BIN) $(FW_FILE_RBOOT_CONF) $(FW_FILE_FIRMWARE)
 
 ###############################################################################
 
