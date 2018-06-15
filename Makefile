@@ -23,9 +23,10 @@ PROGRAM         = tschenggins-laempli
 PROGRAM_SRC_DIR = ./src ./3rdparty
 PROGRAM_INC_DIR = ./src ./3rdparty $(PROGRAM_OBJ_DIR)
 
-EXTRA_COMPONENTS = extras/jsmn
+EXTRA_COMPONENTS = extras/jsmn extras/bearssl
 
 EXTRA_CFLAGS    = -DJSMN_PARENT_LINKS -Wenum-compare
+EXTRA_CFLAGS += -DCONFIG_EPOCH_TIME=$(shell date --utc '+%s')
 
 #WARNINGS_AS_ERRORS = 1
 
@@ -188,33 +189,79 @@ $(PROGRAM_OBJ_FILES): $(PROGRAM_OBJ_DIR)version_gen.h
 
 CFGFILE ?=
 
-ifeq ($(CFGFILE),)
-$(PROGRAM_OBJ_DIR)cfg_gen.h: | $(PROGRAM_OBJ_DIR)
-	$(vecho) "GEN $@ (dummy)"
-	$(Q)$(TOUCH) $@
-else
 CFGFILEOLD := $(shell $(SED) -n '/predefined config from /s/.*predefined config from //p' $(PROGRAM_OBJ_DIR)cfg_gen.h 2>/dev/null || echo nocfg)
 
-# trigger generation of version_gen.h if necessary
+# trigger generation of cfg_gen.h if necessary
 ifneq ($(CFGFILE),$(CFGFILEOLD))
 $(shell $(MKDIR) -p $(PROGRAM_OBJ_DIR); $(TOUCH) $(PROGRAM_OBJ_DIR).cfg_gen.h)
 endif
+
+ifeq ($(CFGFILE),)
+
+$(PROGRAM_OBJ_DIR)cfg_gen.h: $(PROGRAM_OBJ_DIR).cfg_gen.h | $(PROGRAM_OBJ_DIR)
+	$(vecho) "GEN $@ (dummy)"
+	$(Q)$(TOUCH) $@
+else
 
 $(PROGRAM_OBJ_DIR)cfg_gen.h: Makefile $(PROGRAM_OBJ_DIR).cfg_gen.h $(CFGFILE) | $(PROGRAM_OBJ_DIR)
 	$(vecho) "GEN $@ ($(CFGFILE))"
 	$(Q)$(RM) -f $@
 	$(Q)echo "#ifndef __CFG_GEN_H__" >> $@.tmp
 	$(Q)echo "#define __CFG_GEN_H__" >> $@.tmp
-ifneq ($(CFGFILE),)
 	$(Q)echo "// predefined config from $(CFGFILE)" >> $@.tmp
 	$(Q)$(AWK) '!/^\s*#/ && !/^\s*$$/ { print "#define FF_CFG_"$$1" "$$2 }' $(CFGFILE) >> $@.tmp
-endif
 	$(Q)echo "#endif" >> $@.tmp
 	$(Q)$(MV) $@.tmp $@
+
 endif
 
 # all source file may need this
 $(PROGRAM_OBJ_FILES): $(PROGRAM_OBJ_DIR)cfg_gen.h
+
+###############################################################################
+
+CRTFILE ?=
+
+CRTFILEOLD := $(shell $(SED) -n '/server certificate from /s/.*server certificate from //p' $(PROGRAM_OBJ_DIR)crt_gen.h 2>/dev/null || echo nocrt)
+
+# trigger generation of cfg_gen.h if necessary
+ifneq ($(CRTFILE),$(CRTFILEOLD))
+$(shell $(MKDIR) -p $(PROGRAM_OBJ_DIR); $(TOUCH) $(PROGRAM_OBJ_DIR).crt_gen.h)
+endif
+
+ifeq ($(CRTFILE),)
+
+$(PROGRAM_OBJ_DIR)crt_gen.h: $(PROGRAM_OBJ_DIR).crt_gen.h | $(PROGRAM_OBJ_DIR)
+	$(vecho) "GEN $@ (dummy)"
+	$(Q)$(RM) -f $@
+	$(Q)$(TOUCH) $@
+else
+
+# we need the brssl tool
+BRSSL_REL := build/brssl
+BRSSL     := $(BEARSSL_DIR)$(BRSSL_REL)
+
+$(BRSSL): $(BEARSSL_DIR)
+	$(Q)$(MAKE) -C $(BEARSSL_DIR) $(BRSSL_REL)
+
+$(PROGRAM_OBJ_DIR)crt_gen.h: Makefile $(PROGRAM_OBJ_DIR).crt_gen.h $(CRTFILE) $(BRSSL) | $(PROGRAM_OBJ_DIR)
+	$(vecho) "GEN $@ ($(CRTFILE))"
+	$(Q)$(RM) -f $@
+	$(Q)echo "#ifndef __CRT_GEN_H__" >> $@.tmp
+	$(Q)echo "#define __CRT_GEN_H__" >> $@.tmp
+	$(Q)echo "// server certificate from $(CRTFILE)" >> $@.tmp
+	$(Q)echo "#define HAVE_CRT 1" >> $@.tmp
+	$(Q)$(BRSSL) ta $(CRTFILE) >> $@.tmp
+	$(Q)echo "#endif" >> $@.tmp
+	$(Q)$(MV) $@.tmp $@
+
+endif
+
+# wifi.c file will need this
+$(PROGRAM_OBJ_FILES): $(PROGRAM_OBJ_DIR)crt_gen.h
+
+
+
 
 ###############################################################################
 
