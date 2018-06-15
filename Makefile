@@ -40,7 +40,6 @@ FLASH_SPEED     = 40
 
 include $(RTOSBASE)/common.mk
 
-
 ###############################################################################
 
 GREP    := grep
@@ -59,6 +58,27 @@ FIND    := find
 SORT    := sort
 CSCOPE  := cscope
 DOXYGEN := doxygen
+CHMOD   := chmod
+CAT     := cat
+
+# verbosity helpers
+ifeq ($(V),1)
+V =
+V1 =
+V2 =
+V12 =
+OBJCOPY += -v
+RM += -v
+MV += -v
+else
+V = @
+V1 = > /dev/null
+V2 = 2> /dev/null
+V12 = 2>&1 > /dev/null
+VQ = -q
+endif
+
+###############################################################################
 
 CSCOPEDIRS := $(PROGRAM_SRC_DIR) $(PROGRAM_INC_DIR) \
 	$(RTOSBASE)/libc/xtensa-lx106-elf/include/ $(RTOSBASE)/include $(RTOSBASE)/open_esplibs \
@@ -212,4 +232,52 @@ $(FW_FILE_RBOOT_CONF): $(RBOOT_CONF)
 
 $(FW_FILE_FIRMWARE): $(FW_FILE)
 	$(Q)$(CP) $^ $@
+
+clean: fw-files-clean
+.PHONY: fw-files-clean
+fw-files-clean:
+	$(Q)$(RM) $(FW_FILE_RBOOT_BIN) $(FW_FILE_RBOOT_CONF) $(FW_FILE_FIRMWARE)
+
+###############################################################################
+
+DOC_GEN_FILES := $(PROGRAM_OBJ_DIR)cfg_gen.h $(PROGRAM_OBJ_DIR)version_gen.h
+DOXY_WARNINGS_LOG := $(BUILD_DIR)doxygen_warnings.log
+
+$(DOXY_WARNINGS_LOG): | $(BUILD_DIR)
+
+.PHONY: doc
+doc: $(OUTPUT_DIR)html/.done
+$(OUTPUT_DIR)html/.done: Makefile $(CFILES) $(HFILES) Doxyfile tools/doxylogfix.pl $(DOC_GEN_FILES) $(wildcard src/*.h) $(wildcard src/*.c)
+# remove previous output and create new output directory
+	$(Q)$(RM) -rf $(OUTPUT_DIR)html
+	$(Q)$(MKDIR) -p $(OUTPUT_DIR)html
+# generate documentation (run the doxygen tool)
+	@echo "$(HLG)R Doxygen $(HLR)$(OUTPUT_DIR)html$(HLO)"
+	$(Q)(\
+		$(CAT) Doxyfile; \
+		echo "PROJECT_NUMBER = $(BUILDVER)"; \
+		echo "OUTPUT_DIRECTORY = $(OUTPUT_DIR)"; \
+		echo "WARN_LOGFILE = $(DOXY_WARNINGS_LOG)"; \
+		echo "INPUT += $(DOC_GEN_FILES)"; \
+	) | $(DOXYGEN) - | $(TEE) $(OUTPUT_DIR)doxygen.log $(V1)
+# make paths in the logfiles relative
+	$(Q)$(SED) -i -r -e 's@$(CURDIR)/?@./@g' -e '/^$$/d' $(DOXY_WARNINGS_LOG) $(OUTPUT_DIR)doxygen.log
+# remove some known won't-fix warnings in the logfile
+	$(Q)$(PERL) tools/doxylogfix.pl < $(DOXY_WARNINGS_LOG) > $(DOXY_WARNINGS_LOG)-clean
+	$(Q)if [ -s $(DOXY_WARNINGS_LOG)-clean ]; then \
+		$(CAT) $(DOXY_WARNINGS_LOG)-clean; \
+	else \
+		echo "no warnings" > $(DOXY_WARNINGS_LOG)-clean; \
+	fi
+# inject the warnings and doxygen logfiles into the generated HTML
+	$(Q)$(SED) -i \
+		-e '/%DOXYGEN_LOG/r $(OUTPUT_DIR)doxygen.log' \
+		-e '/%DOXYGEN_WARNINGS/r $(DOXY_WARNINGS_LOG)-clean' \
+		-e '/%DOXYGEN_WARNINGS/s/%DOXYGEN_WARNINGS%//' \
+		-e '/%DOXYGEN_LOG/s/%DOXYGEN_LOG%//' \
+		$(OUTPUT_DIR)html/P_DOXYGEN.html
+# make docu files world-readable
+	$(Q)$(CHMOD) -R a+rX $(OUTPUT_DIR)html
+# done
+	$(Q)$(TOUCH) $@
 
