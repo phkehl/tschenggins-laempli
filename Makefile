@@ -10,6 +10,11 @@
 SDKBASE  := /home/flip/sandbox/esp-open-sdk
 RTOSBASE := /home/flip/sandbox/esp-open-rtos
 
+# we want all intermediate and output files here
+OUTPUT_DIR   := output/
+BUILD_DIR    := $(OUTPUT_DIR)build/
+FIRMWARE_DIR := $(OUTPUT_DIR)firmware/
+
 # we need the xtensa compiler and the esptool in the path
 PATH        := $(SDKBASE)/xtensa-lx106-elf/bin:$(SDKBASE)/esptool:$(PATH)
 
@@ -48,10 +53,12 @@ TOUCH   := touch
 MKDIR   := mkdir
 RM      := rm
 MV      := mv
+CP      := cp
 AWK     := awk
 FIND    := find
 SORT    := sort
 CSCOPE  := cscope
+DOXYGEN := doxygen
 
 CSCOPEDIRS := $(PROGRAM_SRC_DIR) $(PROGRAM_INC_DIR) \
 	$(RTOSBASE)/libc/xtensa-lx106-elf/include/ $(RTOSBASE)/include $(RTOSBASE)/open_esplibs \
@@ -75,6 +82,7 @@ cscope-clean:
 	$(Q)$(RM) -f cscope.*
 
 all: cscope
+
 
 ###############################################################################
 
@@ -122,7 +130,6 @@ $(BUILD_DIR)$(PROGRAM).size: $(PROGRAM_OUT) $(BUILD_DIR)$(PROGRAM).sym_iram $(BU
 
 # add sizes and symbol lists to the main build target
 all: $(BUILD_DIR)$(PROGRAM).size $(BUILD_DIR)$(PROGRAM).lst $(BUILD_DIR)$(PROGRAM).sym
-
 
 ###############################################################################
 
@@ -188,3 +195,21 @@ endif
 
 # all source file may need this
 $(PROGRAM_OBJ_FILES): $(PROGRAM_OBJ_DIR)cfg_gen.h
+
+###############################################################################
+
+FW_FILE_RBOOT_BIN  := $(OUTPUT_DIR)0x00000_rboot.bin
+FW_FILE_RBOOT_CONF := $(OUTPUT_DIR)0x01000_blank.bin
+FW_FILE_FIRMWARE   := $(OUTPUT_DIR)0x02000_$(PROGRAM).bin
+
+all: $(FW_FILE_RBOOT_BIN) $(FW_FILE_RBOOT_CONF) $(FW_FILE_FIRMWARE)
+
+$(FW_FILE_RBOOT_BIN): $(RBOOT_BIN)
+	$(Q)$(CP) $^ $@
+
+$(FW_FILE_RBOOT_CONF): $(RBOOT_CONF)
+	$(Q)$(CP) $^ $@
+
+$(FW_FILE_FIRMWARE): $(FW_FILE)
+	$(Q)$(CP) $^ $@
+
