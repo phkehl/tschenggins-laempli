@@ -45,7 +45,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="**/examples/**|**/test/**|**/tests/**|esp-open-rtos/lwip/lwip/test" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name=""/>
+						<entry excluding="**/examples/**|**/test/**|**/tests/**|esp-open-rtos/lwip/lwip/test|old/**" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
