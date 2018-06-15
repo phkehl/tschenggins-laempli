@@ -328,3 +328,39 @@ $(OUTPUT_DIR)html/.done: Makefile $(CFILES) $(HFILES) Doxyfile tools/doxylogfix.
 # done
 	$(Q)$(TOUCH) $@
 
+###############################################################################
+
+help: ourhelp
+
+.PHONY: ourhelp
+ourhelp:
+	@echo
+	@echo "****** Say 'make info' for Tschenggins Lämpli help! *****"
+	@echo
+
+
+.PHONY: info
+info:
+	@echo "Tschenggins Lämpli Makefile Help"
+	@echo
+	@echo "This uses the esp-open-rtos make system. Say 'make help' for their help."
+	@echo
+	@echo "Build using config file (see cfg-sample.txt) and optionally the server certificate"
+	@echo "file to enable https:// backends: make CFGFILE=... CRTFILE=..."
+	@echo
+	@echo "You can add CFGFILE and CRTFILE variables to a local.mk file."
+	@echo
+	@echo "Say 'make debug' to pretty-print debug output from the Lämpli".
+	@echo
+	@echo "Typical development command line:"
+	@echo "make -j8 CFGFILE=... CRTFILE=... && make flash && make debug"
+	@echo
+	@echo "To get the server certificate from an existing server, do something like this:"
+	@echo "openssl s_client -showcerts -servername google.com -connect google.com:443 < /dev/null | \\"
+	@echo "  openssl x509 -outform pem > server.crt"
+	@echo
+	@echo "Happy hacking! :-)"
+
+
+
+# eof
