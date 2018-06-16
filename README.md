@@ -58,9 +58,13 @@ for various ESP SDK enumerators and status codes, in `src/stuff.c`
 
 ## Building
 
-This uses the [esp-open-rtos](https://github.com/SuperHouse/esp-open-rtos). An
-old version using [esp-open-sdk](https://github.com/pfalcon/esp-open-sdk) can be
-found in the `old/` sub-directory.
+This uses the [esp-open-rtos](https://github.com/SuperHouse/esp-open-rtos) and
+the toolchain from [esp-open-sdk](https://github.com/pfalcon/esp-open-sdk). An
+old version using only the esp-open-sdk can be found in the `old/` sub-directory.
+
+Symlink the esp-open-rtos and esp-open-sdk installation paths to the project
+directory or edit the `SDKBASE` and `RTOSBASE` variables in the `Makefile` (or
+add them to a `dirs.mk` file).
 
 Copy the `cfg-sample.txt` to `cfg-somename.txt` and adjust the parameters.
 

@@ -4,6 +4,7 @@ output
 cfg-*
 cscope.*
 local.mk
+dirs.mk
 esp-open-rtos
 .#*
 privat

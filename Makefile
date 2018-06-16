@@ -7,8 +7,9 @@
 ###############################################################################
 
 # the normal SDK and the RTOS SDK
-SDKBASE  := /home/flip/sandbox/esp-open-sdk
-RTOSBASE := /home/flip/sandbox/esp-open-rtos
+SDKBASE  := esp-open-sdk
+RTOSBASE := esp-open-rtos
+-include dirs.mk
 
 # we want all intermediate and output files here
 OUTPUT_DIR   := output/
@@ -26,7 +27,6 @@ PROGRAM_INC_DIR = ./src ./3rdparty $(PROGRAM_OBJ_DIR)
 EXTRA_COMPONENTS = extras/jsmn extras/bearssl
 
 EXTRA_CFLAGS    = -DJSMN_PARENT_LINKS -Wenum-compare
-EXTRA_CFLAGS += -DCONFIG_EPOCH_TIME=$(shell date --utc '+%s')
 
 #WARNINGS_AS_ERRORS = 1
 
@@ -251,6 +251,7 @@ $(PROGRAM_OBJ_DIR)crt_gen.h: Makefile $(PROGRAM_OBJ_DIR).crt_gen.h $(CRTFILE) $(
 	$(Q)echo "#define __CRT_GEN_H__" >> $@.tmp
 	$(Q)echo "// server certificate from $(CRTFILE)" >> $@.tmp
 	$(Q)echo "#define HAVE_CRT 1" >> $@.tmp
+	$(Q)echo "#define CRT_TODAY $(shell $(DATE) --utc '+%s')" >> $@.tmp
 	$(Q)$(BRSSL) ta $(CRTFILE) >> $@.tmp
 	$(Q)echo "#endif" >> $@.tmp
 	$(Q)$(MV) $@.tmp $@
@@ -360,7 +361,6 @@ info:
 	@echo "  openssl x509 -outform pem > server.crt"
 	@echo
 	@echo "Happy hacking! :-)"
-
 
 
 # eof
