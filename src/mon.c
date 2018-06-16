@@ -183,7 +183,7 @@ static void sMonTask(void *pArg)
             DEBUG("mon: tsk: %02d %-16s %c %2i-%2i %4u %6s",
                 (int)pkTask->xTaskNumber, pkTask->pcTaskName, state,
                 (int)pkTask->uxCurrentPriority, (int)pkTask->uxBasePriority,
-                pkTask->usStackHighWaterMark,perc);
+                pkTask->usStackHighWaterMark, perc);
         }
         DEBUG("--------------------------------------------------------------------------------");
         //PRINT("runtime: %u %u %u, %u", totalRuntime, totalRuntimeTasks, totalRuntime - totalRuntimeTasks, isrTotalRuntime);

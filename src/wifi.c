@@ -13,6 +13,8 @@
 #include <lwip/api.h>
 #include <lwip/netif.h>
 
+#include <bearssl.h>
+
 #include "jsmn.h"
 
 #include "stuff.h"
@@ -23,6 +25,8 @@
 #include "jenkins.h"
 #include "cfg_gen.h"
 #include "version_gen.h"
+#include "crt_gen.h"
+
 
 #if (!defined FF_CFG_STASSID || !defined FF_CFG_STAPASS || !defined FF_CFG_BACKENDURL)
 #  define HAVE_CONFIG 0
@@ -73,6 +77,14 @@ typedef struct WIFI_DATA_s
     ip_addr_t       staIp;
     char            staName[32];
     struct netconn *conn;
+
+#if (HAVE_CRT)
+    // buffer for SSL tx/rx and state, should be BR_SSL_BUFSIZE_MONO, but seems to work fine if smaller
+    uint8_t                 bearSslBuf[BR_SSL_BUFSIZE_MONO/4];
+    br_ssl_client_context   bearSslClientCtx;
+    br_x509_minimal_context bearSslCertCtx;
+    br_sslio_context        bearSslIoCtx;
+#endif
 } WIFI_DATA_t;
 
 // -------------------------------------------------------------------------------------------------
@@ -132,6 +144,120 @@ static bool sWifiWaitConnect(void)
     return connected;
 }
 
+
+#if (HAVE_CRT)
+static int sWifiBearSslWriteFunc(void *ctx, const unsigned char *buf, size_t len)
+{
+    struct netconn *conn = (struct netconn *)ctx;
+    //DEBUG("wifi: ssl write %u", len);
+    const err_t err = netconn_write(conn, buf, len, NETCONN_COPY);
+    if (err != ERR_OK)
+    {
+        ERROR("wifi: ssl write %u: %s", len, lwipErrStr(err));
+        return -1;
+    }
+    return (int)len;
+}
+
+static int sWifiBearSslReadTimeout = 0;
+
+static uint8_t sWifiBearSslRxBuf[1024]; // buffer for application
+
+static int sWifiBearSslReadFunc(void *ctx, unsigned char *outBuf, size_t outLen)
+{
+    struct netconn *conn = (struct netconn *)ctx;
+
+    // we may receive more data (from LWIP) than is requested (by BearSSL), so keep track of that
+    // and only receive more when needed, and only return (up to) as much as is requested
+    static struct netbuf *sReadBuf      = NULL;
+    static uint8_t       *sReadData     = NULL;
+    static uint16_t       sReadDataLen  = 0;
+    static uint16_t       sReadDataOffs = 0;
+
+    // try to receive more
+    if (sReadBuf == NULL)
+    {
+        const err_t errRecv = netconn_recv(conn, &sReadBuf);
+        if (errRecv == ERR_WOULDBLOCK)
+        {
+            if (sWifiBearSslReadTimeout > 0)
+            {
+                sWifiBearSslReadTimeout--;
+                if (sWifiBearSslReadTimeout <= 0)
+                {
+                    ERROR("wifi: ssl receive timeout");
+                    return -1;
+                }
+                osSleep(100);
+            }
+            return 0;
+        }
+        if (errRecv != ERR_OK)
+        {
+            ERROR("wifi: ssl receive: %s", lwipErrStr(errRecv));
+            return -1;
+        }
+
+        void *data;
+        const err_t errData = netbuf_data(sReadBuf, &data, &sReadDataLen);
+        if (errData != ERR_OK)
+        {
+            ERROR("wifi: ssl receive buf: %s", lwipErrStr(errData));
+            netbuf_free(sReadBuf);
+            netbuf_delete(sReadBuf);
+            sReadBuf = NULL;
+            return -1;
+        }
+
+        sReadData = (uint8_t *)data;
+        sReadDataOffs = 0;
+        //DEBUG("wifi: ssl receive %u", sReadDataLen);
+    }
+
+    // have anything in buffer to return?
+    if ( (sReadData != NULL) && (sReadDataOffs < sReadDataLen) )
+    {
+        const uint16_t haveLen = sReadDataLen - sReadDataOffs;
+        const uint16_t copyLen = MIN(outLen, haveLen);
+
+        //DEBUG("wifi: ssl read %u/%u (%u left)", copyLen, outLen, haveLen - copyLen);
+
+        memcpy(outBuf, &sReadData[sReadDataOffs], copyLen);
+        sReadDataOffs += copyLen;
+        //HEXDUMP(outBuf, MIN(copyLen, 32 * 10);
+
+        // clean up if there's no more data in the buffer
+        if (sReadDataOffs >= sReadDataLen)
+        {
+            //DEBUG("wifi: ssl read done");
+            netbuf_free(sReadBuf);
+            netbuf_delete(sReadBuf);
+            sReadBuf = NULL;
+            sReadData = NULL;
+            sReadDataLen = 0;
+            sReadDataOffs = 0;
+        }
+
+        return (int)copyLen;
+    }
+
+    // we shouldn't end up here
+    WARNING("wifi: ssl read nothing");
+    return -1;
+}
+
+static void sWifiBearSslAddEntropy(void)
+{
+    // BearSSL wants "at least 80 bits, preferably 128 bit or more")
+    for (int i = 0; i < 10; i++)
+    {
+        uint32_t rand = hwrand();
+        br_ssl_engine_inject_entropy(&sWifiData.bearSslClientCtx.eng, &rand, sizeof(rand));
+    }
+}
+#endif // HAVE_CRT
+
+
 // connect to backend
 static bool sWifiConnectBackend(void)
 {
@@ -156,7 +282,34 @@ static bool sWifiConnectBackend(void)
             ERROR("wifi: fishy backend url!");
             return false;
         }
+#if (!HAVE_CRT)
+        if (sWifiData.https)
+        {
+            ERROR("wifi: https (ssl) support not compiled-in!");
+            return false;
+        }
+#endif
     }
+
+#if (HAVE_CRT)
+    // initialise BearSSL engine (à la esp-open-rtos/examples/http_get_bearssl/http_get_bearssl.c)
+    DEBUG("wifi: ssl init");
+    memset(sWifiData.bearSslBuf,        0, sizeof(sWifiData.bearSslBuf));
+    memset(&sWifiData.bearSslClientCtx, 0, sizeof(sWifiData.bearSslClientCtx));
+    memset(&sWifiData.bearSslCertCtx,   0, sizeof(sWifiData.bearSslCertCtx));
+    memset(&sWifiData.bearSslIoCtx,     0, sizeof(sWifiData.bearSslIoCtx));
+    br_ssl_client_init_full(&sWifiData.bearSslClientCtx, &sWifiData.bearSslCertCtx, TAs, TAs_NUM);
+    br_ssl_engine_set_buffer(&sWifiData.bearSslClientCtx.eng, sWifiData.bearSslBuf, sizeof(sWifiData.bearSslBuf), 0);
+    sWifiBearSslAddEntropy();
+    if (br_ssl_client_reset(&sWifiData.bearSslClientCtx, sWifiData.host, 0) == 0)
+    {
+        ERROR("wifi: ssl init");
+        return false;
+    }
+    // use compile time as "now" (for certificate expiration check)
+    sWifiData.bearSslCertCtx.days = (CRT_TODAY / 86400) + 719528;
+    sWifiData.bearSslCertCtx.seconds = CRT_TODAY % 86400;
+#endif
 
     // get IP of backend server
     {
@@ -173,7 +326,7 @@ static bool sWifiConnectBackend(void)
     // connect to backend server
     {
         sWifiData.conn = netconn_new(NETCONN_TCP);
-        DEBUG("wifi: connect "IPSTR, IP2STR(&sWifiData.hostIp));
+        DEBUG("wifi: connect "IPSTR":%u", IP2STR(&sWifiData.hostIp), sWifiData.port);
         const err_t err = netconn_connect(sWifiData.conn, &sWifiData.hostIp, sWifiData.port);
         if (err != ERR_OK)
         {
@@ -182,6 +335,12 @@ static bool sWifiConnectBackend(void)
             return false;
         }
     }
+
+#if (HAVE_CRT)
+    // hook connection into ssl engine
+    br_sslio_init(&sWifiData.bearSslIoCtx, &sWifiData.bearSslClientCtx.eng,
+        sWifiBearSslReadFunc, sWifiData.conn, sWifiBearSslWriteFunc, sWifiData.conn);
+#endif
 
     // make HTTP POST request
     {
@@ -200,55 +359,106 @@ static bool sWifiConnectBackend(void)
             strlen(sWifiData.query),
             sWifiData.query);
         DEBUG("wifi: request POST /%s: %s", sWifiData.path, sWifiData.query);
-        const err_t err = netconn_write(sWifiData.conn, req, strlen(req), NETCONN_COPY);
-        if (err != ERR_OK)
+
+#if (HAVE_CRT)
+        if (sWifiData.https)
         {
-            ERROR("wifi: POST /%s failed: %s", sWifiData.path, lwipErrStr(err));
-            netconn_delete(sWifiData.conn);
-            return false;
+            if ( (br_sslio_write_all(&sWifiData.bearSslIoCtx, req, strlen(req)) != BR_ERR_OK) ||
+                 (br_sslio_flush(&sWifiData.bearSslIoCtx)                       != BR_ERR_OK) )
+            {
+                ERROR("wifi: ssl POST /%s: %s", sWifiData.path,
+                    bearSslErrStr(br_ssl_engine_last_error(&sWifiData.bearSslClientCtx.eng), NULL));
+                netconn_delete(sWifiData.conn);
+                // FIXME: shutdown BearSSL engine?
+                return false;
+            }
+        }
+        else
+#endif
+        {
+            const err_t err = netconn_write(sWifiData.conn, req, strlen(req), NETCONN_COPY);
+            if (err != ERR_OK)
+            {
+                ERROR("wifi: POST /%s: %s", sWifiData.path, lwipErrStr(err));
+                netconn_delete(sWifiData.conn);
+                return false;
+            }
         }
     }
+
+    // from now on make the receive non-blocking
+    netconn_set_nonblocking(sWifiData.conn, true);
+    // note that the BearSSL stuff still behaves blocking, see sWifiBearSslReadFunc() and sWifiBearSslReadTimeout
 
     // receive header
     bool backendReady = false;
     struct netbuf *buf = NULL;
-    netconn_set_nonblocking(sWifiData.conn, true);
-    int helloTimeout = 5 * 100;
+    int helloTimeout = 10000 / 100;
     while (true)
     {
-        const err_t errRecv = netconn_recv(sWifiData.conn, &buf);
-        // no more data at the moment
-        if (errRecv == ERR_WOULDBLOCK)
+        uint16_t rxLen = 0;
+        uint8_t *rxBuf = NULL;
+#if (HAVE_CRT)
+        if (sWifiData.https)
         {
-            helloTimeout--;
-            if (helloTimeout < 0)
+            sWifiBearSslReadTimeout = helloTimeout;
+            const int len = br_sslio_read(&sWifiData.bearSslIoCtx, sWifiBearSslRxBuf, sizeof(sWifiBearSslRxBuf) - 1);
+
+            // maybe received something
+            const int brErr = br_ssl_engine_last_error(&sWifiData.bearSslClientCtx.eng);
+            if ( (brErr != BR_ERR_OK) || (len < 0) )
             {
-                ERROR("wifi: response timeout");
+                ERROR("wifi: ssl read: %s", bearSslErrStr(brErr, NULL));
                 break;
             }
-            else
-            {
-                osSleep(100);
-                continue;
-            }
+
+            // got data
+            rxBuf = sWifiBearSslRxBuf;
+            rxLen = len;
         }
-        if (errRecv != ERR_OK)
+        else
+#endif
         {
-            ERROR("wifi: read failed: %s", lwipErrStr(errRecv));
-            break;
+            const err_t errRecv = netconn_recv(sWifiData.conn, &buf);
+            // no more data at the moment
+            if (errRecv == ERR_WOULDBLOCK)
+            {
+                helloTimeout--;
+                // give up
+                if (helloTimeout < 0)
+                {
+                    ERROR("wifi: response timeout");
+                    break;
+                }
+                // wait for more data
+                else
+                {
+                    osSleep(100);
+                    continue;
+                }
+            }
+            if (errRecv != ERR_OK)
+            {
+                ERROR("wifi: read: %s", lwipErrStr(errRecv));
+                break;
+            }
+
+            // (note: not handling multiple netbufs -- should not be necessary)
+            void *data;
+            uint16_t len;
+            const err_t errData = netbuf_data(buf, &data, &len);
+            if (errData != ERR_OK)
+            {
+                ERROR("wifi: netbuf_data(): %s", lwipErrStr(errData));
+                break;
+            }
+            rxBuf = (uint8_t *)data;
+            rxLen = len;
         }
 
         // check data for HTTP response
-        // (note: not handling multiple netbufs -- should not be necessary)
-        void *data;
-        uint16_t len;
-        const err_t errData = netbuf_data(buf, &data, &len);
-        if (errData != ERR_OK)
-        {
-            ERROR("wifi: netbuf_data() failed: %s", lwipErrStr(errData));
-            break;
-        }
-        char *pParse = (char *)data;
+        char *pParse = (char *)rxBuf;
+        pParse[rxLen] = '\0'; // make sure it's nul terminated
         //DEBUG("wifi: recv [%u] %s", len, pParse);
 
         // first line: "HTTP/1.1 200 OK\r\n"
@@ -278,7 +488,7 @@ static bool sWifiConnectBackend(void)
             break;
         }
 
-        backendReady = backendConnect(pBody, (int)len - (pBody - (char *)data));
+        backendReady = backendConnect(pBody, (int)rxLen - (pBody - (char *)rxBuf));
         break;
     }
     if (buf != NULL)
@@ -289,7 +499,11 @@ static bool sWifiConnectBackend(void)
 
     if (backendReady)
     {
-        netconn_shutdown(sWifiData.conn, false, true); // no more tx
+        // don't close tx for SSL connections (renegotiations and such) FIXME: required?
+        if (!sWifiData.https)
+        {
+            netconn_shutdown(sWifiData.conn, false, true); // no more tx
+        }
         return true;
     }
     else
@@ -306,7 +520,6 @@ static bool sWifiConnectBackend(void)
 static bool sWifiHandleConnection(void)
 {
     bool res = true;
-
     bool keepGoing = true;
     while (keepGoing)
     {
@@ -314,46 +527,76 @@ static bool sWifiHandleConnection(void)
         if (!backendIsOkay())
         {
             res = false;
-            keepGoing = false;
             break;
         }
 
         // read more data from the connection
         struct netbuf *buf = NULL;
-        const err_t errRecv = netconn_recv(sWifiData.conn, &buf);
+        uint16_t rxLen = 0;
+        uint8_t *rxBuf = NULL;
 
-        // no more data at the moment
-        if (errRecv == ERR_WOULDBLOCK)
+#if (HAVE_CRT)
+        if (sWifiData.https)
         {
-            osSleep(23);
-            continue;
-        }
+            sWifiBearSslReadTimeout = 15000 / 100;
+            const int len = br_sslio_read(&sWifiData.bearSslIoCtx, sWifiBearSslRxBuf, sizeof(sWifiBearSslRxBuf) - 1);
 
-        if (errRecv != ERR_OK)
-        {
-            ERROR("wifi: read failed: %s", lwipErrStr(errRecv));
-            res = false;
-            break;
-        }
+            // maybe received something
+            const int brErr = br_ssl_engine_last_error(&sWifiData.bearSslClientCtx.eng);
+            if ( (brErr != BR_ERR_OK) || (len < 0) )
+            {
+                ERROR("wifi: ssl read: %s", bearSslErrStr(brErr, NULL));
+                res = false;
+                break;
+            }
 
-        // check data
-        // (note: not handling multiple netbufs -- should not be necessary)
-        void *resp;
-        uint16_t len;
-        const err_t errData = netbuf_data(buf, &resp, &len);
-        if (errData != ERR_OK)
-        {
-            ERROR("wifi: netbuf_data() failed: %s", lwipErrStr(errData));
-            keepGoing = false;
-            res = false;
+            // got data
+            rxBuf = sWifiBearSslRxBuf;
+            rxLen = len;
         }
         else
+#endif
+        {
+            const err_t errRecv = netconn_recv(sWifiData.conn, &buf);
+
+            // no more data at the moment
+            if (errRecv == ERR_WOULDBLOCK)
+            {
+                osSleep(23);
+                continue;
+            }
+
+            if (errRecv != ERR_OK)
+            {
+                ERROR("wifi: read: %s", lwipErrStr(errRecv));
+                res = false;
+                break;
+            }
+
+            // check data
+            // (note: not handling multiple netbufs -- should not be necessary)
+            void *data;
+            uint16_t len;
+            const err_t errData = netbuf_data(buf, &data, &len);
+            if (errData != ERR_OK)
+            {
+                ERROR("wifi: netbuf_data(): %s", lwipErrStr(errData));
+                res = false;
+                break;
+            }
+
+            // got data
+            rxBuf = (uint8_t *)data;
+            rxLen = len;
+        }
+
+        if (rxLen > 0)
         {
             // convert response to string (nul-terminate it)
-            char *respStr = (char *)resp;
-            respStr[len] = '\0';
+            char *respStr = (char *)rxBuf;
+            respStr[rxLen] = '\0';
             //DEBUG("wifi: recv [%u] %s", len, respStr);
-            const BACKEND_STATUS_t status = backendHandle(respStr, (int)len);
+            const BACKEND_STATUS_t status = backendHandle(respStr, (int)rxLen);
             switch (status)
             {
                 case BACKEND_STATUS_OKAY:                                      break;
@@ -361,11 +604,20 @@ static bool sWifiHandleConnection(void)
                 case BACKEND_STATUS_RECONNECT: keepGoing = false; res = true;  break;
             }
         }
-        netbuf_free(buf);
-        netbuf_delete(buf);
+
+        if (buf != NULL)
+        {
+            netbuf_free(buf);
+            netbuf_delete(buf);
+            buf = NULL;
+        }
     }
 
+    netconn_close(sWifiData.conn);
+    netconn_delete(sWifiData.conn);
+
     backendDisconnect();
+
     return res;
 }
 
@@ -661,8 +913,11 @@ void wifiInit(void)
 void wifiStart(void)
 {
     DEBUG("wifi: start");
-
+#if (HAVE_CRT)
+    static StackType_t sWifiTaskStack[768 + 1024];
+#else
     static StackType_t sWifiTaskStack[768];
+#endif
     static StaticTask_t sWifiTaskTCB;
     xTaskCreateStatic(sWifiTask, "ff_wifi", NUMOF(sWifiTaskStack), NULL, 4, sWifiTaskStack, &sWifiTaskTCB);
 }

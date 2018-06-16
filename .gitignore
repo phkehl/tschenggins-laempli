@@ -6,6 +6,7 @@ cscope.*
 local.mk
 dirs.mk
 esp-open-rtos
+esp-open-sdk
 .#*
 privat
 *.crt
