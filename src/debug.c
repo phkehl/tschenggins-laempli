@@ -215,6 +215,7 @@ void debugInit(void)
     DEBUG("debug: init buf=%u fifo=%u", sizeof(svDebugBuf), UART_FIFO_MAX);
 
     set_write_stdout(sWriteStdoutFunc);
+    //stderr = stdout; // FIXME: makes the system freeze (or stops output?) at some point.. :-(
 
     // attach UART ISR
     _xt_isr_attach(INUM_UART, sUartISR, NULL);
