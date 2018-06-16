@@ -15,6 +15,7 @@ use Device::SerialPort;
 #use Win32::Console::ANSI;
 use IO::Socket::INET;
 use IO::Handle;
+use POSIX;
 
 
 ################################################################################
@@ -127,7 +128,30 @@ while (!$ABORT)
             print("\a");
         }
         printf("$colours{ts}%07.3f$colours{_OFF_} ", time() - $t0);
-        if (defined $colours{$msg->{_name}})
+        if ($msg->{_name} eq 'GARBAGE')
+        {
+            my $dump = sprintf("%s[%i]:\n", $msg->{_name}, $msg->{_size});
+            my $raw = $msg->{_raw};
+            for (my $ix = 0; $ix < length($raw); )
+            {
+                $dump .= sprintf('0x%04x: ', $ix);
+                my $ascii = '';
+                for (my $ix2 = 0; $ix2 < 32; $ix2++)
+                {
+                    my $c = $ix + $ix2 < length($raw) ? substr($raw, $ix + $ix2, 1) : undef;
+                    $ascii .= defined $c ? ($c =~ m{^[[:print:]]+$}x ? $c : '.') : ' ';
+                    $dump .= defined $c ? sprintf('%02x ', unpack('C', $c)) : '   ';
+                    if ( ($ix2 % 4) == 3 )
+                    {
+                        $dump .= ' ';
+                    }
+                }
+                $dump .= " $ascii\n";
+                $ix += 32;
+            }
+            print($dump);
+        }
+        elsif (defined $colours{$msg->{_name}})
         {
             print($colours{$msg->{_name}} . $msg->{_str} . $colours{_OFF_} . "\n");
         }
