@@ -53,14 +53,11 @@ include $(RTOSBASE)/common.mk
 
 ###############################################################################
 
-CONFIG            ?= config.mk
+CONFIG            ?= config
 CONFIG_STASSID    ?=
 CONFIG_STAPASS    ?=
 CONFIG_BACKENDURL ?=
 CONFIG_CRTFILE    ?=
-ifneq ($(CONFIG),)
--include $(CONFIG)
-endif
 
 ifneq ($(MAKECMDGOALS),info)
 ifneq ($(MAKECMDGOALS),clean)
@@ -71,30 +68,36 @@ ifneq ($(MAKECMDGOALS),doc)
   #$(info CONFIG_STAPASS=$(CONFIG_STAPASS))
   #$(info CONFIG_BACKENDURL=$(CONFIG_BACKENDURL))
   #$(info CONFIG_CRTFILE=$(CONFIG_CRTFILE))
+  ifneq ($(CONFIG),)
+    ifeq (,$(wildcard $(CONFIG).mk))
+      $(error Illegal CONFIG. There is no $(CONFIG).mk file)
+    endif
+    -include $(CONFIG).mk
+  endif
   ifeq ($(CONFIG_STASSID),)
-    $(error Missing CONFIG_STASSID! Check your $(CONFIG) file. Say 'make info' for details)
+    $(error Missing CONFIG_STASSID! Check your $(CONFIG).mk file. Say 'make info' for details)
   endif
   ifeq ($(CONFIG_STASSID),"")
-    $(error Missing CONFIG_STASSID! Check your $(CONFIG) file. Say 'make info' for details)
+    $(error Missing CONFIG_STASSID! Check your $(CONFIG).mk file. Say 'make info' for details)
   endif
   ifeq ($(CONFIG_STAPASS),)
-    $(error Missing CONFIG_STAPASS! Check your $(CONFIG) file. Say 'make info' for details)
+    $(error Missing CONFIG_STAPASS! Check your $(CONFIG).mk file. Say 'make info' for details)
   endif
   ifeq ($(CONFIG_STAPASS),"")
-    $(error Missing CONFIG_STAPASS! Check your $(CONFIG) file. Say 'make info' for details)
+    $(error Missing CONFIG_STAPASS! Check your $(CONFIG).mk file. Say 'make info' for details)
   endif
   ifeq ($(CONFIG_BACKENDURL),)
-    $(error Missing CONFIG_BACKENDURL! Check your $(CONFIG) file. Say 'make info' for details)
+    $(error Missing CONFIG_BACKENDURL! Check your $(CONFIG).mk file. Say 'make info' for details)
   endif
   ifeq ($(CONFIG_BACKENDURL),"")
-    $(error Missing CONFIG_BACKENDURL! Check your $(CONFIG) file. Say 'make info' for details)
+    $(error Missing CONFIG_BACKENDURL! Check your $(CONFIG).mk file. Say 'make info' for details)
   endif
   ifeq ($(findstring https,$(CONFIG_BACKENDURL)),https)
     ifeq ($(CONFIG_CRTFILE),)
-      $(error Missing CONFIG_CRTFILE! Check your $(CONFIG) file. Say 'make info' for details)
+      $(error Missing CONFIG_CRTFILE! Check your $(CONFIG).mk file. Say 'make info' for details)
     endif
     ifeq ($(CONFIG_CRTFILE),"")
-      $(error Missing CONFIG_CRTFILE! Check your $(CONFIG) file. Say 'make info' for details)
+      $(error Missing CONFIG_CRTFILE! Check your $(CONFIG).mk file. Say 'make info' for details)
     endif
   endif
 endif
@@ -252,7 +255,7 @@ $(PROGRAM_OBJ_FILES): $(PROGRAM_OBJ_DIR)ver_gen.h
 
 ###############################################################################
 
-CFGMD5     := $(shell $(MD5SUM) $(CONFIG) 2>/dev/null)
+CFGMD5     := $(shell $(MD5SUM) $(CONFIG).mk 2>/dev/null)
 CFGMD5_OLD := $(shell $(SED) -n '/fingerprint /s/.*fingerprint //p' $(PROGRAM_OBJ_DIR)cfg_gen.h 2>/dev/null || echo nocfg)
 
 # trigger generation of cfg_gen.h if necessary
@@ -260,7 +263,7 @@ ifneq ($(CFGMD5),$(CFGMD5_OLD))
 $(shell $(MKDIR) -p $(PROGRAM_OBJ_DIR); $(TOUCH) $(PROGRAM_OBJ_DIR).cfg_gen.h)
 endif
 
-$(PROGRAM_OBJ_DIR)cfg_gen.h: Makefile $(PROGRAM_OBJ_DIR).cfg_gen.h $(CFGFILE) | $(PROGRAM_OBJ_DIR)
+$(PROGRAM_OBJ_DIR)cfg_gen.h: Makefile $(PROGRAM_OBJ_DIR).cfg_gen.h $(CONFIG).mk | $(PROGRAM_OBJ_DIR)
 	$(vecho) "GEN $@ ($(CONFIG))"
 	$(Q)$(RM) -f $@
 	$(Q)echo "#ifndef __CFG_GEN_H__" >> $@.tmp
@@ -309,7 +312,7 @@ BRSSL     := $(BEARSSL_DIR)$(BRSSL_REL)
 $(BRSSL): $(BEARSSL_DIR)
 	$(Q)$(MAKE) -C $(BEARSSL_DIR) $(BRSSL_REL)
 
-$(PROGRAM_OBJ_DIR)crt_gen.h: Makefile $(PROGRAM_OBJ_DIR).crt_gen.h $(CRTFILE) $(BRSSL) | $(PROGRAM_OBJ_DIR)
+$(PROGRAM_OBJ_DIR)crt_gen.h: Makefile $(PROGRAM_OBJ_DIR).crt_gen.h $(CONFIG_CRTFILE) $(BRSSL) | $(PROGRAM_OBJ_DIR)
 	$(vecho) "GEN $@ ($(CONFIG_CRTFILE))"
 	$(Q)$(RM) -f $@
 	$(Q)echo "#ifndef __CRT_GEN_H__" >> $@.tmp
@@ -330,7 +333,7 @@ $(PROGRAM_OBJ_FILES): $(PROGRAM_OBJ_DIR)crt_gen.h
 
 FW_FILE_RBOOT_BIN  := $(OUTPUT_DIR)0x00000_rboot.bin
 FW_FILE_RBOOT_CONF := $(OUTPUT_DIR)0x01000_blank.bin
-FW_FILE_FIRMWARE   := $(OUTPUT_DIR)0x02000_$(PROGRAM).bin
+FW_FILE_FIRMWARE   := $(OUTPUT_DIR)0x02000_$(PROGRAM)_$(CONFIG_STASSID).bin
 
 all: $(FW_FILE_RBOOT_BIN) $(FW_FILE_RBOOT_CONF) $(FW_FILE_FIRMWARE)
 
@@ -412,12 +415,12 @@ info:
 	@echo
 	@echo "Say 'make' to build using the configuration from config.mk."
 	@echo
-	@echo "Say 'make CONFIG=myconfig.mk' to build using the configuration from myconfig.mk."
+	@echo "Say 'make CONFIG=myconfig' to build using the configuration from myconfig.mk."
 	@echo
 	@echo "Say 'make debug' to pretty-print debug output from the Lämpli".
 	@echo
 	@echo "Typical development command line:"
-	@echo "make -j8 CONFIG=myconfig.mk flash && make debug"
+	@echo "make -j8 CONFIG=myconfig flash && make debug"
 	@echo
 	@echo "To get the server certificate from an existing server, do something like this:"
 	@echo "openssl s_client -showcerts -servername google.com -connect google.com:443 < /dev/null | \\"

@@ -23,7 +23,7 @@ CONFIG_BACKENDURL = ""
 # not required and used if using unencrypted http, to create:
 # $ openssl s_client -showcerts -servername oinkzwurgl.org -connect oinkzwurgl.org:443 < /dev/null \
 #   | openssl x509 -outform pem > server.crt"
-# e.g. CONFIG_CRTFILE = "server.crt"
-CONFIG_CRTFILE = ""
+# e.g. CONFIG_CRTFILE = server.crt
+CONFIG_CRTFILE = 
 
 # eof
