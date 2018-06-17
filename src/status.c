@@ -16,10 +16,12 @@
 #include "config.h"
 #include "status.h"
 
-#define STATUS_GPIO 2
+#define STATUS_GPIO 2 // D4, built-in LED
+#define EFFECT_GPIO 5 // D1
 
 static uint8_t sPeriod;
 static uint8_t sNum;
+static uint8_t sEffect;
 
 static void sStatusLedTimerFunc(TimerHandle_t timer)
 {
@@ -33,6 +35,15 @@ static void sStatusLedTimerFunc(TimerHandle_t timer)
         }
     }
     tick++;
+
+    if (sEffect > 0)
+    {
+        sEffect--;
+        if (sEffect == 0)
+        {
+            gpio_write(EFFECT_GPIO, false);
+        }
+    }
 }
 
 void statusLed(const STATUS_LED_t status)
@@ -65,7 +76,6 @@ void statusLed(const STATUS_LED_t status)
             break;
     }
 }
-
 
 void statusNoise(const STATUS_NOISE_t noise)
 {
@@ -143,6 +153,19 @@ void statusMelody(const char *name)
     toneBuiltinMelody(name);
 }
 
+void statusChewie(void)
+{
+    DEBUG("status: chewie");
+    gpio_write(EFFECT_GPIO, true);
+    sEffect = 10;
+}
+
+void statusHello(void)
+{
+    DEBUG("status: hello");
+    gpio_write(EFFECT_GPIO, true);
+    sEffect = 10;
+}
 
 void statusInit(void)
 {
@@ -150,6 +173,9 @@ void statusInit(void)
 
     gpio_enable(STATUS_GPIO, GPIO_OUTPUT);
     gpio_write(STATUS_GPIO, true); // off, LED logic is inverted
+
+    gpio_enable(EFFECT_GPIO, GPIO_OUTPUT);
+    gpio_write(EFFECT_GPIO, false); // off
 
     // setup LED timer
     static StaticTimer_t sTimer;

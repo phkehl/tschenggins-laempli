@@ -1469,7 +1469,7 @@ sub _gui_client
     my $cmdSelectArgs =
     {
         -name         => 'cfgcmd',
-        -values       => [ '', qw(reset reconnect identify random dummy) ],
+        -values       => [ '', qw(reset reconnect identify random chewie hello dummy) ],
         -autocomplete => 'off',
         -default      => '',
     };

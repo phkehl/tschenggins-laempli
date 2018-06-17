@@ -256,6 +256,16 @@ BACKEND_STATUS_t backendHandle(char *resp, const int len)
                 toneStop();
                 toneBuiltinMelodyRandom();
             }
+            else if ( (configGetModel() == CONFIG_MODEL_CHEWIE) && (strcmp("chewie", pCmd) == 0) )
+            {
+                PRINT("backend: command chewie");
+                statusChewie();
+            }
+            else if ( (configGetModel() == CONFIG_MODEL_HELLO) && (strcmp("hello", pCmd) == 0) )
+            {
+                PRINT("backend: command hello");
+                statusHello();
+            }
             else
             {
                 WARNING("backend: command %s ???", pCmd);

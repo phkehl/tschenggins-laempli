@@ -41,6 +41,7 @@ static const char * const skConfigModelStrs[] =
 {
     [CONFIG_MODEL_UNKNOWN]  = "unknown",
     [CONFIG_MODEL_STANDARD] = "standard",
+    [CONFIG_MODEL_CHEWIE]   = "chewie",
     [CONFIG_MODEL_HELLO]    = "hello",
 };
 
@@ -92,6 +93,7 @@ void configMonStatus(void)
 static CONFIG_MODEL_t sConfigStrToModel(const char *str)
 {
     if      (strcmp("standard", str) == 0) { return CONFIG_MODEL_STANDARD; }
+    else if (strcmp("chewie",   str) == 0) { return CONFIG_MODEL_CHEWIE; }
     else if (strcmp("hello",    str) == 0) { return CONFIG_MODEL_HELLO; }
     else                                   { return CONFIG_MODEL_UNKNOWN; }
 }
