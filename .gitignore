@@ -1,16 +1,10 @@
 #firmware
 #build
 output
-cfg-*
 cscope.*
-local.mk
-dirs.mk
+*.mk
 esp-open-rtos
 esp-open-sdk
 .#*
 privat
 *.crt
-
-
-
-

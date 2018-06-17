@@ -62,22 +62,32 @@ This uses the [esp-open-rtos](https://github.com/SuperHouse/esp-open-rtos) and
 the toolchain from [esp-open-sdk](https://github.com/pfalcon/esp-open-sdk). An
 old version using only the esp-open-sdk can be found in the `old/` sub-directory.
 
-Symlink the esp-open-rtos and esp-open-sdk installation paths to the project
-directory or edit the `SDKBASE` and `RTOSBASE` variables in the `Makefile` (or
-add them to a `dirs.mk` file).
+To prepare the build environment:
 
-Copy the `cfg-sample.txt` to `cfg-somename.txt` and adjust the parameters.
+1. Symlink your `/path/to/esp-open-sdk` here:
+... `$ ln -s /path/to/esp-open-sdk esp-open-sdk`
+2. Symlink your `/path/to/esp-open-rtos` here:
+... `$ ln -s /path/to/esp-open-rtos esp-open-rtos`
 
-Say `make CFGFILE=cfg-somename.txt` to build the firmware.
+Alternatively you can set `SDKBASE` and `RTOSBASE` in your `local.mk` file.
 
-Or you can put `CFGFILE = cfg-somename.txt` into a `local.mk` file and just say `make`.
+To configure your build:
 
-Say `make help` for esp-open-rtos help on building and flashing the firmware.
+1. copy `config-sample.mk` to `config.mk` and edit it (see also _Backend Server Setup_ below).
 
-Say `make debug` to connect to the ESP8266 module serial port and pretty-print
-the debug output.
+To build:
 
-## Setup
+* Run `make`.
+
+To flash:
+
+* Run `make flash`.
+
+To watch the debug output:
+
+* Run `make debug`.
+
+## Backend Server Setup
 
 - Install the `tools/tschenggins-status.pl` as a CGI script on some web server. This will need
   `Linux::Inotify2` (`sudo apt install liblinux-inotify2-perl`).
