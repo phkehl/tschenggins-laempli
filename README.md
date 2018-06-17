@@ -67,8 +67,13 @@ old version using only the esp-open-sdk can be found in the `old/` sub-directory
 
 To prepare the build environment:
 
-1. Symlink your `/path/to/esp-open-sdk` here: `$ ln -s /path/to/esp-open-sdk esp-open-sdk`
-2. Symlink your `/path/to/esp-open-rtos` here: `$ ln -s /path/to/esp-open-rtos esp-open-rtos`
+1. Symlink your `/path/to/esp-open-sdk` here:
+
+   `ln -s /path/to/esp-open-sdk esp-open-sdk`
+
+2. Symlink your `/path/to/esp-open-rtos` here:
+
+   `ln -s /path/to/esp-open-rtos esp-open-rtos`
 
 Alternatively you can set `SDKBASE` and `RTOSBASE` in your `local.mk` file.
 
@@ -76,17 +81,17 @@ To configure your build:
 
 1. Copy `config-sample.mk` to `config.mk` and edit it (see also _Backend Server Setup_ below).
 
-To build:
+To build run:
 
-* Run `make`.
+* `make`.
 
-To flash:
+To flash run:
 
-* Run `make flash`.
+* `make flash`.
 
-To watch the debug output:
+To watch the debug output run:
 
-* Run `make debug`.
+* `make debug`.
 
 See `make help` and `make info` for more information.
 
