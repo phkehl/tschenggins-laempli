@@ -20,7 +20,7 @@
 #include "status.h"
 #include "backend.h"
 #include "leds.h"
-#include "version_gen.h"
+#include "ver_gen.h"
 
 //void vApplicationIdleHook(void)
 //{

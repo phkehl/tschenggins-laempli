@@ -24,7 +24,7 @@
 #include "backend.h"
 #include "jenkins.h"
 #include "cfg_gen.h"
-#include "version_gen.h"
+#include "ver_gen.h"
 #include "crt_gen.h"
 
 

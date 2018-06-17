@@ -218,23 +218,26 @@ all: $(BUILD_DIR)$(PROGRAM).size $(BUILD_DIR)$(PROGRAM).lst $(BUILD_DIR)$(PROGRA
 
 # build version
 BUILDVER    := $(shell $(PERL) tools/version.pl)
-BUILDVEROLD := $(shell $(SED) -n '/FF_BUILDVER/s/.*"\(.*\)".*/\1/p' $(PROGRAM_OBJ_DIR)version_gen.h 2>/dev/null)
 BUILDDATE   := $(shell $(DATE) +"%Y-%m-%d %H:%M")
 GCCVERSION  := $(shell PATH=$(PATH) $(CC) --version | $(HEAD) -n1)
 EORVERSION  := $(shell $(PERL) tools/version.pl $(RTOSBASE))
 SDKVERSION  := $(shell $(PERL) tools/version.pl $(SDKBASE))
 
-# trigger generation of version_gen.h if necessary
-ifneq ($(BUILDVER),$(BUILDVEROLD))
-$(shell $(MKDIR) -p $(PROGRAM_OBJ_DIR); $(TOUCH) $(PROGRAM_OBJ_DIR).version_gen.h)
+VERFP = $(BUILDVER)-$(EORVERSION)-$(SDKVERSION)
+VERFP_OLD := $(shell $(SED) -n '/fingerprint /s/.*fingerprint //p' $(PROGRAM_OBJ_DIR)ver_gen.h 2>/dev/null || echo nover)
+
+# trigger generation of ver_gen.h if necessary
+ifneq ($(VERFP),$(VERFP_OLD))
+$(shell $(MKDIR) -p $(PROGRAM_OBJ_DIR); $(TOUCH) $(PROGRAM_OBJ_DIR).ver_gen.h)
 endif
 
 # generate version include file
-$(PROGRAM_OBJ_DIR)version_gen.h: $(PROGRAM_OBJ_DIR).version_gen.h Makefile | $(PROGRAM_OBJ_DIR)
+$(PROGRAM_OBJ_DIR)ver_gen.h: $(PROGRAM_OBJ_DIR).ver_gen.h Makefile | $(PROGRAM_OBJ_DIR)
 	$(vecho) "GEN $@"
 	$(Q)$(RM) -f $@
-	$(Q)echo "#ifndef __VERSION_GEN_H__"               >> $@.tmp
-	$(Q)echo "#define __VERSION_GEN_H__"               >> $@.tmp
+	$(Q)echo "#ifndef __VER_GEN_H__"                   >> $@.tmp
+	$(Q)echo "#define __VER_GEN_H__"                   >> $@.tmp
+	$(Q)echo "// fingerprint $(VERFP)"                 >> $@.tmp
 	$(Q)echo "#define FF_GCCVERSION \"$(GCCVERSION)\"" >> $@.tmp
 	$(Q)echo "#define FF_BUILDVER   \"$(BUILDVER)\""   >> $@.tmp
 	$(Q)echo "#define FF_BUILDDATE  \"$(BUILDDATE)\""  >> $@.tmp
@@ -245,7 +248,7 @@ $(PROGRAM_OBJ_DIR)version_gen.h: $(PROGRAM_OBJ_DIR).version_gen.h Makefile | $(P
 	$(Q)$(MV) $@.tmp $@
 
 # all source file may need this
-$(PROGRAM_OBJ_FILES): $(PROGRAM_OBJ_DIR)version_gen.h
+$(PROGRAM_OBJ_FILES): $(PROGRAM_OBJ_DIR)ver_gen.h
 
 ###############################################################################
 
