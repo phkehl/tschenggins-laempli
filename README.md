@@ -42,8 +42,11 @@ the wireless network may only allow public internet access and the client would
 not be able to connect to the Jenkins server directly. And running a VPN client
 on the ESP8266 would be challenging, or impossible. In this case the backend can
 live in the internet, which is reachable from the wireless and the server
-networks. Note that currently this software only supports http:// access to the
-backend.
+networks.
+
+The backend can be (should be!) a https server. In this case the server
+certificate will be checked by the software. There is no option to bypass the
+server certificate check.
 
 Interested hackers may find useful code for their projects here. There is an
 implementation of buffered and non-blocking debug output (uses interrupts and
@@ -64,16 +67,14 @@ old version using only the esp-open-sdk can be found in the `old/` sub-directory
 
 To prepare the build environment:
 
-1. Symlink your `/path/to/esp-open-sdk` here:
-... `$ ln -s /path/to/esp-open-sdk esp-open-sdk`
-2. Symlink your `/path/to/esp-open-rtos` here:
-... `$ ln -s /path/to/esp-open-rtos esp-open-rtos`
+1. Symlink your `/path/to/esp-open-sdk` here: `$ ln -s /path/to/esp-open-sdk esp-open-sdk`
+2. Symlink your `/path/to/esp-open-rtos` here: `$ ln -s /path/to/esp-open-rtos esp-open-rtos`
 
 Alternatively you can set `SDKBASE` and `RTOSBASE` in your `local.mk` file.
 
 To configure your build:
 
-1. copy `config-sample.mk` to `config.mk` and edit it (see also _Backend Server Setup_ below).
+1. Copy `config-sample.mk` to `config.mk` and edit it (see also _Backend Server Setup_ below).
 
 To build:
 
@@ -86,6 +87,8 @@ To flash:
 To watch the debug output:
 
 * Run `make debug`.
+
+See `make help` and `make info` for more information.
 
 ## Backend Server Setup
 
