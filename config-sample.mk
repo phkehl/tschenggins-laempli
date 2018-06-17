@@ -8,6 +8,9 @@ CONFIG_STASSID = ""
 
 # set to the password of the wireless network
 # e.g. CONFIG_STAPASS = "t0ps3cr3t"
+# note that if your password contains a '#' you'll need to do something like this:
+# HASH = \#
+# CONFIG_STAPASS = "stupid$(HASH)password"
 CONFIG_STAPASS = ""
 
 # set to the backend URL where your tschenggins-status.pl is living

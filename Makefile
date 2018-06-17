@@ -264,7 +264,7 @@ $(PROGRAM_OBJ_DIR)cfg_gen.h: Makefile $(PROGRAM_OBJ_DIR).cfg_gen.h $(CFGFILE) | 
 	$(Q)echo "#define __CFG_GEN_H__" >> $@.tmp
 	$(Q)echo "// fingerprint $(CFGMD5)" >> $@.tmp
 	$(Q)echo "#define FF_CFG_STASSID    \"$(CONFIG_STASSID)\"" >> $@.tmp
-	$(Q)echo "#define FF_CFG_STAPASS    \"$(CONFIG_STASSID)\"" >> $@.tmp
+	$(Q)echo "#define FF_CFG_STAPASS    \"$(CONFIG_STAPASS)\"" >> $@.tmp
 	$(Q)echo "#define FF_CFG_BACKENDURL \"$(CONFIG_BACKENDURL)\"" >> $@.tmp
 	$(Q)echo "#endif" >> $@.tmp
 	$(Q)$(MV) $@.tmp $@
