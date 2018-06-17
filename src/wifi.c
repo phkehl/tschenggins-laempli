@@ -77,7 +77,7 @@ typedef struct WIFI_DATA_s
     ip_addr_t       staIp;
     char            staName[32];
     struct netconn *conn;
-
+    bool            backendReady;
 #if (HAVE_CRT)
     // buffer for SSL tx/rx and state, should be BR_SSL_BUFSIZE_MONO, but seems to work fine if smaller
     uint8_t                 bearSslBuf[BR_SSL_BUFSIZE_MONO/4];
@@ -369,6 +369,7 @@ static bool sWifiConnectBackend(void)
                 ERROR("wifi: ssl POST /%s: %s", sWifiData.path,
                     bearSslErrStr(br_ssl_engine_last_error(&sWifiData.bearSslClientCtx.eng), NULL));
                 netconn_delete(sWifiData.conn);
+                sWifiData.conn = NULL;
                 // FIXME: shutdown BearSSL engine?
                 return false;
             }
@@ -381,6 +382,7 @@ static bool sWifiConnectBackend(void)
             {
                 ERROR("wifi: POST /%s: %s", sWifiData.path, lwipErrStr(err));
                 netconn_delete(sWifiData.conn);
+                sWifiData.conn = NULL;
                 return false;
             }
         }
@@ -391,7 +393,7 @@ static bool sWifiConnectBackend(void)
     // note that the BearSSL stuff still behaves blocking, see sWifiBearSslReadFunc() and sWifiBearSslReadTimeout
 
     // receive header
-    bool backendReady = false;
+    sWifiData.backendReady = false;
     struct netbuf *buf = NULL;
     int helloTimeout = 10000 / 100;
     while (true)
@@ -488,16 +490,17 @@ static bool sWifiConnectBackend(void)
             break;
         }
 
-        backendReady = backendConnect(pBody, (int)rxLen - (pBody - (char *)rxBuf));
+        sWifiData.backendReady = backendConnect(pBody, (int)rxLen - (pBody - (char *)rxBuf));
         break;
     }
     if (buf != NULL)
     {
         netbuf_free(buf);
         netbuf_delete(buf);
+        buf = NULL;
     }
 
-    if (backendReady)
+    if (sWifiData.backendReady)
     {
         // don't close tx for SSL connections (renegotiations and such) FIXME: required?
         if (!sWifiData.https)
@@ -511,6 +514,7 @@ static bool sWifiConnectBackend(void)
         ERROR("wifi: no or illegal response from backend");
         netconn_close(sWifiData.conn);
         netconn_delete(sWifiData.conn);
+        sWifiData.conn = NULL;
         return false;
     }
 }
@@ -615,7 +619,9 @@ static bool sWifiHandleConnection(void)
 
     netconn_close(sWifiData.conn);
     netconn_delete(sWifiData.conn);
+    sWifiData.conn = NULL;
 
+    sWifiData.backendReady = false;
     backendDisconnect();
 
     return res;
@@ -839,6 +845,11 @@ void wifiMonStatus(void)
     sdk_wifi_get_macaddr(STATION_IF, mac);
     DEBUG("mon: wifi: ip="IPSTR" mask="IPSTR" gw="IPSTR" mac="MACSTR,
         IP2STR(&ipinfo.ip), IP2STR(&ipinfo.netmask), IP2STR(&ipinfo.gw), MAC2STR(mac));
+    if ( sWifiData.backendReady && (sWifiData.host != NULL) && (sWifiData.path != NULL) )
+    {
+        DEBUG("mon: wifi: backend=%s%s:%u/%s", sWifiData.https ? "https://" : "http://",
+            sWifiData.host, sWifiData.port, sWifiData.path);
+    }
 }
 
 

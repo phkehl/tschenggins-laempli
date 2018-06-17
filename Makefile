@@ -25,8 +25,12 @@ PROGRAM_SRC_DIR = ./src ./3rdparty
 PROGRAM_INC_DIR = ./src ./3rdparty $(PROGRAM_OBJ_DIR)
 
 EXTRA_COMPONENTS = extras/jsmn extras/bearssl
+EXTRA_CFLAGS    += -DJSMN_PARENT_LINKS -Wenum-compare
 
-EXTRA_CFLAGS    = -DJSMN_PARENT_LINKS -Wenum-compare
+EXTRA_CFLAGS    += -DSYSPARAM_DEBUG=3
+
+EXTRA_CFLAGS    += -DWIFI_PARAM_SAVE=0
+
 
 #WARNINGS_AS_ERRORS = 1
 
