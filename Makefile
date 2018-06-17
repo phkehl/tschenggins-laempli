@@ -314,7 +314,7 @@ $(PROGRAM_OBJ_DIR)crt_gen.h: Makefile $(PROGRAM_OBJ_DIR).crt_gen.h $(CRTFILE) $(
 	$(Q)echo "// fingerprint $(CRTMD5)" >> $@.tmp
 	$(Q)echo "#define HAVE_CRT 1" >> $@.tmp
 	$(Q)echo "#define CRT_TODAY $(shell $(DATE) --utc '+%s')" >> $@.tmp
-	$(Q)$(BRSSL) ta $(CONFIG_CRTFILE) >> $@.tmp
+	$(Q)$(BRSSL) ta -q $(CONFIG_CRTFILE) >> $@.tmp
 	$(Q)echo "#endif" >> $@.tmp
 	$(Q)$(MV) $@.tmp $@
 
