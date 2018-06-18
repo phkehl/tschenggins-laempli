@@ -22,6 +22,7 @@ TARGETSERVER="TARGETSERVER"
 JENKINSSERVER="JENKINSSERVER"
 DEFAULTTARGETJOB="DEFAULTTARGETJOB"
 DEFAULTJENKINSJOBS="JOB1 JOB2 JOB3"
+CERTFILE="CERTFILE"
 
 #push update to backend $1=result, $2=state $3=backendjob
 function update {
@@ -29,7 +30,10 @@ function update {
 	curl --header "Content-Type: application/json" -s \
 		--request POST \
 		--data '{"cmd":"update","debug":0,"states":[{"name":"'$3'","result":"'$1'","server":"'$TARGETSERVER'","state":"'$2'"}]}' \
-		http://$BACKENDUSER:$BACKENDPASS@$BACKENDSERVER:$BACKENDPORT/tschenggins-laempli/ng/ > /dev/null
+		https://$BACKENDUSER:$BACKENDPASS@$BACKENDSERVER:$BACKENDPORT/tschenggins-laempli/  \
+        --cacert $CERTFILE \
+        -A "multipleJobsToTschenggins.sh/1.0" \
+        > /dev/null
     if [[ $? -ne 0 ]]; then
         echo "There was an error updating the backend"
     fi
