@@ -14,6 +14,7 @@
 #include "config.h"
 #include "tone.h"
 #include "jenkins.h"
+#include "status.h"
 
 /* ***** external interface ********************************************************************* */
 
