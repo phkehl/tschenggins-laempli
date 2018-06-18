@@ -349,7 +349,7 @@ $(FW_FILE_FIRMWARE): $(FW_FILE)
 clean: fw-files-clean
 .PHONY: fw-files-clean
 fw-files-clean:
-	$(Q)$(RM) -f $(FW_FILE_RBOOT_BIN) $(FW_FILE_RBOOT_CONF) $(FW_FILE_FIRMWARE)
+	$(Q)$(RM) -f $(OUTPUT_DIR)0x*.bin
 
 ###############################################################################
 
