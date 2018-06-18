@@ -30,6 +30,9 @@ function update {
 		--request POST \
 		--data '{"cmd":"update","debug":0,"states":[{"name":"'$3'","result":"'$1'","server":"'$TARGETSERVER'","state":"'$2'"}]}' \
 		http://$BACKENDUSER:$BACKENDPASS@$BACKENDSERVER:$BACKENDPORT/tschenggins-laempli/ng/ > /dev/null
+    if [[ $? -ne 0 ]]; then
+        echo "There was an error updating the backend"
+    fi
 }
 
 #get state of project $1=buildNumber $2=jobname
