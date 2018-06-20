@@ -41,10 +41,11 @@ EXTRA_CFLAGS    += -DWIFI_PARAM_SAVE=0
 
 #WARNINGS_AS_ERRORS = 1
 
-# ESP8266 config
+# ESP8266 config (see esp-open-rtos/parameters.mk)
 ESPPORT         = /dev/ttyUSB0
 ESPBAUD         = 1500000
 FLASH_MODE      = dout
+#FLASH_MODE      = dio
 FLASH_SIZE      = 32
 FLASH_SPEED     = 40
 

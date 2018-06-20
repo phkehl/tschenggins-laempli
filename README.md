@@ -93,6 +93,9 @@ To watch the debug output run:
 
 * `make debug`.
 
+If the software doesn't flash or run try different parameters for
+`FLASH_MODE`, `FLASH_SPEED` etc. (see the `Makefile`).
+
 See `make help` and `make info` for more information.
 
 ## Backend Server Setup
