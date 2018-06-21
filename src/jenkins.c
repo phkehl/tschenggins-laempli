@@ -376,26 +376,25 @@ void sJenkinsUpdate(void)
                     if (configGetNoise() >= CONFIG_NOISE_MORE)
                     {
                         toneStop();
-
-                        if (configGetModel() == CONFIG_MODEL_CHEWIE)
+                        switch (configGetModel())
                         {
-                            statusChewie();
-                            if (configGetNoise() >= CONFIG_NOISE_MOST)
-                            {
+                            case CONFIG_MODEL_CHEWIE:
+                                statusChewie();
+                                if (configGetNoise() >= CONFIG_NOISE_MOST)
+                                {
+                                    toneBuiltinMelody("ImperialShort");
+                                }
+                                break;
+                            case CONFIG_MODEL_HELLO:
+                                statusHello();
+                                if (configGetNoise() >= CONFIG_NOISE_MOST)
+                                {
+                                    toneBuiltinMelody("ImperialShort");
+                                }
+                                break;
+                            default:
                                 toneBuiltinMelody("ImperialShort");
-                            }
-                        }
-                        else if (configGetModel() == CONFIG_MODEL_HELLO)
-                        {
-                            statusHello();
-                            if (configGetNoise() >= CONFIG_NOISE_MOST)
-                            {
-                                toneBuiltinMelody("ImperialShort");
-                            }
-                        }
-                        else
-                        {
-                            toneBuiltinMelody("ImperialShort");
+                                break;
                         }
                     }
                     break;
