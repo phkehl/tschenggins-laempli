@@ -14,6 +14,15 @@
     - GPIO 13 (D7) = MOSI
     - GPIO 14 (D5) = SCK
 
+    Note that this has a problem: we can load 16 words into the SPI buffers ("W" registers). The SPI
+    hardware will then output these automatically and fire the SPI interrupt with the
+    SPI_SLAVE0_TRANS_DONE set. This takes a wile (a few us, depends on SPI clock). Only then we can
+    load more data into the W registers (takes time, too) and have the SPI output that (and this as
+    well takes some time to start). What this means is: we cannot have continous transfer of SPI
+    data with no gap in between the chunks of 16 words. The WS8201 and SK9822 LEDs don't like
+    this. So only a few LEDs can be used. There's other people with the same problem:
+    https://bbs.espressif.com/viewtopic.php?t=360
+
     @{
 */
 
@@ -32,6 +41,10 @@
 #define LEDS_SPI 1
 #define LEDS_NUM JENKINS_MAX_CH
 #define LEDS_FPS 100
+
+#if (LEDS_NUM > 20)
+#  warning LEDS_NUM > 20 (or so) is not going to work well. See comments above.
+#endif
 
 /* *********************************************************************************************** */
 
@@ -192,9 +205,9 @@ IRAM static void sLedsSpiBufLoad(void)
     // data to send left
     if (nBits)
     {
-        // set number of bits to send
-        //SPI(LEDS_SPI).USER1 = VAL2FIELD_M(SPI_USER1_MOSI_BITLEN, nBits - 1);
-        SET_MASK_BITS(SPI(LEDS_SPI).USER1, VAL2FIELD_M(SPI_USER1_MOSI_BITLEN, nBits - 1));
+        // set number of bits to send, only MOSI, all other = 0
+        SPI(LEDS_SPI).USER1 = VAL2FIELD_M(SPI_USER1_MOSI_BITLEN, nBits - 1);
+        //SET_MASK_BITS(SPI(LEDS_SPI).USER1, VAL2FIELD_M(SPI_USER1_MOSI_BITLEN, nBits - 1));
 
         // trigger send
         SET_MASK_BITS(SPI(LEDS_SPI).CMD, SPI_CMD_USR);
