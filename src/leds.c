@@ -311,9 +311,9 @@ static void sLedsFlush(const CONFIG_DRIVER_t driver)
 typedef struct LEDS_STATE_s
 {
     LEDS_PARAM_t param;
-    bool    inited;
-    uint8_t val;
-    int     count;
+    bool         inited;
+    uint8_t      val;
+    int          count;
 
 } LEDS_STATE_t;
 
@@ -363,10 +363,13 @@ static void sLedsRenderFx(LEDS_STATE_t *pState, uint8_t *pHue, uint8_t *pSat, ui
             case LEDS_FX_STILL:
                 break;
             case LEDS_FX_PULSE:
-                pState->count = 0;
+                pState->count = pState->param.arg;
                 break;
             case LEDS_FX_FLICKER:
-                pState->count = 0;
+                pState->count = pState->param.arg;
+                break;
+            case LEDS_FX_BLINK:
+                pState->count = -pState->param.arg;
                 break;
         }
         pState->inited = true;
@@ -431,6 +434,32 @@ static void sLedsRenderFx(LEDS_STATE_t *pState, uint8_t *pHue, uint8_t *pSat, ui
             hue = pState->param.hue;
             sat = pState->param.sat;
             val = pState->val / (pState->param.val != 0 ? (256 / pState->param.val) : 1);
+            break;
+        }
+        case LEDS_FX_BLINK:
+        {
+            if (pState->param.arg > 0)
+            {
+                pState->count++;
+                if (pState->count >= pState->param.arg)
+                {
+                    pState->param.arg = -pState->param.arg;
+                }
+                hue = pState->param.hue;
+                sat = pState->param.sat;
+                val = pState->param.val;
+            }
+            else if (pState->param.arg < 0)
+            {
+                pState->count--;
+                if (pState->count <= pState->param.arg)
+                {
+                    pState->param.arg = -pState->param.arg;
+                }
+                hue = 0;
+                sat = 0;
+                val = 0;
+            }
             break;
         }
     }
@@ -514,6 +543,26 @@ static void sLedsTask(void *pArg)
         sLedsFlush(configDriver);
     }
 
+}
+
+void ledsSetStateHello(const LEDS_PARAM_t *pkParamHead, const LEDS_PARAM_t *pkParamBow)
+{
+    if (pkParamHead != NULL)
+    {
+        for (int ix = 0; ix < 6; ix++)
+        {
+            LEDS_PARAM_t param1 = *pkParamHead;
+            param1.arg = (30 * ix);
+            ledsSetState(ix, &param1);
+            LEDS_PARAM_t param2 = *pkParamHead;
+            param2.arg = (30 * ix) + (30 / 2);
+            ledsSetState(ix + 6, &param2);
+        }
+    }
+    if (pkParamBow != NULL)
+    {
+        ledsSetState(12, pkParamBow);
+    }
 }
 
 

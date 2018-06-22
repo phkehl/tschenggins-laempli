@@ -26,6 +26,7 @@ typedef enum LEDS_FX_e
     LEDS_FX_STILL,
     LEDS_FX_PULSE,
     LEDS_FX_FLICKER,
+    LEDS_FX_BLINK,
 
 } LEDS_FX_t;
 
@@ -39,14 +40,17 @@ typedef struct LEDS_PARAM_s
 
     // effect
     LEDS_FX_t fx;
+    int       arg;
 
 } LEDS_PARAM_t;
 
-#define LEDS_MAKE_PARAM(_hue, _sat, _val, _fx) { .hue = (_hue), .sat = (_sat), .val = (_val), .fx = CONCAT(LEDS_FX_, _fx) }
+#define LEDS_MAKE_PARAM(_hue, _sat, _val, _fx, _arg) \
+    { .hue = (_hue), .sat = (_sat), .val = (_val), .fx = CONCAT(LEDS_FX_, _fx), .arg = (_arg) }
 
 
 void ledsSetState(const uint16_t ledIx, const LEDS_PARAM_t *pkParam);
 
+void ledsSetStateHello(const LEDS_PARAM_t *pkParamHead, const LEDS_PARAM_t *pkParamBow);
 
 #endif // __LEDS_H__
 //@}

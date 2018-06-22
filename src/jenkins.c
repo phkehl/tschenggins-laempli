@@ -163,25 +163,25 @@ static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
             {
                 case JENKINS_RESULT_SUCCESS:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 255, 255, PULSE);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 255, 255, PULSE, 0);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNSTABLE:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 255, 255, PULSE);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 255, 255, PULSE, 0);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_FAILURE:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 255, 255, PULSE);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 255, 255, PULSE, 0);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNKNOWN:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 0, 255, PULSE);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 0, 255, PULSE, 0);
                     pRes = &skLedState;
                     break;
                 }
@@ -194,25 +194,25 @@ static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
             {
                 case JENKINS_RESULT_SUCCESS:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 255, 255, STILL);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 255, 255, STILL, 0);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNSTABLE:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 255, 255, STILL);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 255, 255, STILL, 0);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_FAILURE:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 255, 255, STILL);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 255, 255, STILL, 0);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNKNOWN:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 0, 200, STILL);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 0, 200, STILL, 0);
                     pRes = &skLedState;
                     break;
                 }
@@ -225,25 +225,25 @@ static const LEDS_PARAM_t *sJenkinsLedStateFromJenkins(const JENKINS_STATE_t sta
             {
                 case JENKINS_RESULT_SUCCESS:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 180, 128, FLICKER);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(85, 180, 128, FLICKER, 0);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNSTABLE:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 220, 128, FLICKER);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(38, 220, 128, FLICKER, 0);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_FAILURE:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 180, 128, FLICKER);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 180, 128, FLICKER, 0);
                     pRes = &skLedState;
                     break;
                 }
                 case JENKINS_RESULT_UNKNOWN:
                 {
-                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 0, 128, FLICKER);
+                    static const LEDS_PARAM_t skLedState = LEDS_MAKE_PARAM(0, 0, 128, FLICKER, 0);
                     pRes = &skLedState;
                     break;
                 }
@@ -262,8 +262,11 @@ static JENKINS_INFO_t sJenkinsInfo[JENKINS_MAX_CH];
 // current dirty flag for all channels
 static bool sJenkinsInfoDirty[NUMOF(sJenkinsInfo)];
 
-// curent worst result
+// curently worst result
 static JENKINS_RESULT_t sJenkinsWorstResult;
+
+// currently most active state
+static JENKINS_STATE_t sJenkinsActiveState;
 
 // store info
 static void sJenkinsStoreInfo(const JENKINS_INFO_t *pkInfo)
@@ -332,26 +335,30 @@ void sJenkinsUpdate(void)
 {
     DEBUG("jenkins: update");
 
-    // update LEDs
-    for (int ix = 0; ix < NUMOF(sJenkinsInfo); ix++)
+    // update LEDs (for Lämplis with individual LEDs)
+    if (configGetModel() != CONFIG_MODEL_HELLO)
     {
-        if (sJenkinsInfoDirty[ix])
+        for (int ix = 0; ix < NUMOF(sJenkinsInfo); ix++)
         {
-            sJenkinsInfoDirty[ix] = false;
-            const JENKINS_INFO_t *pkInfo = &sJenkinsInfo[ix];
-            if (pkInfo->active)
+            if (sJenkinsInfoDirty[ix])
             {
-                ledsSetState(ix, sJenkinsLedStateFromJenkins(pkInfo->state, pkInfo->result));
-            }
-            else
-            {
-                ledsSetState(ix, sJenkinsLedStateFromJenkins(JENKINS_STATE_UNKNOWN, JENKINS_RESULT_UNKNOWN));
+                sJenkinsInfoDirty[ix] = false;
+                const JENKINS_INFO_t *pkInfo = &sJenkinsInfo[ix];
+                if (pkInfo->active)
+                {
+                    ledsSetState(ix, sJenkinsLedStateFromJenkins(pkInfo->state, pkInfo->result));
+                }
+                else
+                {
+                    ledsSetState(ix, sJenkinsLedStateFromJenkins(JENKINS_STATE_UNKNOWN, JENKINS_RESULT_UNKNOWN));
+                }
             }
         }
     }
 
-    // find worst result
+    // find worst result, state
     JENKINS_RESULT_t worstResult = JENKINS_RESULT_UNKNOWN;
+    JENKINS_STATE_t activeState = JENKINS_STATE_UNKNOWN;
     for (int ix = 0; ix < NUMOF(sJenkinsInfo); ix++)
     {
         const JENKINS_INFO_t *pkInfo = &sJenkinsInfo[ix];
@@ -359,8 +366,49 @@ void sJenkinsUpdate(void)
         {
             worstResult = pkInfo->result;
         }
+        if (pkInfo->state > activeState)
+        {
+            activeState = pkInfo->state;
+        }
     }
-    DEBUG("jenkins: worst is now %s (was %s)", sJenkinsResultToStr(worstResult), sJenkinsResultToStr(sJenkinsWorstResult));
+    DEBUG("jenkins: worst is now %s (was %s), most active is now %s (was %s)",
+        sJenkinsResultToStr(worstResult), sJenkinsResultToStr(sJenkinsWorstResult),
+        sJenkinsStateToStr(activeState), sJenkinsStateToStr(sJenkinsActiveState));
+
+    // update LEDs (for the "Hello Jenkins" model)
+    if (configGetModel() == CONFIG_MODEL_HELLO)
+    {
+        const LEDS_PARAM_t *pkState = NULL;
+        switch (activeState)
+        {
+            // R=0, RG=43, G=85, BG=128, B=170,
+            case JENKINS_STATE_UNKNOWN:
+            {
+                static const LEDS_PARAM_t skState = LEDS_MAKE_PARAM(43, 255, 255, BLINK,  10);
+                pkState = &skState;
+                break;
+            }
+            case JENKINS_STATE_OFF:
+            {
+                static const LEDS_PARAM_t skState = LEDS_MAKE_PARAM(43, 255, 255, BLINK, 100);
+                pkState = &skState;
+                break;
+            }
+            case JENKINS_STATE_IDLE:
+            {
+                static const LEDS_PARAM_t skState = LEDS_MAKE_PARAM(43, 255, 255, FLICKER, 0);
+                pkState = &skState;
+                break;
+            }
+            case JENKINS_STATE_RUNNING:
+            {
+                static const LEDS_PARAM_t skState = LEDS_MAKE_PARAM(43, 255, 255, BLINK,  30);
+                pkState = &skState;
+                break;
+            }
+        }
+        ledsSetStateHello(sJenkinsLedStateFromJenkins(activeState, worstResult), pkState);
+    }
 
     // play sound if we changed from failure/warning to success or from success/warning to failure
     // TODO: play more sounds if CONFIG_NOISE_MORE
@@ -415,6 +463,7 @@ void sJenkinsUpdate(void)
         }
     }
     sJenkinsWorstResult = worstResult;
+    sJenkinsActiveState = activeState;
 }
 
 // Jenkins task, waits for messages and updates LEDs accordingly
@@ -482,7 +531,8 @@ void jenkinsMonStatus(void)
             len = sizeof(str) - 1;
         }
     }
-    DEBUG("mon: jenkins: worst=%s", sJenkinsResultToStr(sJenkinsWorstResult));
+    DEBUG("mon: jenkins: worst=%s active=%s",
+        sJenkinsResultToStr(sJenkinsWorstResult), sJenkinsStateToStr(sJenkinsActiveState));
 }
 
 #define JENKINS_MSG_QUEUE_LEN 5

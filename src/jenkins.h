@@ -32,8 +32,8 @@ typedef enum JENKINS_STATE_e
 {
     JENKINS_STATE_UNKNOWN = 0,  //!< unknown state
     JENKINS_STATE_OFF,          //!< Jenkins job is off (disabled)
-    JENKINS_STATE_RUNNING,      //!< Jenkins job is running (building)
     JENKINS_STATE_IDLE,         //!< Jenkins job is idle
+    JENKINS_STATE_RUNNING,      //!< Jenkins job is running (building)
 } JENKINS_STATE_t;
 
 //! convert Jenkins state string to state enum
