@@ -1204,11 +1204,13 @@ sub _gui_jobs
         -linebreak    => 0,
     };
     my $jobSelectRadios = '';
+    my $now = time();
     foreach my $jobId (@{$db->{_jobIds}})
     {
         my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
         $jobSelectRadios .= '<label><input name="job" value="' . $jobId . '" autocomplete="off" type="radio"/>';
-        $jobSelectRadios .= __gui_led($st) . " $st->{server}: $st->{name}";
+        my $age = sprintf('%.1fh', ($now - $st->{ts}) / 3600);
+        $jobSelectRadios .= __gui_led($st) . " $st->{server}: $st->{name} ($age)";
         $jobSelectRadios .= '</label>';
     }
 
@@ -1385,11 +1387,18 @@ sub _gui_client
     #$q->Tr({}, $q->th({}, 'config'), $q->td({}, $q->pre({}, $rawconfig)))
 
     # config: jobs
+    my %labels = ();
+    my $now = time();
+    foreach my $jobId (@{$db->{_jobIds}})
+    {
+        my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
+        $labels{$jobId} =  "$st->{server}: $st->{name} ($st->{state}, $st->{result}, " . sprintf('%.1fh', ($now - $st->{ts}) / 3600) . ")";
+    }
     my $jobSelectArgs =
     {
         -name         => 'jobs',
         -values       => [ '', @{$db->{_jobIds}} ],
-        -labels       => { map { $_, "$db->{jobs}->{$_}->{server}: $db->{jobs}->{$_}->{name} ($db->{jobs}->{$_}->{state}, $db->{jobs}->{$_}->{result})" } @{$db->{_jobIds}} },
+        -labels       => \%labels,
         -autocomplete => 'off',
         -default      => '',
     };
