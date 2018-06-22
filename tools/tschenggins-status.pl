@@ -1207,7 +1207,7 @@ sub _gui_jobs
     foreach my $jobId (@{$db->{_jobIds}})
     {
         my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
-        $jobSelectRadios .= '<label><input name="state" value="' . $jobId . '" autocomplete="off" type="radio"/>';
+        $jobSelectRadios .= '<label><input name="job" value="' . $jobId . '" autocomplete="off" type="radio"/>';
         $jobSelectRadios .= __gui_led($st) . " $st->{server}: $st->{name}";
         $jobSelectRadios .= '</label>';
     }
