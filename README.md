@@ -6,6 +6,7 @@ https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
 ![Tschenggins Lämpli Model 1](old/fs/laempli.png)
 ![Tschenggins Lämpli Model 3](doc/laempli3.jpg)
+![Tschenggins Lämpli "Hello"](doc/hello.jpg)
 
 ## Introduction
 
