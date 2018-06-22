@@ -157,14 +157,14 @@ void statusChewie(void)
 {
     DEBUG("status: chewie");
     gpio_write(EFFECT_GPIO, true);
-    sEffect = 10;
+    sEffect = 20;
 }
 
 void statusHello(void)
 {
     DEBUG("status: hello");
     gpio_write(EFFECT_GPIO, true);
-    sEffect = 10;
+    sEffect = 30;
 }
 
 void statusInit(void)
