@@ -592,7 +592,17 @@ Send command to client.
         $css .= "label { display: block; cursor: pointer; }\n";
         $css .= "label:hover, tr:hover td input:hover, option:hover, select:hover { background-color: hsl(160, 100%, 80%); border-color: #444; }\n";
         $css .= "td.online { color: hsl(125, 100%, 40%); } td.offline { color:hsl(0, 100%, 40%); }\n";
-
+        $css .= "div.led { display: inline-block; margin: 0; padding: 0; width: 0.75em; height: 0.75em; max-width: 0.75em; max-height: 0.75em; border: 0.1em solid #aaa; border-radius: 0.75em; }\n";
+        $css .= "\@keyframes pulse { 0% { opacity: 0.2; } 50% { opacity: 0.6; } 100% { opacity: 1.0; } }\n";
+        $css .= "\@keyframes flicker { 0%, 50%, 70% { opacity: 0.2; } 5%, 66%, 100% { opacity: 0.5; } 35% { opacity: 0.8; } }\n";
+        $css .= "div.led.state-unknown   { animation: flicker 1s ease-in-out 0s infinite; } \n";
+        $css .= "div.led.state-off       { opacity: 0.5; } \n";
+        $css .= "div.led.state-running   { animation: pulse 1s ease-in-out 0s infinite alternate; } \n";
+        $css .= "div.led.state-idle      {} \n";
+        $css .= "div.led.result-unknown  { background-color: hsl(  0,   0%, 50%); } \n";
+        $css .= "div.led.result-success  { background-color: hsl(100, 100%, 50%); } \n";
+        $css .= "div.led.result-unstable { background-color: hsl( 60, 100%, 50%); } \n";
+        $css .= "div.led.result-failure  { background-color: hsl(  0, 100%, 50%); } \n";
         print(
               $q->header( -type => 'text/html', -expires => 'now', charset => 'UTF-8',
                           #'-Access-Control-Allow-Origin' => '*'
@@ -1166,15 +1176,15 @@ sub _gui_jobs
                         __gui_results($db, @{$db->{_jobIds}})));
 
     # helpers
-    my $jobSelectArgs =
-    {
-        -name         => 'job',
-        -values       => [ '', @{$db->{_jobIds}} ],
-        -labels       => { '' => '<empty>', map { $_, "$db->{jobs}->{$_}->{server}: $db->{jobs}->{$_}->{name}" } @{$db->{_jobIds}} },
-        -autocomplete => 'off',
-        -default      => '',
-        -size         => 10,
-    };
+    #my $jobSelectArgs =
+    #{
+    #    -name         => 'job',
+    #    -values       => [ '', @{$db->{_jobIds}} ],
+    #    -labels       => { '' => '<empty>', map { $_, "$db->{jobs}->{$_}->{server}: $db->{jobs}->{$_}->{name} ($db->{jobs}->{$_}->{state}, $db->{jobs}->{$_}->{result})" } @{$db->{_jobIds}} },
+    #    -autocomplete => 'off',
+    #    -default      => '',
+    #    -size         => 10,
+    #};
     my $stateSelectArgs =
     {
         -name         => 'state',
@@ -1193,6 +1203,14 @@ sub _gui_jobs
         -labels       => { '' => '<empty>' },
         -linebreak    => 0,
     };
+    my $jobSelectRadios = '';
+    foreach my $jobId (@{$db->{_jobIds}})
+    {
+        my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
+        $jobSelectRadios .= '<label><input name="state" value="' . $jobId . '" autocomplete="off" type="radio"/>';
+        $jobSelectRadios .= __gui_led($st) . " $st->{server}: $st->{name}";
+        $jobSelectRadios .= '</label>';
+    }
 
     # override
     push(@html,
@@ -1202,7 +1220,8 @@ sub _gui_jobs
                  $q->table(
                            $q->Tr(
                                   $q->td('job: '),
-                                  $q->td($q->popup_menu($jobSelectArgs))
+                                  $q->td({ -style => 'height: 10em; display: inline-block; overflow-y: scroll;' }, $jobSelectRadios),
+                                  #$q->td($q->popup_menu($jobSelectArgs))
                                  ),
                            $q->Tr(
                                   $q->td('state: '),
@@ -1213,13 +1232,15 @@ sub _gui_jobs
                                   $q->td($q->radio_group($resultSelectArgs)),
                                  ),
                            $q->Tr($q->td({ -colspan => 2, -align => 'center' },
-                                         $q->submit(-value => 'override')))
-                          ),
+                                         $q->submit(-value => 'override'))),
+
+                         ),
+
                  ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
                  $q->hidden(-name => 'cmd', -default => 'set'),
                  $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'),
-                 $q->end_form())
-        );
+         $q->end_form())
+   );
 
     # create
     push(@html,
@@ -1272,7 +1293,8 @@ sub _gui_jobs
                  $q->table(
                            $q->Tr(
                                   $q->td('job: '),
-                                  $q->td($q->popup_menu($jobSelectArgs)),
+                                  $q->td({ -style => 'height: 10em; display: inline-block; overflow-y: scroll;' }, $jobSelectRadios),
+                                  #$q->td($q->popup_menu($jobSelectArgs)),
                                  ),
                            $q->Tr($q->td({ -colspan => 2, -align => 'center' },
                                          $q->submit(-value => 'delete info')))
@@ -1367,7 +1389,7 @@ sub _gui_client
     {
         -name         => 'jobs',
         -values       => [ '', @{$db->{_jobIds}} ],
-        -labels       => { map { $_, "$db->{jobs}->{$_}->{server}: $db->{jobs}->{$_}->{name}" } @{$db->{_jobIds}} },
+        -labels       => { map { $_, "$db->{jobs}->{$_}->{server}: $db->{jobs}->{$_}->{name} ($db->{jobs}->{$_}->{state}, $db->{jobs}->{$_}->{result})" } @{$db->{_jobIds}} },
         -autocomplete => 'off',
         -default      => '',
     };
@@ -1376,9 +1398,11 @@ sub _gui_client
     for (my $ix = 0; $ix < $maxch; $ix++)
     {
         my $jobId = $config->{jobs}->[$ix] || '';
+        my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
         $jobSelectArgs->{default} = $jobId;
         push(@jobsTrs,
-             $q->Tr({}, $q->td({ -align => 'right' }, $ix), $q->td({}, $jobId), $q->td({}, $q->popup_menu($jobSelectArgs)))
+             $q->Tr({}, $q->td({ -align => 'right' }, $ix), $q->td({}, $jobId),
+                    $q->td({}, $jobId ? __gui_led($st) : ''), $q->td({}, $q->popup_menu($jobSelectArgs)))
             );
     }
     push(@html,
@@ -1386,7 +1410,7 @@ sub _gui_client
                  $q->h3({}, 'Jobs'),
                  $q->start_form(-method => 'GET', -action => $q->url() ),
                  $q->table({},
-                           $q->Tr({}, $q->th({}, 'ix'), $q->th({}, 'ID'), $q->th({}, 'job')),
+                           $q->Tr({}, $q->th({}, 'ix'), $q->th({}, 'ID'), $q->th({ -colspan => 2 }, 'job')),
                            @jobsTrs,
                            ($maxch ? $q->Tr({ }, $q->td({ -colspan => 3, -align => 'center' }, $q->submit(-value => 'apply config'))) : ''),
                           ),
@@ -1500,13 +1524,20 @@ sub __gui_results
     foreach my $jobId (@jobIds)
     {
         my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
-        push(@trs, $q->Tr($q->td($jobId), $q->td($st->{server}), $q->td($st->{name}), $q->td($st->{state}), $q->td($st->{result}),
+        push(@trs, $q->Tr($q->td($jobId), $q->td($st->{server}), $q->td(__gui_led($st), $st->{name}), $q->td($st->{state}), $q->td($st->{result}),
                           $q->td({ -align => 'right' }, sprintf('%.1fh', ($now - $st->{ts}) / 3600))));
     }
     return $q->table($q->Tr($q->th('ID'), $q->th('server'), $q->th('job'), $q->th('state'), $q->th('result'), $q->th('age')),
                      @trs);
 }
 
+
+sub __gui_led
+{
+    my ($state, $html) = @_;
+    #return "<div class=\"led state-$state->{state} result-$state->{result}\"></div>";
+    return $q->div({ -title => "$state->{state}, $state->{result}", -class => ('led state-' . $state->{state} . ' result-' . $state->{result} ) }, '');
+}
 
 
 __END__
