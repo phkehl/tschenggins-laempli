@@ -1334,8 +1334,19 @@ sub _gui_clients
         my $debug  = ($q->param('debug') ? ';debug=1' : '');
         my $edit   = $q->a({ -href => $q->url() . '?cmd=gui;client=' . $clientId . $debug }, 'configure');
 
+        my @leds = ();
+        foreach my $jobId (@{$config->{jobs}})
+        {
+            if ($jobId)
+            {
+                push(@leds, __gui_led( $db->{jobs}->{$jobId} ));
+            }
+        }
+
         push(@trs, $q->Tr({}, $q->td({}, $clientId), $q->td({}, $name), $q->td({}, $cfgName),
-                          $q->td({ -align => 'center' }, $last), $q->td({ -class => $online, -align => 'center' }, "$pid $check"),
+                          $q->td({}, @leds),
+                          $q->td({ -align => 'center' }, $last),
+                          $q->td({ -class => $online, -align => 'center' }, "$pid ($check)"),
                           $q->td({ -align => 'center' }, $staIp),
                $q->td({ -align => 'center' }, $staSsid), $q->td({ -align => 'center' }, $version), $q->td({}, $edit)));
     }
@@ -1345,6 +1356,7 @@ sub _gui_clients
                    $q->Tr({},
                           $q->th({}, 'ID'),
                           $q->th({ -colspan => 2 }, 'name'),
+                          $q->th({}, 'status'),
                           $q->th({}, 'connected'),
                           $q->th({}, 'PID'),
                           $q->th({}, 'station IP'),
@@ -1545,7 +1557,15 @@ sub __gui_led
 {
     my ($state, $html) = @_;
     #return "<div class=\"led state-$state->{state} result-$state->{result}\"></div>";
-    return $q->div({ -title => "$state->{state}, $state->{result}", -class => ('led state-' . $state->{state} . ' result-' . $state->{result} ) }, '');
+    if ($state)
+    {
+        return $q->div({ -title => "$state->{server}: $state->{name} ($state->{state}, $state->{result})",
+                         -class => ('led state-' . $state->{state} . ' result-' . $state->{result} ) }, '');
+    }
+    else
+    {
+        return $q->div({ -class => 'led' }, '');
+    }
 }
 
 
