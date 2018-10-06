@@ -204,12 +204,12 @@ Connection check. Responds with "hi there" (immediately or after a delay).
     # connection check
     if ($cmd eq 'hello')
     {
-        $text = 'hi there';
+        $text = "hi there, " . ($ENV{'REMOTE_USER'} || 'anonymous');
     }
     elsif ($cmd eq 'delay')
     {
         sleep(2);
-        $text = 'hi there';
+        $text = "hi there, " . ($ENV{'REMOTE_USER'} || 'anonymous');
     }
 
 =pod
@@ -1447,7 +1447,7 @@ sub _gui_client
     my $modelSelectArgs =
     {
         -name         => 'model',
-        -values       => [ '', 'standard', 'hello' ],
+        -values       => [ '', 'standard', 'hello', 'gitta' ],
         -autocomplete => 'off',
         -default      => ($config->{model} || ''),
     };
