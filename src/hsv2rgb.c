@@ -5,9 +5,6 @@
     - Copyright (c) 2017-2018 Philippe Kehl (flipflip at oinkzwurgl dot org),
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
-    - Copyright (c) 2017 Philippe Kehl (flipflip at oinkzwurgl dot org),
-      https://oinkzwurgl.org/projaeggd/tschenggins-laempli
-
     \addtogroup FF_HSV2RGB
 
     @{
