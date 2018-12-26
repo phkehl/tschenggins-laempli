@@ -979,7 +979,7 @@ sub _realtime
     my $doCheck = 0;
     $SIG{USR1} = sub { $doCheck = 1; };
 
-    $0 = $info->{name} || "client$client";
+    $0 = 'tschenggins-status.pl (' . ($info->{name} || $client) . ')';
     STDOUT->autoflush(1);
     print("hello $client $strlen $info->{name}\r\n");
 
