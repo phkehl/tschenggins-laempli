@@ -11,18 +11,20 @@ L<https://oinkzwurgl.org/projaeggd/tschenggins-laempli>
 
 =head2 Usage
 
-C<< http://..../tschenggins-status.pl?param=value;param=value;... >>
+As a CGI script running on a web server: C<< https://..../tschenggins-status.pl?param=value;param=value;... >>
 
-C<< ./tschenggins-status.pl param=value param=value ... >>
+On the command line: C<< ./tschenggins-status.pl param=value param=value ... >>
 
 =cut
 
 use strict;
 use warnings;
 
+use feature 'state';
+
 use CGI qw(-nosticky); # -debug
 use CGI::Carp qw(fatalsToBrowser);
-use JSON::PP;
+use JSON::PP; # run-time prefer JSON::XS, see _jsonObj()
 use Fcntl qw(:flock :seek);
 use FindBin;
 use Digest::MD5;
@@ -58,46 +60,48 @@ do
 
 =head2 Parameters
 
+The following parameters are used in the commands described below.
+
 =over
+
+=item * C<ascii> -- US-ASCII output (1) or UTF-8 (0, default)
+
+=item * C<chunked> -- use "Transfer-Encoding: chunked" with given chunk size
+        (default 0, i.e. not chunked), only for JSON output (e.g. C<cmd=list>)
+
+=item * C<client> -- client ID
 
 =item * C<cmd> -- the command
 
-=item * C<debug> -- debugging on (1) or off (0, default)
+=item * C<debug> -- debugging on (1) or off (0, default), enabling will pretty-print (JSON) responses
 
 =item * C<gui> -- which GUI to display ('jobs', 'clients')
 
 =item * C<job> -- job ID
 
-=item * C<result> -- job result ('unknown', 'success', 'unstable', 'failure')
+=item * C<limit> -- limit of list of results (default 0, i.e. all)
 
-=item * C<state> -- job state ('unknown', 'running', 'idle')
+=item * C<maxch> -- maximum number of channels the client can handle (default 10)
 
-=item * C<redirct> -- where to redirect to
-
-=item * C<ascii> -- US-ASCII output (1) or UTF-8 (0, default)
-
-=item * C<client> -- client ID
-
-=item * C<server> -- server name
+=item * C<name> -- client or job name
 
 =item * C<offset> -- offset into list of results (default 0)
 
-=item * C<limit> -- limit of list of results (default 0, i.e. all)
+=item * C<redirct> -- where to redirect to
 
-=item * C<strlen> -- chop long strings at length (default 256)
+=item * C<result> -- job result ('unknown', 'success', 'unstable', 'failure')
 
-=item * C<name> -- client or job name
+=item * C<server> -- server name
+
+=item * C<state> -- job state ('unknown', 'off', 'running', 'idle')
 
 =item * C<staip> -- client station IP address
 
 =item * C<stassid> -- client station SSID
 
+=item * C<strlen> -- chop long strings at length (default 256)
+
 =item * C<version> -- client software version
-
-=item * C<maxch> -- maximum number of channels the client can handle
-
-=item * C<chunked> -- use "Transfer-Encoding: chunked" with given chunk size
-        (default 0, i.e. not chunked), only for JSON output (e.g. cmd=list)
 
 =back
 
@@ -144,13 +148,7 @@ do
     if ( $contentType && ($contentType eq 'application/json') )
     {
         my $jsonStr = $q->param('POSTDATA');
-        my $jsonObj;
-        eval
-        {
-            local $^W;
-            local $SIG{__DIE__} = 'IGNORE';
-            $jsonObj = JSON::PP->new()->utf8()->decode($jsonStr);
-        };
+        my $jsonObj = _jsonDecode($jsonStr);
         if ($jsonObj)
         {
             $cmd    =    $jsonObj->{cmd}      if ($jsonObj->{cmd});
@@ -216,8 +214,12 @@ Connection check. Responds with "hi there" (immediately or after a delay).
 
 =item B<< C<< cmd=update [debug=...] [ascii=...] <states=...> [...] >> >>
 
-This expects a application/json POST request. The C<states> array consists of objects with the following
-fields: C<server>, C<name> and optionally C<state> and/or C<result>.
+This expects a application/json POST request. The C<states> array consists of objects with the
+following fields: C<server>, C<name> and optionally C<state> and/or C<result>.
+
+Use the C<tschenggins-watcher.pl> script to watch multiple Jenkins jobs on the Jenkins server, or
+the C<tschenggins-update.pl> script to update single states manually or from scripts, or create your
+own script, or use C<curl> (something like C<curl -H "Content-Type: application/json" --request POST  --data '{"cmd":"update","states":[{"name":"foo","result":"success","server":"ciserver","state":"idle"}]}' https://..../tschenggins-status.pl>).
 
 =cut
 
@@ -269,9 +271,10 @@ Get job state.
 
 =pod
 
-=item B<<  C<< cmd=jobs client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> strlen=<number> maxch=<number> >> >>
+=item B<<  C<< cmd=jobs client=<clientid> [name=<client name>] [staip=<client station IP>] [stassid=<client station SSID>] [version=<client sw version>] [strlen=<number>] [maxch=<number>] >> >>
 
-Returns info for a client and updates client info.
+Returns info for a client and updates client info (C<name>, C<staip>, C<stassid>, C<version>, C<maxch>).
+This can be used to implement a polling client (but see C<cmd=realtime> for something better below).
 
 =cut
 
@@ -283,9 +286,41 @@ Returns info for a client and updates client info.
 
 =pod
 
-=item B<<  C<< cmd=realtime client=<clientid> name=<client name> staip=<client station IP> stassid=<client station SSID> version=<client sw version> strlen=<number> maxch=<number> >> >>
+=item B<<  C<< cmd=realtime client=<clientid> [name=<client name>] [staip=<client station IP>] [stassid=<client station SSID>] [version=<client sw version>] [strlen=<number>] [maxch=<number>] >> >>
 
-Returns info for a client and updates client info. This persistent connection with real-time update as things happen.
+Returns info for a client and updates client info. This is persistent connection with real-time
+update as things happen (i.e. the web server will keep sending).
+
+The response will be something like this:
+
+    hello 861468 256 clientname\r\n
+    \r\n
+    heartbeat 1545832436 1\r\n
+    \r\n
+    config 1545832436 {"bright":"medium","driver":"none","model":"gitta","name":"gitta_dev","noise":"some","order":"BRG"}\r\n
+    \r\n
+    status 1545832436 [[0,"jobname1","servername1","running","unstable",1545832418],[1,"jobname2","servername1","idle","success",1545832304],[2],[3],[4],[5],[6],[7],[8],[9]]\r\n
+    \r\n
+    heartbeat 1545832442 2\r\n
+    \r\n
+    heartbeat 1545832447 3\r\n
+    \r\n
+    status 1545832449 [[0,"jobname1","servername1","idle","success",1545832449]]\r\n
+    \r\n
+    heartbeat 1545832452 4\r\n
+    .
+    .
+    .
+
+The "hello" is is followed by the C<client> ID, C<strlen> and the client C<name>. The "hello", the
+first "heartbeat", the "config" and the "status" are sent immediately. From then on heartbeats will
+follow every 5 seconds. The status is sent as needed, i.e. as soon as something changes.
+
+Note how the first "status" lists all configured channels (jobs) and how subsequent updates only
+list the changed job(s). The C<strlen> corresponds to the maximum length of individual strings in
+the JSON "config" data, not the whole response line.
+
+To test use something like C<curl "https://..../tschenggins-status2.pl?cmd=realtime;client=...">.
 
 =cut
 
@@ -541,6 +576,13 @@ Send command to client.
 
 =back
 
+=head2 Database
+
+The database is a simple JSON file called C<tschenggins-status.json>. If HTTP authentication is used
+(e.g. via C<.htaccess> file, or web server configuration), the file name will be C<<
+tschenggins-laempli-I<user>.json >>. C<< I<user> >> will be the C<$REMOTE_USER> environment (CGI)
+variable.
+
 =cut
 
     ####################################################################################################
@@ -631,7 +673,7 @@ Send command to client.
     {
         $data->{debug} = \@DEBUGSTRS if ($debug );
         $data->{res} = 0 unless ($data->{res});
-        my $json = JSON::PP->new()->ascii($ascii ? 1 : 0)->utf8($ascii ? 0 : 1)->canonical(1)->pretty($debug ? 1 : 0)->encode($data);
+        my $json = _jsonEncode($data, $ascii, $debug);
         if (!$chunked)
         {
             print(
@@ -677,15 +719,6 @@ Send command to client.
     }
 };
 
-sub DEBUG
-{
-    my $debug = $q->param('debug') || 0;
-    return unless ($debug);
-    my $strOrFmt = shift;
-    push(@DEBUGSTRS, $strOrFmt =~ m/%/ ? sprintf($strOrFmt, @_) : $strOrFmt);
-    return 1;
-}
-
 sub _dbOpen
 {
     # open database
@@ -694,12 +727,12 @@ sub _dbOpen
     my $error = '';
     unless (open($dbHandle, '+>>', $DBFILE))
     {
-        $error = "failed opening database file: $!";
+        $error = "failed opening database file ($DBFILE): $!";
         return (undef, undef, $error);
     }
     unless (flock($dbHandle, LOCK_EX))
     {
-        $error = "failed locking database file: $!";
+        $error = "failed locking database file ($DBFILE): $!";
         return (undef, undef, $error);
     }
 
@@ -707,13 +740,12 @@ sub _dbOpen
     {
 
         # read database
-        eval
+        seek($dbHandle, 0, SEEK_SET);
+        my $dbJson = do { local $/; my $j = <$dbHandle>; $j };
+        if ($dbJson)
         {
-            seek($dbHandle, 0, SEEK_SET);
-            local $/;
-            my $dbJson = <$dbHandle>;
-            $db = JSON::PP->new()->utf8()->decode($dbJson);
-        };
+            $db = _jsonDecode($dbJson);
+        }
         unless ($db)
         {
             $db = { };
@@ -772,7 +804,7 @@ sub _dbClose
         delete $db->{_dirtiness};
         delete $db->{_clientIds};
         delete $db->{_jobIds};
-        my $dbJson = JSON::PP->new()->utf8(1)->canonical(1)->pretty($debug ? 1 : 0)->encode($db);
+        my $dbJson = _jsonEncode($db, 0, $debug);
         truncate($dbHandle, 0);
         seek($dbHandle, 0, SEEK_SET);
         print($dbHandle $dbJson);
@@ -943,13 +975,14 @@ sub _realtime
     my $lastConfig = 'not a possible config string';
     my $lastCheck = 0;
     my $startTs = time();
-    my $debugServer = 0;
+    my $debugServer = ($q->param('debug') || 0) > 1 ? 1 : 0;
     my $doCheck = 0;
     $SIG{USR1} = sub { $doCheck = 1; };
 
     $0 = $info->{name} || "client$client";
     STDOUT->autoflush(1);
     print("hello $client $strlen $info->{name}\r\n");
+
     while (1)
     {
         sleep(1);
@@ -1009,6 +1042,7 @@ sub _realtime
             }
 
             # close database
+            printf(STDERR "db dirty\n") if ($db->{_dirtiness} && $debugServer);
             _dbClose($dbHandle, $db, 0, $error ? 0 : 1);
 
             # exit if we were deleted, or we're no longer in charge
@@ -1036,7 +1070,7 @@ sub _realtime
                 if ($config ne $lastConfig)
                 {
                     my %data = map { $_, $db->{config}->{$client}->{$_} } @cfgKeys;
-                    my $json = JSON::PP->new()->ascii(1)->canonical(1)->pretty(0)->encode(\%data);
+                    my $json = _jsonEncode(\%data, 1, 0);
                     print("\r\nconfig $nowInt $json\r\n");
                     $lastConfig = $config;
                 }
@@ -1068,7 +1102,7 @@ sub _realtime
                     # send list of changed jobs
                     if ($#changedJobs > -1)
                     {
-                        my $json = JSON::PP->new()->ascii(1)->canonical(1)->pretty(0)->encode(\@changedJobs);
+                        my $json = _jsonEncode(\@changedJobs, 1, 0);
                         print("\r\nstatus $nowInt $json\r\n");
                     }
                 }
@@ -1568,5 +1602,65 @@ sub __gui_led
     }
 }
 
+
+####################################################################################################
+# funky functions
+
+sub DEBUG
+{
+    my $debug = $q->param('debug') || 0;
+    return unless ($debug);
+    my $strOrFmt = shift;
+    push(@DEBUGSTRS, $strOrFmt =~ m/%/ ? sprintf($strOrFmt, @_) : $strOrFmt);
+    return 1;
+}
+
+sub _jsonObj
+{
+    state $jsonObj;
+    if (!$jsonObj)
+    {
+        # try JSON::XS
+        eval
+        {
+            local $^W = 0;
+            local $SIG{__DIE__} = 'IGNORE';
+            local $SIG{__WARN__} = 'IGNORE';
+            require JSON::XS;
+            $jsonObj = JSON::XS->new();
+        };
+        # fall back to JSON:PP
+        if (!$jsonObj)
+        {
+            print(STDERR "Falling back to JSON::PP\n");
+            $jsonObj = JSON::PP->new();
+        }
+    }
+    return $jsonObj;
+}
+
+sub _jsonEncode
+{
+    my ($data, $ascii, $pretty) = @_;
+    $ascii //= 0;
+    $pretty //= 0;
+    my $json = _jsonObj()->ascii($ascii ? 1 : 0)->utf8($ascii ? 0 : 1)->canonical(1)->pretty($pretty ? 1 : 0)->encode($data);
+    return $json;
+}
+
+
+sub _jsonDecode
+{
+    my ($json) = @_;
+    my $jsonObj = JSON::PP->new();
+    my $data;
+    eval
+    {
+        local $^W;
+        local $SIG{__DIE__} = 'IGNORE';
+        $data = _jsonObj()->utf8()->decode($json);
+    };
+    return $data;
+}
 
 __END__
