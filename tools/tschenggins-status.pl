@@ -75,8 +75,6 @@ The following parameters are used in the commands described below.
 
 =item * C<debug> -- debugging on (1) or off (0, default), enabling will pretty-print (JSON) responses
 
-=item * C<gui> -- which GUI to display ('jobs', 'clients')
-
 =item * C<job> -- job ID
 
 =item * C<limit> -- limit of list of results (default 0, i.e. all)
@@ -110,7 +108,6 @@ The following parameters are used in the commands described below.
     # query string, application/x-www-form-urlencoded or multipart/form-data
     my $cmd      = $q->param('cmd')      || '';
     my $debug    = $q->param('debug')    || 0;
-    my $gui      = $q->param('gui')      || ''; # 'jobs', 'clients'
     my $job      = $q->param('job')      || '';
     my $result   = $q->param('result')   || ''; # 'unknown', 'success', 'unstable', 'failure'
     my $state    = $q->param('state')    || ''; # 'unknown', 'off', 'running', 'idle'
@@ -140,7 +137,6 @@ The following parameters are used in the commands described below.
     if (!$cmd)
     {
         $cmd = 'gui';
-        #$gui = 'jobs';
     }
 
     # application/json POST
@@ -166,6 +162,8 @@ The following parameters are used in the commands described below.
     ##### output is HTML, JSON or text #####
 
     my @html = ();
+    my $style = '';
+    my $script = '';
     my $data = undef;
     my $text = '';
     my $error = '';
@@ -372,7 +370,7 @@ Print help.
 
 =pod
 
-=item B<<  C<< cmd=gui gui=jobs >> / C<< cmd=gui gui=clients >> / C<< cmd=gui gui=client client=<clientid> >> >>
+=item B<<  C<< cmd=gui >> >>
 
 The web interface.
 
@@ -380,7 +378,7 @@ The web interface.
 
     elsif ($cmd eq 'gui')
     {
-        push(@html, _gui($db, $gui, $client));
+        push(@html, _gui($db, $client, \$style, \$script));
     }
 
 =pod
@@ -623,41 +621,34 @@ variable.
         my $pre = join('', map { "$_\n" } @DEBUGSTRS);
         $pre =~ s{<}{&lt;}gs;
         $pre =~ s{>}{&gt;}gs;
-        my $css = '';
-        #$css .= "* { margin: 0; padding: 0; }\n";
-        $css .= "body, select, input { font-family: sans-serif; background-color: hsl(160, 100%, 95%); font-size: 100%; }\n";
-        $css .= "table { padding: 0; border: 0.1em solid #000; border-collapse: collapse; }\n";
-        $css .= "table td, table th { margin: 0; padding: 0.1em 0.25em 0.1em 0.25em;  border: 1px solid #000; }\n";
-        $css .= "table th { font-weight: bold; background-color: #ddd; text-align: left; border-bottom: 1px solid #000; }\n";
-        $css .= "table tr:hover td, table tr:hover td select, table tr:hover td input { background-color: hsl(160, 100%, 90%); }\n";
-        $css .= "input, select { border: 0.1em solid #aaa; border-radius: 0.25em; }\n";
-        $css .= "label { display: block; cursor: pointer; }\n";
-        $css .= "label:hover, tr:hover td input:hover, option:hover, select:hover { background-color: hsl(160, 100%, 80%); border-color: #444; }\n";
-        $css .= "td.online { color: hsl(125, 100%, 40%); } td.offline { color:hsl(0, 100%, 40%); }\n";
-        $css .= "div.led { display: inline-block; margin: 0; padding: 0; width: 0.75em; height: 0.75em; max-width: 0.75em; max-height: 0.75em; border: 0.1em solid #aaa; border-radius: 0.75em; }\n";
-        $css .= "\@keyframes pulse { 0% { opacity: 0.2; } 50% { opacity: 0.6; } 100% { opacity: 1.0; } }\n";
-        $css .= "\@keyframes flicker { 0%, 50%, 70% { opacity: 0.2; } 5%, 66%, 100% { opacity: 0.5; } 35% { opacity: 0.8; } }\n";
-        $css .= "div.led.state-unknown   { animation: flicker 1s ease-in-out 0s infinite; } \n";
-        $css .= "div.led.state-off       { opacity: 0.5; } \n";
-        $css .= "div.led.state-running   { animation: pulse 1s ease-in-out 0s infinite alternate; } \n";
-        $css .= "div.led.state-idle      {} \n";
-        $css .= "div.led.result-unknown  { background-color: hsl(  0,   0%, 50%); } \n";
-        $css .= "div.led.result-success  { background-color: hsl(100, 100%, 50%); } \n";
-        $css .= "div.led.result-unstable { background-color: hsl( 60, 100%, 50%); } \n";
-        $css .= "div.led.result-failure  { background-color: hsl(  0, 100%, 50%); } \n";
+        $style .= "body { font-family: sans-serif; background-color: hsl(160, 100%, 95%); font-size: 100%; padding: 0.5em; }\n";
+        $style .= "h1.title { color: #444; padding: 0; margin: 0 0 0.5em 0; }\n";
+        $style .= "p.footer { font-size: 80%; text-align: center; color: #aaa; }\n";
+        $style .= "p.footer a { color: #aaa; }\n";
+        $style .= "pre.debug { color: #aaa; }\n";
+        $style .= "body a.database { float: right; }\n";
         print(
               $q->header( -type => 'text/html', -expires => 'now', charset => 'UTF-8',
                           #'-Access-Control-Allow-Origin' => '*'
                         ),
               $q->start_html(-title => $TITLE,
                              -head => [ '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>' ],
-                             -style => { -code => $css }),
-              $q->h1($TITLE),
+                             -style => { -code => $style }),
+              $q->a({ -class => 'database', -href => ($q->url() . '?cmd=rawdb;debug=1') }, 'DB: ' . ($ENV{'REMOTE_USER'} ? $ENV{'REMOTE_USER'} : '(default)')),
+              $q->h1({ -class => 'title' }, $TITLE),
               @html,
-              $q->pre($pre),
+              $q->p({ -class => 'footer' }, 'Tschenggins Lämpli &mdash; Copyright &copy; 2017&ndash;2019 Philippe Kehl &amp; flipflip industries &mdash; '
+                    . $q->a({ -href => 'https://oinkzwurgl.org/projeaggt/tschenggins-laempli' }, 'https://oinkzwurgl.org/projeaggt/tschenggins-laempli')
+                    . ' &mdash; ' . $q->a({ -href => ($q->url() . '?cmd=help') }, 'help')
+                   ),
+              $q->pre({ -class => 'debug' }, $pre),
               $q->end_html()
              );
+
+
+
     }
+
     elsif (!$error && $text)
     {
         my $content = "$text" . ($#DEBUGSTRS > -1 ? "\n\n" . join('', map { "$_\n" } @DEBUGSTRS) : '');
@@ -1162,52 +1153,46 @@ sub _del
 
 sub _gui
 {
-    my ($db, $gui, $client) = @_;
+    my ($db, $client, $styleRef, $scriptRef) = @_;
+    DEBUG("_gui() $client");
 
-    DEBUG("_gui() $gui $client");
-    my @html = ();
-
-    push(@html,
-         $q->p({},
-               'Menu: ',
-               $q->a({ -href => ($q->url() . '?cmd=gui;gui=jobs') }, 'jobs'),
-               ', ',
-               $q->a({ -href => ($q->url() . '?cmd=gui;gui=clients') }, 'clients'),
-               ', ',
-               $q->a({ -href => ($q->url() . '?cmd=help') }, 'help'),
-               ', ',
-               $q->a({ -href => ($q->url() . '?cmd=rawdb;debug=1') }, 'raw db'),
-              ),
-         $q->p({},
-               'Database: ' . ($ENV{'REMOTE_USER'} ? $ENV{'REMOTE_USER'} : '(default)')),
-         #$q->hr(),
-        );
-
-    if ($gui eq 'jobs')
-    {
-        push(@html, _gui_jobs($db));
-    }
-    elsif ($gui eq 'clients')
-    {
-        push(@html, _gui_clients($db));
-    }
-    elsif ($client)
-    {
-        push(@html, _gui_client($db, $client));
-    }
-
-    return @html;
-}
-
-sub _gui_jobs
-{
-    my ($db) = @_;
-    my @html = ();
-    my $debug = $q->param('debug') || 0;
-
-    # results
-    push(@html, $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' }, $q->h2('Results'),
-                        __gui_results($db, @{$db->{_jobIds}})));
+    my $css = '';
+    #$css .= "* { margin: 0; padding: 0; }\n";
+    $css .= "* { box-sizing: border-box; }\n";
+    #$css .= "body, select, input { font-family: sans-serif; background-color: hsl(160, 100%, 95%); font-size: 100%; }\n";
+    $css .= "table { padding: 0; border: 0.1em solid #000; border-collapse: collapse; }\n";
+    $css .= "table td, table th { margin: 0; padding: 0.1em 0.25em 0.1em 0.25em;  border: 1px solid #000; }\n";
+    $css .= "table th { font-weight: bold; background-color: #ddd; text-align: left; border-bottom: 1px solid #000; }\n";
+    $css .= "table tr:hover td, table tr:hover td select, table tr:hover td input { background-color: hsl(160, 100%, 90%); }\n";
+    $css .= "input, select { border: 0.1em solid #aaa; border-radius: 0.25em; }\n";
+    $css .= "label { display: block; cursor: pointer; }\n";
+    $css .= "label:hover, tr:hover td input:hover, option:hover, select:hover { background-color: hsl(160, 100%, 80%); border-color: #444; }\n";
+    $css .= "td.online { color: hsl(125, 100%, 40%); } td.offline { color:hsl(0, 100%, 40%); }\n";
+    $css .= "div.led { display: inline-block; margin: 0; padding: 0; width: 0.75em; height: 0.75em; max-width: 0.75em; max-height: 0.75em; border: 0.1em solid #aaa; border-radius: 0.75em; }\n";
+    $css .= "\@keyframes pulse { 0% { opacity: 0.2; } 50% { opacity: 0.6; } 100% { opacity: 1.0; } }\n";
+    $css .= "\@keyframes flicker { 0%, 50%, 70% { opacity: 0.2; } 5%, 66%, 100% { opacity: 0.5; } 35% { opacity: 0.8; } }\n";
+    $css .= "div.led.state-unknown   { animation: flicker 1s ease-in-out 0s infinite; }\n";
+    $css .= "div.led.state-off       { opacity: 0.5; }\n";
+    $css .= "div.led.state-running   { animation: pulse 1s ease-in-out 0s infinite alternate; }\n";
+    $css .= "div.led.state-idle      {}\n";
+    $css .= "div.led.result-unknown  { background-color: hsl(  0,   0%, 50%); }\n";
+    $css .= "div.led.result-success  { background-color: hsl(100, 100%, 50%); }\n";
+    $css .= "div.led.result-unstable { background-color: hsl( 60, 100%, 50%); }\n";
+    $css .= "div.led.result-failure  { background-color: hsl(  0, 100%, 50%); }\n";
+    $css .= ".tabs { display: flex; flex-wrap: wrap; }\n";
+    $css .= ".tab-input { position: absolute; opacity: 0; }\n";
+    $css .= ".tab-label { with: auto; padding: 0.15em 0.25em; border: 0.1em solid #aaa; border-bottom: none; margin: 0 0.5em; color: #aaa; text-align: center; }\n";
+    $css .= ".tab-label h2 { padding: 0; margin: 0; font-size: 120%; }\n";
+    $css .= ".tab-label h3 { padding: 0; margin: 0; font-size: 100%; }\n";
+    #$css .= ".tab-label:hover { /*background: #ff0000;*/ }\n";
+    #$css .= ".tab-label:active { /*background: #ff00ff;*/ }\n";
+    $css .= ".tab-input:checked + .tab-label { border-color: #000000; color: unset; font-weight: bold; }\n";
+    $css .= ".tab-contents { order: 999; display: none; width: 100%; border-top: 0.15em solid #000; padding: 0.5em 1em; }\n";
+    $css .= ".tab-input:checked + .tab-label + .tab-contents { display: block; } \n";
+    $css .= "\n";
+    $css .= "\n";
+    $css .= "\n";
+    $css .= "\n";
 
     # helpers
     #my $jobSelectArgs =
@@ -1248,100 +1233,149 @@ sub _gui_jobs
         $jobSelectRadios .= '</label>';
     }
 
-    # override
-    push(@html,
-         $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
-                 $q->h2('Override'),
-                 $q->start_form(-method => 'GET', -action => $q->url() ),
-                 $q->table(
-                           $q->Tr(
-                                  $q->td('job: '),
-                                  $q->td({ -style => 'height: 10em; display: inline-block; overflow-y: scroll;' }, $jobSelectRadios),
-                                  #$q->td($q->popup_menu($jobSelectArgs))
-                                 ),
-                           $q->Tr(
-                                  $q->td('state: '),
-                                  $q->td($q->radio_group($stateSelectArgs)),
-                                 ),
-                           $q->Tr(
-                                  $q->td('result: '),
-                                  $q->td($q->radio_group($resultSelectArgs)),
-                                 ),
-                           $q->Tr($q->td({ -colspan => 2, -align => 'center' },
-                                         $q->submit(-value => 'override'))),
+    $$styleRef .= $css;
+    return $q->div({ -class => 'tabs' },
 
-                         ),
+                   $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-clients', -checked => 'checked' }),
+                   $q->label({ -class => 'tab-label', -for => 'tab-clients' }, $q->h2('Clients')),
+                   $q->div({ -class => 'tab-contents' }, _gui_clients($db) ),
 
-                 ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
-                 $q->hidden(-name => 'cmd', -default => 'set'),
-                 $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'),
-         $q->end_form())
-   );
+                   $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-config', -checked => 'checked' }),
+                   $q->label({ -class => 'tab-label', -for => 'tab-config' }, $q->h2('Config')),
+                   $q->div({ -class => 'tab-contents' }, _gui_config($db) ),
 
-    # create
-    push(@html,
-         $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
-                 $q->h2('Create'),
-                 $q->start_form(-method => 'GET', -action => $q->url() ),
-                 $q->table(
-                           $q->Tr(
-                                  $q->td('server: '),
-                                  $q->td($q->input({
-                                                    -type => 'text',
-                                                    -name => 'server',
-                                                    -size => 20,
-                                                    -autocomplete => 'off',
-                                                    -default => '',
-                                                   })),
-                                 ),
-                           $q->Tr(
-                                  $q->td('job: '),
-                                  $q->td($q->input({
-                                                    -type => 'text',
-                                                    -name => 'job',
-                                                    -size => 20,
-                                                    -autocomplete => 'off',
-                                                    -default => '',
-                                                   })),
-                                 ),
-                           $q->Tr(
-                                  $q->td('state: '),
-                                  $q->td($q->radio_group($stateSelectArgs)),
-                                 ),
-                           $q->Tr(
-                                  $q->td('result: '),
-                                  $q->td($q->radio_group($resultSelectArgs)),
-                                 ),
-                           $q->Tr($q->td({ -colspan => 2, -align => 'center' },
-                                         $q->submit(-value => 'create')))
-                          ),
-                 ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
-                 $q->hidden(-name => 'cmd', -default => 'add'),
-                 $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'),
-                 $q->end_form())
-         );
+                   $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-results' }),
+                   $q->label({ -class => 'tab-label', -for => 'tab-results' }, $q->h2('Results')),
+                   $q->div({ -class => 'tab-contents' }, _gui_results($db) ),
 
-    # delete
-    push(@html,
-         $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
-                 $q->h2('Delete'),
-                 $q->start_form(-method => 'GET', -action => $q->url() ),
-                 $q->table(
-                           $q->Tr(
-                                  $q->td('job: '),
-                                  $q->td({ -style => 'height: 10em; display: inline-block; overflow-y: scroll;' }, $jobSelectRadios),
-                                  #$q->td($q->popup_menu($jobSelectArgs)),
-                                 ),
-                           $q->Tr($q->td({ -colspan => 2, -align => 'center' },
-                                         $q->submit(-value => 'delete info')))
-                          ),
-                 ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
-                 $q->hidden(-name => 'cmd', -default => 'del'),
-                 $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'),
-                 $q->end_form())
-        );
+                   $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-modify' }),
+                   $q->label({ -class => 'tab-label', -for => 'tab-modify' }, $q->h2('Modify')),
+                   $q->div({ -class => 'tab-contents' }, _gui_modify($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) ),
 
-    return $q->div({}, @html), $q->div({ -style => 'clear: both;' });
+                   $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-create' }),
+                   $q->label({ -class => 'tab-label', -for => 'tab-create' }, $q->h2('Create')),
+                   $q->div({ -class => 'tab-contents' }, _gui_create($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) ),
+
+                   $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-delete' }),
+                   $q->label({ -class => 'tab-label', -for => 'tab-delete' }, $q->h2('Delete')),
+                   $q->div({ -class => 'tab-contents' }, _gui_delete($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) ),
+                  );
+}
+
+sub _gui_results
+{
+    my ($db) = @_;
+    my @html = ();
+
+    my $now = time();
+    my @trs = ();
+    foreach my $jobId (@{$db->{_jobIds}})
+    {
+        my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
+        push(@trs, $q->Tr($q->td($jobId), $q->td($st->{server}), $q->td(__gui_led($st), $st->{name}), $q->td($st->{state}), $q->td($st->{result}),
+                          $q->td({ -align => 'right' }, sprintf('%.1fh', ($now - $st->{ts}) / 3600))));
+    }
+    return $q->table($q->Tr($q->th('ID'), $q->th('server'), $q->th('job'), $q->th('state'), $q->th('result'), $q->th('age')), @trs);
+}
+
+sub _gui_modify
+{
+    my ($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) = @_;
+    my $debug = $q->param('debug') || 0;
+
+    return (
+            $q->start_form(-method => 'GET', -action => $q->url() ),
+            $q->table(
+                      $q->Tr(
+                             $q->td('job: '),
+                             $q->td({ -style => 'height: 20em; display: inline-block; overflow-y: scroll;' }, $jobSelectRadios),
+                             #$q->td($q->popup_menu($jobSelectArgs))
+                            ),
+                      $q->Tr(
+                             $q->td('state: '),
+                             $q->td($q->radio_group($stateSelectArgs)),
+                            ),
+                      $q->Tr(
+                             $q->td('result: '),
+                             $q->td($q->radio_group($resultSelectArgs)),
+                            ),
+                      $q->Tr($q->td({ -colspan => 2, -align => 'center' },
+                                    $q->submit(-value => 'override'))),
+                     ),
+            ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
+            $q->hidden(-name => 'cmd', -default => 'set'),
+            $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'),
+            $q->end_form()
+           );
+}
+
+sub _gui_create
+{
+    my ($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) = @_;
+    my $debug = $q->param('debug') || 0;
+
+    return (
+            $q->start_form(-method => 'GET', -action => $q->url() ),
+            $q->table(
+                      $q->Tr(
+                             $q->td('server: '),
+                             $q->td($q->input({
+                                               -type => 'text',
+                                               -name => 'server',
+                                               -size => 20,
+                                               -autocomplete => 'off',
+                                               -default => '',
+                                              })),
+                            ),
+                      $q->Tr(
+                             $q->td('job: '),
+                             $q->td($q->input({
+                                               -type => 'text',
+                                               -name => 'job',
+                                               -size => 20,
+                                               -autocomplete => 'off',
+                                               -default => '',
+                                              })),
+                            ),
+                      $q->Tr(
+                             $q->td('state: '),
+                             $q->td($q->radio_group($stateSelectArgs)),
+                            ),
+                      $q->Tr(
+                             $q->td('result: '),
+                             $q->td($q->radio_group($resultSelectArgs)),
+                            ),
+                      $q->Tr($q->td({ -colspan => 2, -align => 'center' },
+                                    $q->submit(-value => 'create')))
+                     ),
+            ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
+            $q->hidden(-name => 'cmd', -default => 'add'),
+            $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'),
+            $q->end_form()
+           );
+}
+
+sub _gui_delete
+{
+    my ($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) = @_;
+    my $debug = $q->param('debug') || 0;
+
+    return (
+            $q->start_form(-method => 'GET', -action => $q->url() ),
+            $q->table(
+                      $q->Tr(
+                             $q->td('job: '),
+                             $q->td({ -style => 'height: 20em; display: inline-block; overflow-y: scroll;' }, $jobSelectRadios),
+                             #$q->td($q->popup_menu($jobSelectArgs)),
+                            ),
+                      $q->Tr($q->td({ -colspan => 2, -align => 'center' },
+                                    $q->submit(-value => 'delete info')))
+                     ),
+            ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
+            $q->hidden(-name => 'cmd', -default => 'del'),
+            $q->hidden(-name => 'redirect', -default => 'cmd=gui;gui=jobs'),
+            $q->end_form()
+           );
 }
 
 sub _gui_clients
@@ -1385,7 +1419,6 @@ sub _gui_clients
                $q->td({ -align => 'center' }, $staSsid), $q->td({ -align => 'center' }, $version), $q->td({}, $edit)));
     }
     push(@html,
-         $q->h2({}, 'Clients'),
          $q->table({},
                    $q->Tr({},
                           $q->th({}, 'ID'),
@@ -1403,32 +1436,45 @@ sub _gui_clients
     return @html;
 }
 
-sub _gui_client
+sub _gui_config
 {
-    my ($db, $clientId) = @_;
+    my ($db) = @_;
+
+    my @tabs = ();
+
+    foreach my $clientId (sort  @{$db->{_clientIds}})
+    {
+        my $name = $db->{config}->{$clientId}->{name} || $clientId;
+
+        push(@tabs,
+                   $q->input({ -class => 'tab-input', -name => 'tabs-config', type => 'radio', id => "tab-config-$clientId" }),
+                   $q->label({ -class => 'tab-label', -for => "tab-config-$clientId" }, $q->h3($name)),
+                   $q->div({ -class => 'tab-contents' }, __gui_config_client($db, $clientId) ),
+            );
+
+    }
+
+    return $q->div({ -class => 'tabs' }, @tabs);
+}
+
+sub __gui_config_client
+{
+    my ($db, $clientId, $jobSelectArgs) = @_;
     my $client = $db->{clients}->{$clientId};
     my $config = $db->{config}->{$clientId};
-    my @html = ();
     if (!$client || !$config)
     {
-        return;
+        return $q->p('nothing here :-(');
     }
     my $debug = ($q->param('debug') ? ';debug=1' : '');
 
-    push(@html, $q->h2('Client ' . $clientId . ' (' . ($config->{name} || '') . ')' ));
-    push(@html, $q->p({},
-        $q->a({ -href => $q->url() . '?cmd=rmclient;client=' . $clientId . ';redirect=cmd%3Dgui%3Bgui%3Dclients' . $debug },
-              'delete info & config')));
-
     # info (and raw config)
-    push(@html,
-         $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
-                 $q->h3({}, 'Info'),
-                 $q->table({},
-                           (map { $q->Tr({}, $q->th({}, $_), $q->td({}, $client->{$_})) } sort keys %{$client}),
-                          ),
-                )
-        );
+    my $htmlInfo =
+      $q->div({ },
+              $q->table({},
+                        (map { $q->Tr({}, $q->th({}, $_), $q->td({}, $client->{$_})) } sort keys %{$client}),
+                       ),
+             );
 
     #$q->Tr({}, $q->th({}, 'config'), $q->td({}, $q->pre({}, $rawconfig)))
 
@@ -1457,25 +1503,23 @@ sub _gui_client
         $jobSelectArgs->{default} = $jobId;
         push(@jobsTrs,
              $q->Tr({}, $q->td({ -align => 'right' }, $ix), $q->td({}, $jobId),
-                    $q->td({}, $jobId ? __gui_led($st) : ''), $q->td({}, $q->popup_menu($jobSelectArgs)))
+                    $q->td({}, $jobId ? __gui_led($st) : ''), $q->td({}, $q->popup_menu($jobSelectArgs))) # FIXME: popup_menu() is _very_ expensive
             );
     }
-    push(@html,
-         $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
-                 $q->h3({}, 'Jobs'),
-                 $q->start_form(-method => 'GET', -action => $q->url() ),
-                 $q->table({},
-                           $q->Tr({}, $q->th({}, 'ix'), $q->th({}, 'ID'), $q->th({ -colspan => 2 }, 'job')),
-                           @jobsTrs,
-                           ($maxch ? $q->Tr({ }, $q->td({ -colspan => 3, -align => 'center' }, $q->submit(-value => 'apply config'))) : ''),
-                          ),
-                 ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
-                 $q->hidden(-name => 'cmd', -default => 'cfgjobs'),
-                 $q->hidden(-name => 'client', -default => $clientId),
-                 $q->hidden(-name => 'redirect', -default => 'cmd=gui;client=' . $clientId),
-                 $q->end_form()
-                )
-         );
+    my $htmlJobs =
+      $q->div({ },
+              $q->start_form(-method => 'GET', -action => $q->url() ),
+              $q->table({},
+                        $q->Tr({}, $q->th({}, 'ix'), $q->th({}, 'ID'), $q->th({ -colspan => 2 }, 'job')),
+                        @jobsTrs,
+                        ($maxch ? $q->Tr({ }, $q->td({ -colspan => 3, -align => 'center' }, $q->submit(-value => 'apply config'))) : ''),
+                       ),
+              ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
+              $q->hidden(-name => 'cmd', -default => 'cfgjobs'),
+              $q->hidden(-name => 'client', -default => $clientId),
+              $q->hidden(-name => 'redirect', -default => 'cmd=gui;client=' . $clientId),
+              $q->end_form()
+             );
 
     # config: LEDs
     my $modelSelectArgs =
@@ -1523,26 +1567,23 @@ sub _gui_client
         -value        => ($config->{name} || ''),
         -autocomplete => 'off',
     };
-    push(@html,
-         $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
-                 $q->h3({}, 'Device'),
-                 $q->start_form(-method => 'POST', -action => $q->url() ),
-                 $q->table({},
-                           $q->Tr({}, $q->td({}, 'Lämpli model:'), $q->td({}, $q->popup_menu($modelSelectArgs))),
-                           $q->Tr({}, $q->td({}, 'LED driver:'), $q->td({}, $q->popup_menu($driverSelectArgs))),
-                           $q->Tr({}, $q->td({}, 'LED colour order:'), $q->td({}, $q->popup_menu($orderSelectArgs))),
-                           $q->Tr({}, $q->td({}, 'LED brightness:'), $q->td({}, $q->popup_menu($brightSelectArgs))),
-                           $q->Tr({}, $q->td({}, 'noise:'), $q->td({}, $q->popup_menu($noiseSelectArgs))),
-                           $q->Tr({}, $q->td({}, 'name:'), $q->td({}, $q->input($nameInputArgs))),
-                           $q->Tr({ }, $q->td({ -colspan => 3, -align => 'center' }, $q->submit(-value => 'apply config'))),
-                          ),
-                 $q->hidden(-name => 'cmd', -default => 'cfgdevice'),
-                 $q->hidden(-name => 'client', -default => $clientId),
-                 $q->hidden(-name => 'redirect', -default => 'cmd=gui;client=' . $clientId),
-                 $q->end_form()
-                )
-        );
-
+    my $htmlDevice =
+      $q->div({  },
+              $q->start_form(-method => 'POST', -action => $q->url() ),
+              $q->table({},
+                        $q->Tr({}, $q->td({}, 'Lämpli model:'), $q->td({}, $q->popup_menu($modelSelectArgs))),
+                        $q->Tr({}, $q->td({}, 'LED driver:'), $q->td({}, $q->popup_menu($driverSelectArgs))),
+                        $q->Tr({}, $q->td({}, 'LED colour order:'), $q->td({}, $q->popup_menu($orderSelectArgs))),
+                        $q->Tr({}, $q->td({}, 'LED brightness:'), $q->td({}, $q->popup_menu($brightSelectArgs))),
+                        $q->Tr({}, $q->td({}, 'noise:'), $q->td({}, $q->popup_menu($noiseSelectArgs))),
+                        $q->Tr({}, $q->td({}, 'name:'), $q->td({}, $q->input($nameInputArgs))),
+                        $q->Tr({ }, $q->td({ -colspan => 3, -align => 'center' }, $q->submit(-value => 'apply config'))),
+                       ),
+              $q->hidden(-name => 'cmd', -default => 'cfgdevice'),
+              $q->hidden(-name => 'client', -default => $clientId),
+              $q->hidden(-name => 'redirect', -default => 'cmd=gui;client=' . $clientId),
+              $q->end_form()
+             );
 
     # commands
     my $cmdSelectArgs =
@@ -1552,38 +1593,37 @@ sub _gui_client
         -autocomplete => 'off',
         -default      => '',
     };
+    my $htmlCommands =
+      $q->div({  },
+              $q->start_form(-method => 'POST', -action => $q->url() ),
+              $q->table({},
+                        $q->Tr({}, $q->td({}, 'command:'), $q->td({}, $q->popup_menu($cmdSelectArgs))),
+                        $q->Tr({ }, $q->td({ -colspan => 2, -align => 'center' }, $q->submit(-value => 'send command'))),
+                       ),
+              $q->hidden(-name => 'cmd', -default => 'cfgcmd'),
+              $q->hidden(-name => 'client', -default => $clientId),
+              $q->hidden(-name => 'redirect', -default => 'cmd=gui;client=' . $clientId),
+              $q->end_form()
+             );
 
-    push(@html,
-         $q->div({ -style => 'float: left; margin: 0 0 1em 1em;' },
-                 $q->h3({}, 'Command'),
-                 $q->start_form(-method => 'POST', -action => $q->url() ),
-                 $q->table({},
-                           $q->Tr({}, $q->td({}, 'command:'), $q->td({}, $q->popup_menu($cmdSelectArgs))),
-                           $q->Tr({ }, $q->td({ -colspan => 3, -align => 'center' }, $q->submit(-value => 'send command'))),
-                          ),
-                 $q->hidden(-name => 'cmd', -default => 'cfgcmd'),
-                 $q->hidden(-name => 'client', -default => $clientId),
-                 $q->hidden(-name => 'redirect', -default => 'cmd=gui;client=' . $clientId),
-                 $q->end_form()
-                )
-        );
 
-    return $q->div({}, @html), $q->div({ -style => 'clear: both;' });
-}
+    # delete info
+    my $htmlDelete =
+      $q->div({  },
+              $q->start_form(-method => 'POST', -action => $q->url() ),
+              $q->table({},
+                        $q->Tr({ }, $q->td({ -align => 'center' }, $q->submit(-value => 'delete info & config'))),
+                       ),
+              $q->hidden(-name => 'cmd', -default => 'rmclient'),
+              $q->hidden(-name => 'client', -default => $clientId),
+              $q->hidden(-name => 'redirect', -default => 'cmd=gui;client=' . $clientId . $debug),
+              $q->end_form()
+             );
 
-sub __gui_results
-{
-    my ($db, @jobIds) = @_;
-    my $now = time();
-    my @trs = ();
-    foreach my $jobId (@jobIds)
-    {
-        my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
-        push(@trs, $q->Tr($q->td($jobId), $q->td($st->{server}), $q->td(__gui_led($st), $st->{name}), $q->td($st->{state}), $q->td($st->{result}),
-                          $q->td({ -align => 'right' }, sprintf('%.1fh', ($now - $st->{ts}) / 3600))));
-    }
-    return $q->table($q->Tr($q->th('ID'), $q->th('server'), $q->th('job'), $q->th('state'), $q->th('result'), $q->th('age')),
-                     @trs);
+    return (
+            $q->div({ -style => 'display: inline-block; vertical-align: top;' }, $htmlInfo, $q->br(), $htmlDevice, $q->br(), $htmlCommands, $q->br(), $htmlDelete, $q->br() ),
+            $q->div({ -style => 'display: inline-block; vertical-align: top;' }, $htmlJobs),
+           );
 }
 
 
