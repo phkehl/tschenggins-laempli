@@ -207,29 +207,35 @@ sub run
         # get initial state
         my $jState = 'unknown';
         my $jResult = 'unknown';
-        my ($latestBuildDir, $previousBuildDir) =
+        my ($latestBuildDir, $previousBuildDir) = # Note: there may be no build dir(s) (yet, anymore)
           reverse sort { $a->basename() <=> $b->basename() } $buildsDir->children(qr{^[0-9]+$});
-        if ($latestBuildDir)
-        {
-            ($jState, $jResult) = getJenkinsJob($jobDir, $latestBuildDir);
-        }
+
+        # get latest build state and result
+        ($jState, $jResult) = getJenkinsJob($jobDir, $latestBuildDir);
+
+        # get last result if the job is currently running
         if ($jState)
         {
             if ( ($jState eq 'running') && $previousBuildDir )
             {
                 (undef, $jResult) =  getJenkinsJob($jobDir, $previousBuildDir);
+                $jResult //= 'unknown';
             }
         }
 
+        # add watch
         if ($jState && $jResult)
         {
             setState($state->{$jobName}, $jState, $jResult);
 
             # watch for new job output directories being created
             $in->watch($buildsDir, IN_CREATE, sub { jobCreatedCb($state, $jobName, $in, @_); });
+            DEBUG("Watching '%s' in '%s' (current state %s and result %s).", $jobName, "$buildsDir", $jState, $jResult);
         }
-
-        DEBUG("Watching '%s' in '%s' (current state %s and result %s).", $jobName, "$buildsDir", $jState, $jResult);
+        else
+        {
+            DEBUG("Not watching '%s' in '%s'", $jobName, "$buildsDir");
+        }
     }
 
     # keep watching...
@@ -254,6 +260,7 @@ sub run
 sub getJenkinsJob
 {
     my ($jobDir, $buildDir) = @_;
+    #DEBUG("getJenkinsJob(%s, %s)", $jobDir, $buildDir);
 
     # load job config file
     my $configFile = "$jobDir/config.xml";
@@ -265,7 +272,7 @@ sub getJenkinsJob
     my $config = loadXml($configFile);
     if (!$config || ($config->nodeName() ne 'project'))
     {
-        WARNING("Invalid $configFile (%s, expected <project/>)!", $config ? '<' . $config->nodeName() . '/>' : undef);
+        WARNING("Ignoring invalid $configFile (have %s, expected <project/>)!", $config ? '<' . $config->nodeName() . '/>' : undef);
         return;
     }
 
@@ -275,25 +282,30 @@ sub getJenkinsJob
     #DEBUG("disabled=%s", $disabled);
 
     # check result and duration
-    my $buildFile = "$buildDir/build.xml";
-    my $build = loadXml($buildFile);
-    if ($build && ($build->nodeName() ne 'build'))
-    {
-        WARNING("Invalid build (project) type (%s)!", $build->nodeName());
-        return;
-    }
+    my $haveBuild = 0;
     my ($result, $duration);
-    if ($build)
+    if ($buildDir)
     {
-        ($result)   = $build->findnodes('./result');
-        ($duration) = $build->findnodes('./duration');
-        $result   = $result   ? lc($result->textContent())                 : undef;
-        $duration = $duration ? int($duration->textContent() * 1e-3 + 0.5) : undef;
+        my $buildFile = "$buildDir/build.xml";
+        my $build = loadXml($buildFile);
+        if ($build && ($build->nodeName() ne 'build'))
+        {
+            WARNING("Invalid build (project) type (%s)!", $build->nodeName());
+            return;
+        }
+        if ($build)
+        {
+            $haveBuild = 1;
+            ($result)   = $build->findnodes('./result');
+            ($duration) = $build->findnodes('./duration');
+            $result   = $result   ? lc($result->textContent())                 : undef;
+            $duration = $duration ? int($duration->textContent() * 1e-3 + 0.5) : undef;
+        }
     }
 
     # determine answer
     DEBUG("build=%s disabled=%s result=%s duration=%s",
-          $build ? "present" : "missing", $disabled, $result, $duration);
+          $haveBuild ? "present" : "missing", $disabled, $result, $duration);
 
     # job explicitly disabled --> state=off
     my $state;
