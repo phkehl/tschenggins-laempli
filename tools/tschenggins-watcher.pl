@@ -265,7 +265,7 @@ sub getJenkinsJob
     my $config = loadXml($configFile);
     if (!$config || ($config->nodeName() ne 'project'))
     {
-        WARNING("Invalid $configFile (%s)!", $config ? $config->nodeName() : undef);
+        WARNING("Invalid $configFile (%s, expected <project/>)!", $config ? '<' . $config->nodeName() . '/>' : undef);
         return;
     }
 
@@ -496,6 +496,7 @@ sub updateBackend
             {
                 PRINT("Successfully updated backend with %i new and %i pending states (%.3fs).",
                       $#newUpdates + 1, $#pendingUpdates + 1, $dt);
+                @pendingUpdates = ();
             }
             else
             {
