@@ -20,7 +20,6 @@ use lib "$FindBin::Bin";
 
 use Time::HiRes qw(time sleep usleep);
 use LWP::UserAgent;
-use Linux::Inotify2;
 use POSIX;
 use XML::LibXML;
 use JSON::PP;
