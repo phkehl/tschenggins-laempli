@@ -53,6 +53,7 @@ my $CFG =
     server         => Sys::Hostname::hostname(),
     daemonise      => 0,
     backendtimeout => 5,
+    statefile      => '',
 };
 
 do
@@ -67,6 +68,7 @@ do
         elsif ($arg eq '-q') { $Ffi::Debug::VERBOSITY--; $CFG->{verbosity}--; }
         elsif ($arg eq '-b') { $CFG->{backend} = shift(@ARGV); }
         elsif ($arg eq '-s') { $CFG->{server} = shift(@ARGV); }
+        elsif ($arg eq '-j') { $CFG->{statefile} = shift(@ARGV); }
         elsif ($arg eq '-d') { $CFG->{daemonise} = 1; }
         elsif ($arg eq '-h') { help(); }
         elsif ($arg !~ m{^-})
@@ -162,6 +164,7 @@ sub help
           "  -q  decreases verbosity",
           "  -v  increases verbosity",
           "  -b <statusurl>  URL for the jenkins-status.pl backend",
+          "  -j <filename>  write state to this file (in JSON)",
           "  -s <server>  the Jenkins server name (default on this machine: $CFG->{server})",
           "  -d  run in background (daemonise)",
           "  <jobdir> one or more Jenkins job directories to monitor",
@@ -196,14 +199,6 @@ sub run
         my $jobName = $jobDir->basename();
         my $buildsDir = path("$jobDir/builds");
 
-        # keep a state per job
-        $state->{$jobName} =
-        {
-            jobName => $jobName, jobDir => $jobDir, buildsDir => $buildsDir,
-            jState => 'dontknow', jStateDirty => 0,
-            jResult => 'dontknow', jResultDirty => 0,
-        };
-
         # get initial state
         my $jState = 'unknown';
         my $jResult = 'unknown';
@@ -212,6 +207,20 @@ sub run
 
         # get latest build state and result
         ($jState, $jResult) = getJenkinsJob($jobDir, $latestBuildDir);
+
+        # skip foul things
+        if (!defined $jState && !defined $jResult)
+        {
+            next;
+        }
+
+        # keep a state per job
+        $state->{$jobName} =
+        {
+            jobName => $jobName, jobDir => $jobDir, buildsDir => $buildsDir,
+            jState => 'dontknow', jStateDirty => 0,
+            jResult => 'dontknow', jResultDirty => 0,
+        };
 
         # get last result if the job is currently running
         if ($jState)
@@ -236,6 +245,11 @@ sub run
         {
             DEBUG("Not watching '%s' in '%s'", $jobName, "$buildsDir");
         }
+    }
+
+    unless ($CFG->{backend} || $CFG->{statefile})
+    {
+        WARNING("No state file or backend URL given.");
     }
 
     # keep watching...
@@ -290,7 +304,7 @@ sub getJenkinsJob
         my $build = loadXml($buildFile);
         if ($build && ($build->nodeName() ne 'build'))
         {
-            WARNING("Invalid build (project) type (%s)!", $build->nodeName());
+            WARNING("Invalid build (project) type (have <%s/>, expected <build/>)!", $build->nodeName());
             return;
         }
         if ($build)
@@ -472,6 +486,7 @@ sub updateBackend
             push(@newUpdates, $_st);
         }
     }
+    #DEBUG("newUpdates=%s", \@newUpdates);
 
     # send to backend if configured
     if ($CFG->{backend})
@@ -522,6 +537,28 @@ sub updateBackend
         else
         {
             DEBUG("Nothing to update.");
+        }
+    }
+
+    # update state file
+    if (($#newUpdates > -1) && $CFG->{statefile})
+    {
+        my %json = ();
+        foreach my $jobName (sort keys %{$state})
+        {
+            my $st = $state->{$jobName};
+            $json{$jobName}->{$_} = "$st->{$_}" for (qw(jobName jState jResult));
+        }
+        PRINT("Updating '%s' (%i/%i changed states).", $CFG->{statefile}, $#newUpdates + 1, scalar keys %json);
+        eval
+        {
+            local $SIG{__DIE__} = 'default';
+            my $jsonStr = JSON::PP->new()->utf8(1)->canonical(1)->pretty(1)->encode(\%json);
+            path($CFG->{statefile})->append_utf8({ truncate => 1 }, $jsonStr);
+        };
+        if ($@)
+        {
+            WARNING("Could not write '%s': %s", $CFG->{statefile}, $! || "$@");
         }
     }
 }
