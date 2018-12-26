@@ -1454,7 +1454,7 @@ sub _gui_client
     my $driverSelectArgs =
     {
         -name         => 'driver',
-        -values       => [ '', 'WS2801', 'SK9822' ],
+        -values       => [ '', 'none', 'WS2801', 'SK9822' ],
         -autocomplete => 'off',
         -default      => ($config->{driver} || ''),
     };
