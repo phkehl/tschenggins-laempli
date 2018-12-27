@@ -1699,7 +1699,7 @@ $(document).ready(function ()
     });
     {
         var id = document.location.hash.substr(1);
-        if (id.length > 0)
+        if (id.length && $('#tab-' + id).length)
         {
             DEBUG('initial tab ' + id);
             if (id.substr(0, 7) === 'config-')
@@ -1740,7 +1740,6 @@ $(document).ready(function ()
         tbody.append(rows);
     });
 
-
     // arm "modify" links in results list
     $('.action-modify-job').on('click', function (e)
     {
@@ -1762,10 +1761,68 @@ $(document).ready(function ()
     // block ui when sending form
     $('form').on('submit', function ()
     {
-        $('body').prepend( $('<div/>').addClass('blocker') );
-        DEBUG("submit!");
-        return false;
+        $('body').prepend( $('<div/>').addClass('blocker'),
+                           $('<div/>').addClass('blocker-message').html('&hellip;please wait&hellip;') );
+        return true;
     });
+
+    // results table filter
+    var resultsFilter = $('#results-filter');
+    var resultsTableRows = $('#results-table tbody tr');
+    if (resultsFilter.length && resultsTableRows.length)
+    {
+        //DEBUG('resultsFilter', resultsFilter);
+        //DEBUG('resultsTableRows', resultsTableRows);
+        var index = resultsTableRows.map(function (ix, el)
+        {
+            return { tr: $(el), text: $(el).text() };
+        });
+        var filterTo;
+        resultsFilter.on('keyup', function (e)
+        {
+            if (filterTo)
+            {
+                clearTimeout(filterTo);
+            }
+            filterTo = setTimeout(function () { filterTable(resultsFilter, index); }, 300);
+        });
+    }
+    function filterTable(input, index)
+    {
+        DEBUG('filter ' + input.val());
+        var term = input.val();
+        if (term.length == 0)
+        {
+            input.removeClass('error');
+            index.forEach(function (entry) { entry.tr.removeClass('hidden'); });
+            return;
+        }
+        var re;
+        try
+        {
+            re = new RegExp(term, term.toLowerCase() == term ? 'i' : '');
+        }
+        catch (e)
+        {
+            DEBUG('bad regexp: ' + e);
+            input.addClass('error');
+        }
+        if (typeof re === 'object')
+        {
+            input.removeClass('error');
+            for (var ix = 0; ix < index.length; ix++)
+            {
+                if (re.test( index[ix].text ))
+                {
+                    index[ix].tr.removeClass('hidden')
+                }
+                else
+                {
+                    index[ix].tr.addClass('hidden')
+                }
+            }
+        }
+    }
 
     // populate job popup menus in client config tabs
     var template = $('#jobSelectPopup');

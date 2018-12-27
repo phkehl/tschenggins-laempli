@@ -47,6 +47,7 @@ my $JOBNAMERE     = qr{^[-_a-zA-Z0-9]{5,50}$};
 my $SERVERNAMERE  = qr{^[-_a-zA-Z0-9.]{5,50}$};
 my $JOBIDRE       = qr{^[0-9a-z]{8,8}$};
 my $DBFILE        = $ENV{'REMOTE_USER'} ? "$DATADIR/tschenggins-status-$ENV{'REMOTE_USER'}.json" : "$DATADIR/tschenggins-status.json";
+my $DEFAULTCMD    = 'gui';
 
 #DEBUG("DATADIR=%s, VALIDRESULT=%s, VALIDSTATE=%s", $DATADIR, $VALIDRESULT, $VALIDSTATE);
 
@@ -85,7 +86,7 @@ The following parameters are used in the commands described below.
 
 =item * C<offset> -- offset into list of results (default 0)
 
-=item * C<redirct> -- where to redirect to
+=item * C<redirct> -- where to redirect to (query string)
 
 =item * C<result> -- job result ('unknown', 'success', 'unstable', 'failure')
 
@@ -106,7 +107,7 @@ The following parameters are used in the commands described below.
 =cut
 
     # query string, application/x-www-form-urlencoded or multipart/form-data
-    my $cmd      = $q->param('cmd')      || '';
+    my $cmd      = $q->param('cmd')      || $DEFAULTCMD;
     my $debug    = $q->param('debug')    || 0;
     my $job      = $q->param('job')      || '';
     my $result   = $q->param('result')   || ''; # 'unknown', 'success', 'unstable', 'failure'
@@ -132,12 +133,6 @@ The following parameters are used in the commands described below.
     my $bright   = $q->param('bright')   || '';
     my $noise    = $q->param('noise')    || '';
     my $cfgcmd   = $q->param('cfgcmd')   || '';
-
-    # default: gui
-    if (!$cmd)
-    {
-        $cmd = 'gui';
-    }
 
     # application/json POST
     my $contentType = $q->content_type();
@@ -606,21 +601,30 @@ variable.
     ##### render output #####
 
     # redirect?
-    if (!$error && $redirect )
+    if (!$error && $redirect)
     {
+        my $debug = $debug;
         $q->delete_all();
-        if ($debug)
+        my $hash = '';
+        if ($redirect =~ m{(^[^#]*)(#.+)?})
         {
-            if (index($redirect, '#') > -1)
+            my $query = $1;
+            $hash = $2 if ($2);
+            $query =~ s{cmd=$DEFAULTCMD}{};
+            foreach my $kv (split(';', $query))
             {
-                $redirect =~ s{(.*)(#.*)}{$1;debug=$debug$2};
-            }
-            else
-            {
-                $redirect .= "debug=$debug";
+                if ($kv =~ m{^([^=]+)=(.+)})
+                {
+                    #$q->param($1, $2);
+                    DEBUG("set [$1] [$2]");
+                }
             }
         }
-        print($q->redirect($q->url() . "?$redirect"));
+        if ($debug)
+        {
+            $q->param('debug', $debug);
+        }
+        print($q->redirect($q->self_url() . $hash));
         exit(0);
     }
 
@@ -1197,9 +1201,9 @@ sub _gui
                    $q->label({ -class => 'tab-label', -for => 'tab-config' }, $q->h2('Config')),
                    $q->div({ -class => 'tab-contents' }, _gui_config($db) ),
 
-                   $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-results', -autocomplete => 'off' }),
-                   $q->label({ -class => 'tab-label', -for => 'tab-results' }, $q->h2('Results')),
-                   $q->div({ -class => 'tab-contents' }, _gui_results($db) ),
+                   $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-status', -autocomplete => 'off' }),
+                   $q->label({ -class => 'tab-label', -for => 'tab-status' }, $q->h2('Status')),
+                   $q->div({ -class => 'tab-contents' }, _gui_status($db) ),
 
                    $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-modify', -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => 'tab-modify' }, $q->h2('Modify')),
@@ -1215,7 +1219,7 @@ sub _gui
                   );
 }
 
-sub _gui_results
+sub _gui_status
 {
     my ($db) = @_;
     my @html = ();
@@ -1228,29 +1232,33 @@ sub _gui_results
         my $modify = $q->span({ -class => 'action action-modify-job', -data_jobid => $jobId }, 'modify');
         my $delete = $q->span({ -class => 'action action-delete-job', -data_jobid => $jobId }, 'delete');
         push(@trs, $q->Tr(
-                          $q->td({ -class => 'clientid' }, $jobId), $q->td($st->{server}), $q->td(__gui_led($st), $st->{name}),
+                          $q->td({ -class => 'jobid' }, $jobId), $q->td($st->{server}), $q->td(__gui_led($st), $st->{name}),
                           $q->td($st->{state}), $q->td($st->{result}),
                           $q->td({ -align => 'right', -data_sort => $st->{ts} }, sprintf('%.1fh', ($now - $st->{ts}) / 3600)),
                           $q->td({}, $modify, $delete),
                          )
             );
     }
-    return $q->table(
-                     $q->thead(
-                               $q->Tr(
-                                      $q->th({ -class => 'sort' }, 'ID'),
-                                      $q->th({ -class => 'sort' }, 'Server'),
-                                      $q->th({ -class => 'sort' }, 'Job'),
-                                      $q->th({ -class => 'sort' }, 'State'),
-                                      $q->th({ -class => 'sort' }, 'Result'),
-                                      $q->th({ -class => 'sort' }, 'Age'),
-                                      $q->th({}, 'Actions'),
-                                     ),
-                              ),
-                     $q->tbody(
-                               @trs
-                              )
-                    );
+    return (
+            $q->table($q->Tr($q->th('Filter:'), $q->td(
+                $q->input({ -type => 'text', -id => 'results-filter', -autocomplete => 'off', -placeholder => 'filter (regex)...', -default => '' })))),
+            $q->table({ -id => 'results-table' },
+                      $q->thead(
+                                $q->Tr(
+                                       $q->th({ -class => 'sort' }, 'ID'),
+                                       $q->th({ -class => 'sort' }, 'Server'),
+                                       $q->th({ -class => 'sort' }, 'Job'),
+                                       $q->th({ -class => 'sort' }, 'State'),
+                                       $q->th({ -class => 'sort' }, 'Result'),
+                                       $q->th({ -class => 'sort' }, 'Age'),
+                                       $q->th({}, 'Actions'),
+                                      ),
+                               ),
+                      $q->tbody(
+                                @trs
+                               )
+                     )
+           );
 }
 
 sub _gui_modify
@@ -1374,9 +1382,7 @@ sub _gui_clients
         my $staIp    = $client->{staip} || 'unknown';
         my $staSsid  = $client->{stassid} || 'unknown';
         my $version  = $client->{version} || 'unknown';
-        my $debugr = ($q->param('debug') ? '%3Bdebug%3D1' : '');
-        my $debug  = ($q->param('debug') ? ';debug=1' : '');
-        my $edit   = $q->span({ -class => 'action action-configure-client', -data_clientid => $clientId }, 'configure');
+        my $edit     = $q->span({ -class => 'action action-configure-client', -data_clientid => $clientId }, 'configure');
 
         my @leds = ();
         foreach my $jobId (@{$config->{jobs}})
@@ -1402,11 +1408,11 @@ sub _gui_clients
                                         $q->th({ -class => 'sort' }, 'ID'),
                                         $q->th({ -class => 'sort' }, 'Client'),
                                         $q->th({ -class => 'sort' }, 'Name'),
-                                        $q->th({}, 'status'),
+                                        $q->th({}, 'Status'),
                                         $q->th({ -class => 'sort' }, 'Connected'),
                                         $q->th({ -class => 'sort' }, 'PID'),
-                                        $q->th({ -class => 'sort' }, 'Station IP'),
-                                        $q->th({ -class => 'sort' }, 'Station SSID'),
+                                        $q->th({ -class => 'sort' }, 'Sta IP'),
+                                        $q->th({ -class => 'sort' }, 'Sta SSID'),
                                         $q->th({ -class => 'sort' }, 'Model'),
                                         $q->th({ -class => 'sort' }, 'Version'),
                                         $q->th({}, 'Actions'),
@@ -1467,16 +1473,6 @@ sub __gui_config_client
     }
     my $debug = $q->param('debug') || 0;
 
-    # info (and raw config)
-    my $htmlInfo =
-      $q->div({ },
-              $q->table({},
-                        (map { $q->Tr({}, $q->th({}, $_), $q->td({}, $client->{$_})) } sort keys %{$client}),
-                       ),
-             );
-
-    #$q->Tr({}, $q->th({}, 'config'), $q->td({}, $q->pre({}, $rawconfig)))
-
     # config: jobs
     my @jobsTrs = ();
     my $maxch = $client->{maxch} || 0;
@@ -1485,7 +1481,7 @@ sub __gui_config_client
         my $jobId = $config->{jobs}->[$ix] || '';
         my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
         push(@jobsTrs, # Note: the job selection popup menu is populated run-time (JS), since $q->popup_menu() is very expensive
-             $q->Tr({}, $q->td({ -align => 'right' }, $ix), $q->td({}, $jobId),
+             $q->Tr({}, $q->td({ -align => 'right' }, $ix), $q->td({ -class => 'jobid' }, $jobId),
                     $q->td({}, $jobId ? __gui_led($st) : ''), $q->td({ -class => 'jobSelectPopup'}, $jobId))
             );
     }
@@ -1493,9 +1489,9 @@ sub __gui_config_client
       $q->div({ },
               $q->start_form(-method => 'GET', -action => $q->url() ),
               $q->table({},
-                        $q->Tr({}, $q->th({}, 'ix'), $q->th({}, 'ID'), $q->th({ -colspan => 2 }, 'job')),
+                        $q->Tr({}, $q->th({}, 'ix'), $q->th({}, 'ID'), $q->th({ -colspan => 2 }, 'Job')),
                         @jobsTrs,
-                        ($maxch ? $q->Tr({ }, $q->td({ -colspan => 3, -align => 'center' }, $q->submit(-value => 'apply config'))) : ''),
+                        ($maxch ? $q->Tr({ }, $q->td({ -colspan => 4, -align => 'center' }, $q->submit(-value => 'save channel config'))) : ''),
                        ),
               ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
               $q->hidden(-name => 'cmd', -default => 'cfgjobs'),
@@ -1554,13 +1550,14 @@ sub __gui_config_client
       $q->div({  },
               $q->start_form(-method => 'POST', -action => $q->url() ),
               $q->table({},
-                        $q->Tr({}, $q->td({}, 'Lämpli model:'), $q->td({}, $q->popup_menu($modelSelectArgs))),
-                        $q->Tr({}, $q->td({}, 'LED driver:'), $q->td({}, $q->popup_menu($driverSelectArgs))),
-                        $q->Tr({}, $q->td({}, 'LED colour order:'), $q->td({}, $q->popup_menu($orderSelectArgs))),
-                        $q->Tr({}, $q->td({}, 'LED brightness:'), $q->td({}, $q->popup_menu($brightSelectArgs))),
-                        $q->Tr({}, $q->td({}, 'noise:'), $q->td({}, $q->popup_menu($noiseSelectArgs))),
-                        $q->Tr({}, $q->td({}, 'name:'), $q->td({}, $q->input($nameInputArgs))),
-                        $q->Tr({ }, $q->td({ -colspan => 3, -align => 'center' }, $q->submit(-value => 'apply config'))),
+                        $q->Tr({}, $q->th({ -colspan => 2 }, 'Lämpli Configuration')),
+                        $q->Tr({}, $q->td({}, 'Lämpli Model:'), $q->td({}, $q->popup_menu($modelSelectArgs))),
+                        $q->Tr({}, $q->td({}, 'LED Driver:'), $q->td({}, $q->popup_menu($driverSelectArgs))),
+                        $q->Tr({}, $q->td({}, 'LED Colours:'), $q->td({}, $q->popup_menu($orderSelectArgs))),
+                        $q->Tr({}, $q->td({}, 'LED Brightness:'), $q->td({}, $q->popup_menu($brightSelectArgs))),
+                        $q->Tr({}, $q->td({}, 'Noise Level:'), $q->td({}, $q->popup_menu($noiseSelectArgs))),
+                        $q->Tr({}, $q->td({}, 'Lämpli Name:'), $q->td({}, $q->input($nameInputArgs))),
+                        $q->Tr({ }, $q->td({ -colspan => 2, -align => 'center' }, $q->submit(-value => 'save config'))),
                        ),
               ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
               $q->hidden(-name => 'cmd', -default => 'cfgdevice'),
@@ -1570,45 +1567,68 @@ sub __gui_config_client
              );
 
     # commands
-    my $cmdSelectArgs =
+    # my $cmdSelectArgs =
+    # {
+    #     -name         => 'cfgcmd',
+    #     -values       => [ '', qw(reset reconnect identify random chewie hello dummy) ],
+    #     -autocomplete => 'off',
+    #     -default      => '',
+    # };
+    # my $htmlCommands =
+    #   $q->div({  },
+    #           $q->start_form(-method => 'POST', -action => $q->url() ),
+    #           $q->table({},
+    #                     $q->Tr({}, $q->td({}, 'command:'), $q->td({}, $q->popup_menu($cmdSelectArgs))),
+    #                     $q->Tr({ }, $q->td({ -colspan => 2, -align => 'center' }, $q->submit(-value => 'send command'))),
+    #                    ),
+    #           $q->hidden(-name => 'cmd', -default => 'cfgcmd'),
+    #           $q->end_form()
+    #          );
+
+    my @cmdHiddenFields = (
+                           ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
+                           $q->hidden(-name => 'client', -default => $clientId),
+                           $q->hidden(-name => 'cmd', -default => 'cfgcmd'),
+                           $q->hidden(-name => 'redirect', -default => "cmd=gui#config-$clientId"),
+                          );
+    my @commandForms = map
     {
-        -name         => 'cfgcmd',
-        -values       => [ '', qw(reset reconnect identify random chewie hello dummy) ],
-        -autocomplete => 'off',
-        -default      => '',
-    };
+        $q->start_form(-method => 'POST', -action => $q->url()),
+        @cmdHiddenFields,
+        $q->hidden(-name => 'cfgcmd', -default => $_),
+        $q->submit(-value => $_),
+        $q->end_form(),
+    } qw(reset reconnect identify random chewie hello dummy);
     my $htmlCommands =
       $q->div({  },
-              $q->start_form(-method => 'POST', -action => $q->url() ),
               $q->table({},
-                        $q->Tr({}, $q->td({}, 'command:'), $q->td({}, $q->popup_menu($cmdSelectArgs))),
-                        $q->Tr({ }, $q->td({ -colspan => 2, -align => 'center' }, $q->submit(-value => 'send command'))),
-                       ),
-              ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
-              $q->hidden(-name => 'cmd', -default => 'cfgcmd'),
-              $q->hidden(-name => 'client', -default => $clientId),
-              $q->hidden(-name => 'redirect', -default => "cmd=gui#config-$clientId"),
-              $q->end_form()
-             );
+                        $q->Tr({}, $q->th({}, 'Commands')),
+                        $q->Tr({}, $q->td({ -class => 'command-buttons' },
+                                          @commandForms,
+                                          $q->start_form(-method => 'POST', -action => $q->url() ),
+                                          $q->hidden(-name => 'cmd', -default => 'rmclient'),
+                                          $q->hidden(-name => 'client', -default => $clientId),
+                                          ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
+                                          $q->submit(-value => 'delete info & config'),
+                                          $q->hidden(-name => 'redirect', -default => "cmd=gui#config-$clientId"),
+                                          $q->end_form()
+                                         )),
+                       )
+              );
 
-
-    # delete info
-    my $htmlDelete =
-      $q->div({  },
-              $q->start_form(-method => 'POST', -action => $q->url() ),
+    # info (and raw config)
+    my $htmlInfo =
+      $q->div({ },
               $q->table({},
-                        $q->Tr({ }, $q->td({ -align => 'center' }, $q->submit(-value => 'delete info & config'))),
+                        $q->Tr({}, $q->th({ -colspan => 2 }, 'Client Info')),
+                        (map { $q->Tr({}, $q->td({}, $_), $q->td({}, $client->{$_})) } sort keys %{$client}),
+                        #(map { $q->Tr({}, $q->th({}, $_), $q->td({}, $config->{$_})) } sort keys %{$config}),
                        ),
-              $q->hidden(-name => 'cmd', -default => 'rmclient'),
-              $q->hidden(-name => 'client', -default => $clientId),
-              ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
-              $q->hidden(-name => 'redirect', -default => "cmd=gui#config-$clientId"),
-              $q->end_form()
              );
 
     return (
-            $q->div({ -style => 'display: inline-block; vertical-align: top;' }, $htmlInfo, $q->br(), $htmlDevice, $q->br(), $htmlCommands, $q->br(), $htmlDelete, $q->br() ),
-            $q->div({ -style => 'display: inline-block; vertical-align: top;' }, $htmlJobs),
+            $q->div({ -class => 'config-left' }, $htmlJobs ),
+            $q->div({ -class => 'config-right' }, $htmlDevice, $htmlCommands, $htmlInfo),
            );
 }
 

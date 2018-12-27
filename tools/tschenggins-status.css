@@ -1,6 +1,6 @@
 /* * { margin: 0; padding: 0; } */
 * { box-sizing: border-box; }
-body { font-family: sans-serif; background-color: hsl(160, 100%, 95%); font-size: 100%; padding: 0.5em; }
+body { font-family: sans-serif; background-color: hsl(160, 100%, 95%); font-size: 10pt; padding: 0.5em; }
 
 h1.title { color: #444; padding: 0; margin: 0 0 0.5em 0; }
 h1.title a { color: unset; text-decoration: none; }
@@ -11,21 +11,25 @@ body a.database { float: right; }
 
 /* body, select, input { font-family: sans-serif; background-color: hsl(160, 100%, 95%); font-size: 100%; } */
 
-table { padding: 0; border: 0.1em solid #000; border-collapse: collapse; }
+table { padding: 0; border: 0.1em solid #000; border-collapse: collapse; margin: 0 0 0.5em 0; }
 table td, table th { margin: 0; padding: 0.1em 0.25em 0.1em 0.25em;  border: 1px solid #000; }
 table th { font-weight: bold; background-color: #ddd; text-align: left; border-bottom: 1px solid #000; }
 table tr:hover td, table tr:hover td select, table tr:hover td input { background-color: hsl(160, 100%, 90%); }
 
-div.blocker { background-color: #000; opacity: 0.75; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+div.blocker { background-color: #000; opacity: 0.75; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+div.blocker-message { position: fixed; top: 0; left: 0; width: 100%; height: 100%; font-size: 200%; color: #fff; display: flex; align-items: center; justify-content: center; }
 
 th.sort { cursor: ns-resize; }
 th.sort::after { content: '↕'; color: #aaa; float:right; }
 th.sort.sort-asc::after { content: '↑'; color: #000; }
 th.sort.sort-desc::after { content: '↓'; color: #000; }
 
-.clientid { font-family: monospace; }
+.clientid, .jobid { font-family: monospace; }
 .action { color: blue; cursor: pointer; }
 .action:hover { background-color: hsl(160, 100%, 80%); }
+
+.hidden { display: none; }
+.error { color: #f00; }
 
 input, select { border: 0.1em solid #aaa; border-radius: 0.25em; background-color: transparent; }
 
@@ -59,3 +63,12 @@ div.led.result-failure  { background-color: hsl(  0, 100%, 50%); }
 .tab-contents { order: 999; display: none; width: 100%; border-top: 0.15em solid #000; padding: 0.5em 1em; }
 .tab-input:checked + .tab-label + .tab-contents { display: block; } 
 
+.config-left { display: inline-block; width: calc(100% - 30em - 1em - 0.5em /* FIXME: why? */); min-width: 30em; margin: 0 1em 0 0; vertical-align: top; }
+.config-right { display: inline-block; width: 30em; vertical-align: top; }
+.config-left table, .config-right table { width: 100%; }
+.config-left table select, .config-right table select, .config-left table input[type=text], .config-right table input[type=text] { width: 100%; border: none; }
+.config-right td { white-space: nowrap; }
+
+td.command-buttons { white-space: normal; text-align: center; }
+td.command-buttons input[type=submit] { margin-bottom: 0.25em; }
+.command-buttons form { display: inline; }
