@@ -1711,7 +1711,8 @@ $(document).ready(function ()
         else
         {
             DEBUG('initial tab <default>');
-            $('#tab-laempli').trigger('click');
+            var firstTabId = $('input.tab-input').get(0).id;
+            $('#' + firstTabId).trigger('click');
         }
     }
 
