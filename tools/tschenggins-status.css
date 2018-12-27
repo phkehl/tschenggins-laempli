@@ -8,6 +8,7 @@ p.footer { font-size: 80%; text-align: center; color: #aaa; }
 p.footer a { color: #aaa; }
 pre.debug { color: #aaa; }
 body a.database { float: right; }
+p { margin-top: 0; }
 
 /* body, select, input { font-family: sans-serif; background-color: hsl(160, 100%, 95%); font-size: 100%; } */
 

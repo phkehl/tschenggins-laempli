@@ -1193,29 +1193,41 @@ sub _gui
 
     return $q->div({ -class => 'tabs' },
 
-                   $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-clients', -autocomplete => 'off' }),
-                   $q->label({ -class => 'tab-label', -for => 'tab-clients' }, $q->h2('Clients')),
-                   $q->div({ -class => 'tab-contents' }, _gui_clients($db) ),
+                   $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-laempli', -autocomplete => 'off' }),
+                   $q->label({ -class => 'tab-label', -for => 'tab-laempli' }, $q->h2('Lämpli')),
+                   $q->div({ -class => 'tab-contents' },
+                           $q->p({}, 'Here is a list of all known Lämpli.'),
+                           _gui_clients($db) ),
 
                    $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-config', -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => 'tab-config' }, $q->h2('Config')),
-                   $q->div({ -class => 'tab-contents' }, _gui_config($db) ),
+                   $q->div({ -class => 'tab-contents' },
+                           $q->p({}, 'Configure a Lämpli. Select yours:'),
+                           _gui_config($db) ),
 
                    $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-status', -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => 'tab-status' }, $q->h2('Status')),
-                   $q->div({ -class => 'tab-contents' }, _gui_status($db) ),
+                   $q->div({ -class => 'tab-contents' },
+                           $q->p({}, 'The current state and result of all known jobs.'),
+                           _gui_status($db) ),
 
                    $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-modify', -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => 'tab-modify' }, $q->h2('Modify')),
-                   $q->div({ -class => 'tab-contents' }, _gui_modify($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) ),
+                   $q->div({ -class => 'tab-contents' },
+                           $q->p({}, 'Modify a job and override its state and/or result.'),
+                           _gui_modify($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) ),
 
                    $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-create', -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => 'tab-create' }, $q->h2('Create')),
-                   $q->div({ -class => 'tab-contents' }, _gui_create($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) ),
+                   $q->div({ -class => 'tab-contents' },
+                           $q->p({}, 'Create a new job. Give a server name, a job name and its state and result.'),
+                           _gui_create($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) ),
 
                    $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-delete', -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => 'tab-delete' }, $q->h2('Delete')),
-                   $q->div({ -class => 'tab-contents' }, _gui_delete($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) ),
+                   $q->div({ -class => 'tab-contents' },
+                           $q->p({}, 'Delete a job from the list of known jobs.'),
+                           _gui_delete($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) ),
                   );
 }
 

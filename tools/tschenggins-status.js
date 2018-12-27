@@ -1711,7 +1711,7 @@ $(document).ready(function ()
         else
         {
             DEBUG('initial tab <default>');
-            $('#tab-clients').trigger('click');
+            $('#tab-laempli').trigger('click');
         }
     }
 
