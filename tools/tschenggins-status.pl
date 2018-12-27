@@ -22,6 +22,9 @@ use warnings;
 
 use feature 'state';
 
+use Time::HiRes qw(time);
+my $T0 = time();
+
 use CGI qw(-newstyle_urls -nosticky -tabindex -no_undef_params); # -debug
 use CGI::Carp qw(fatalsToBrowser);
 use JSON::PP; # run-time prefer JSON::XS, see _jsonObj()
@@ -34,7 +37,6 @@ $Data::Dumper::Terse = 1;
 use lib "/mnt/fry/d1/flip/tschenggins-laempli/ng/tools";
 use Pod::Usage;
 use IO::Handle;
-use Time::HiRes qw(time);
 
 my $q = CGI->new();
 
@@ -639,21 +641,22 @@ variable.
                           #'-Access-Control-Allow-Origin' => '*'
                         ),
               $q->start_html(-title => $TITLE,
-                             -head => [ '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>' ],
+                             -head => [ '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>',
+                                        CGI::Link({ -rel => 'shortcut icon', -href => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABFklEQVQ4y82TTYqDQBCFX5WdRQiI+BM8Rm4h2Qlexp17D5JdzpBFtl4g24AbA0F0G3mz0UZnxgmzS0PTVHW/r6te08BHjjzPOY/LsuR/9ATACTKuFJH3kK7rCICqyhGEzWZjAX3fv4cYYwiAoxC73Y4AOObXyxYRXq9XAsDtdlscruvaxmEY8nw+L2Fjf4zj2G5EUURVZRAENuf7PgEwTVOb0xkEYRha8ePxAEk8n8/JWLRtC1XF8Xj82cPpdCIAZFk2GTg5TwA8HA4EgMvlsu5FVVUL0XwaY1gUxd+voKp0HOdXiIjQGMP7/b6A6HfIMAzWk7k/JPF6vdA0zXoF+/3e3uZ5HpMkoeu6FBGKCLfbLT/v430Br4uKwlVfZDgAAAAASUVORK5CYII=' }) ],
                              -style   => [ { src => 'tschenggins-status.css' } ],
                              -script  => [ { -type => 'javascript', -src => 'tschenggins-status.js' } ]),
               $q->a({ -class => 'database', -href => ($q->url() . '?cmd=rawdb;debug=1') }, 'DB: ' . ($ENV{'REMOTE_USER'} ? $ENV{'REMOTE_USER'} : '(default)')),
-              $q->h1({ -class => 'title' }, $q->a({ -href => '?' }, $TITLE)),
+              $q->h1({ -class => 'title' }, $q->a({ -href => $q->url() }, $TITLE)),
               @html,
               $q->p({ -class => 'footer' }, 'Tschenggins Lämpli &mdash; Copyright &copy; 2017&ndash;2019 Philippe Kehl &amp; flipflip industries &mdash; '
                     . $q->a({ -href => 'https://oinkzwurgl.org/projeaggt/tschenggins-laempli' }, 'https://oinkzwurgl.org/projeaggt/tschenggins-laempli')
                     . ' &mdash; ' . $q->a({ -href => ($q->url() . '?cmd=help') }, 'help')
+                    . ' &mdash; ' . sprintf('%.3fs', time() - $T0),
                    ),
               $q->pre({ -class => 'debug' }, $pre),
               $q->end_html()
              );
     }
-
     elsif (!$error && $text)
     {
         my $content = "$text" . ($#DEBUGSTRS > -1 ? "\n\n" . join('', map { "$_\n" } @DEBUGSTRS) : '');
