@@ -5,6 +5,8 @@
     - Copyright (c) 2017-2018 Philippe Kehl (flipflip at oinkzwurgl dot org),
       https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
+    \todo https://github.com/FastLED/FastLED/wiki/Pixel-reference --> "rainbow"
+
     \addtogroup FF_HSV2RGB
 
     @{
