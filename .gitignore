@@ -8,3 +8,4 @@ esp-open-sdk
 .#*
 privat
 *.crt
+*~

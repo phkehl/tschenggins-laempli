@@ -3,6 +3,7 @@
 by Philippe Kehl <flipflip at oinkzwurgl dot org>,
 https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 
+Note: There is an ESP32 version of the firmware at https://github.com/phkehl/gitta.
 
 ![Tschenggins Lämpli Model 1](old/fs/laempli.png)
 ![Tschenggins Lämpli Model 3](doc/laempli3.jpg)
