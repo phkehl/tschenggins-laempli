@@ -64,8 +64,37 @@ do
     }
     DEBUG("CFG=%s", $CFG);
 
-    if (!$CFG->{server} || !$CFG->{backend} || !$CFG->{jobname} ||
-        (!$CFG->{jobstate} && !$CFG->{jobresult}) )
+    my %states  = ( dontknow => -1, unknown => 0, off => 1, idle => 2, running => 3 );
+    my %results = ( dontknow => -1, unknown => 0, success => 1, unstable => 2, failure => 3 );
+
+    # determine most active state
+    if ($CFG->{jobstate} && (index($CFG->{jobstate}, ',') > -1))
+    {
+        my $worstState = 'dontknow';
+        foreach my $state (split(',', $CFG->{jobstate}))
+        {
+            if ( $state && ($states{$state} >= 0) && ($states{$state} > $states{$worstState}) )
+            {
+                $worstState = $state;
+            }
+            $CFG->{jobstate} = $worstState;
+        }
+    }
+    # determine worst result
+    if ($CFG->{jobresult} && (index($CFG->{jobresult}, ',') > -1))
+    {
+        my $worstResult = 'dontknow';
+        foreach my $result (split(',', $CFG->{jobresult}))
+        {
+            if ( $result && ($results{$result} >= 0) && ($results{$result} > $results{$worstResult}) )
+            {
+                $worstResult = $result;
+            }
+            $CFG->{jobresult} = $worstResult;
+        }
+    }
+
+    if ( !$CFG->{server} || !$CFG->{backend} || !$CFG->{jobname} || (!$CFG->{jobstate} && !$CFG->{jobresult}) )
     {
         ERROR("Try '$0 -h'.");
         exit(1);
@@ -92,11 +121,10 @@ do
     }
 
     # send update
-
     my $update = { name => $CFG->{jobname}, server => $CFG->{server} };
     $update->{state} = $CFG->{jobstate} if ($CFG->{jobstate});
     $update->{result} = $CFG->{jobresult} if ($CFG->{jobresult});
-    DEBUG("update=%s", $update);
+    PRINT("Sending: server=%s name=%s state=%s result=%s", $update->{server}, $update->{name}, $update->{state}, $update->{result});
     my $json = JSON::PP->new()->utf8(1)->canonical(1)->pretty(0)->encode(
         { debug => ($CFG->{verbosity} > 0 ? 1 : 0), cmd => 'update', states => [ $update ] } );
     $resp = $userAgent->post($CFG->{backend}, 'Content-Type' => 'application/json', Content => $json);
@@ -109,7 +137,7 @@ do
     }
     else
     {
-        ERROR("Failed updating backend (%.3fs): %s", $dt, $resp->status_line());
+        ERROR("Failed updating backend (%.3fs): %s: %s", $dt, $resp->status_line(), $resp->decoded_content());
         exit(1);
     }
 
@@ -121,6 +149,8 @@ sub help
           "$CFG->{agent}",
           "Copyright (c) 2018 Philippe Kehl <flipflip at oinkzwurgl dot org>",
           "https://oinkzwurgl.org/projaeggd/tschenggins-laempli",
+          "",
+          "Update job info on the backend server.",
           "",
           "Usage:",
           "",
@@ -138,11 +168,13 @@ sub help
           "  -R <result>     job result (unknown, success, unstable, failure)",
           "",
           "Note that you need to provide the job state and/or the job result.",
+          "Multiple states or results can be given as a comma-separated list. In this case the most",
+          "active state respectively the worst result in the list will be used to update the job.",
           "",
           "Examples:",
           "",
           "  $0 -b https://user:pass\@foo.bar/path/to/jenkins-status.pl \\",
-          "      -J CI_make_world -S idle -S success",
+          "      -J CI_make_world -S idle -R success",
           "",
          );
     exit(0);
