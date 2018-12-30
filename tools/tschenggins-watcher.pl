@@ -254,11 +254,12 @@ sub run
         # get initial state
         my $jState = 'unknown';
         my $jResult = 'unknown';
+        my $timestamp = 0;
         my ($latestBuildDir, $previousBuildDir) = # Note: there may be no build dir(s) (yet, anymore)
           reverse sort { $a->basename() <=> $b->basename() } $buildsDir->children(qr{^[0-9]+$});
 
         # get latest build state and result
-        ($jState, $jResult) = getJenkinsJob($jobDir, $latestBuildDir);
+        ($jState, $jResult, $timestamp) = getJenkinsJob($jobDir, $latestBuildDir);
 
         # skip foul things
         if (!defined $jState && !defined $jResult)
@@ -269,7 +270,7 @@ sub run
         # keep a state per job
         $state->{$jobName} =
         {
-            jobName => $jobName, jobDir => $jobDir, buildsDir => $buildsDir,
+            jobName => $jobName, jobDir => $jobDir, buildsDir => $buildsDir, timestamp => 0,
             jState => 'dontknow', jStateDirty => 0,
             jResult => 'dontknow', jResultDirty => 0,
         };
@@ -279,7 +280,7 @@ sub run
         {
             if ( ($jState eq 'running') && $previousBuildDir )
             {
-                (undef, $jResult) =  getJenkinsJob($jobDir, $previousBuildDir);
+                (undef, $jResult, undef) =  getJenkinsJob($jobDir, $previousBuildDir);
                 $jResult //= 'unknown';
             }
         }
@@ -287,7 +288,7 @@ sub run
         # add watch
         if ($jState && $jResult)
         {
-            setState($state->{$jobName}, $jState, $jResult);
+            setState($state->{$jobName}, $jState, $jResult, $timestamp);
 
             # watch for new job output directories being created
             $in->watch($buildsDir, IN_CREATE, sub { jobCreatedCb($state, $jobName, $in, @_); });
@@ -377,7 +378,7 @@ sub getJenkinsJob
 
     # check result and duration
     my $haveBuild = 0;
-    my ($result, $duration);
+    my ($result, $duration, $timestamp);
     if ($buildDir)
     {
         my $buildFile = "$buildDir/build.xml";
@@ -390,16 +391,18 @@ sub getJenkinsJob
         if ($build)
         {
             $haveBuild = 1;
-            ($result)   = $build->findnodes('./result');
-            ($duration) = $build->findnodes('./duration');
-            $result   = $result   ? lc($result->textContent())                 : undef;
-            $duration = $duration ? int($duration->textContent() * 1e-3 + 0.5) : undef;
+            ($result)    = $build->findnodes('./result');
+            ($duration)  = $build->findnodes('./duration');
+            ($timestamp) = $build->findnodes('./startTime');
+            $result    = $result    ? lc($result->textContent())                  : undef;
+            $duration  = $duration  ? int($duration->textContent() * 1e-3 + 0.5)  : undef;
+            $timestamp = $timestamp ? int($timestamp->textContent() * 1e-3 + 0.5) : undef;
         }
     }
 
     # determine answer
-    DEBUG("build=%s disabled=%s result=%s duration=%s",
-          $haveBuild ? "present" : "missing", $disabled, $result, $duration);
+    DEBUG("build=%s disabled=%s result=%s duration=%s timestamp=%s (%s)",
+          $haveBuild ? "present" : "missing", $disabled, $result, $duration, $timestamp, _age_str($timestamp));
 
     # job explicitly disabled --> state=off, result=unknown
     my $state;
@@ -435,7 +438,12 @@ sub getJenkinsJob
         $result = 'unknown';
     }
 
-    return ($state, $result);
+    # determine timestamp
+    $timestamp //= time();
+    $timestamp += $duration if ($duration);
+    $timestamp = int($timestamp);
+
+    return ($state, $result, $timestamp);
 }
 
 sub loadXml
@@ -468,22 +476,51 @@ sub loadXml
 
 sub setState
 {
-    my ($st, $jState, $jResult) = @_;
+    my ($st, $jState, $jResult, $timestamp) = @_;
 
-    $jState  //= $st->{jState};
-    $jResult //= $st->{jResult};
+    $jState    //= $st->{jState};
+    $jResult   //= $st->{jResult};
+    $timestamp //= $st->{timestamp} || int(time());
 
     my $jStateDirty  = ($st->{jState}  ne $jState ) ? 1 : 0;
     my $jResultDirty = ($st->{jResult} ne $jResult) ? 1 : 0;
 
-    PRINT("Job: %-45s state: %-20s result: %-20s", $st->{jobName},
+    PRINT("Job: %-45s state: %-20s result: %-20s age: %s", $st->{jobName},
           $jStateDirty  ? "$st->{jState} -> $jState"   : $jState,
-          $jResultDirty ? "$st->{jResult} -> $jResult" : $jResult);
+          $jResultDirty ? "$st->{jResult} -> $jResult" : $jResult,
+          _age_str($timestamp));
 
     $st->{jState}       = $jState;
     $st->{jResult}      = $jResult;
     $st->{jStateDirty}  = $jStateDirty;
     $st->{jResultDirty} = $jResultDirty;
+    $st->{timestamp}    = $timestamp;
+}
+
+sub _age_str
+{
+    my ($ts) = @_;
+    my $dt = time() - ($ts || 0);
+    if ($dt > (86400*365.25))
+    {
+        return sprintf('%.1fa', $dt / 86400 / 365.25);
+    }
+    elsif ($dt > (86400*31))
+    {
+        return sprintf('%.1fm', $dt / 86400 / (365.25 / 12));
+    }
+    elsif ($dt > (86400*7))
+    {
+        return sprintf('%.1fw', $dt / 86400 / 7);
+    }
+    elsif ($dt > 86400)
+    {
+        return sprintf('%.1fd', $dt / 86400);
+    }
+    else
+    {
+        return sprintf('%.1fh', $dt / 3600);
+    }
 }
 
 sub updateMultiJobs
@@ -498,10 +535,11 @@ sub updateMultiJobs
         # determine multi-job state and result (most active state, worst result)
         my $jState  = 'unknown';
         my $jResult = 'unknown';
+        my $timestamp = 0;
         foreach my $jobName (@{$multiSt->{depJobs}})
         {
             my $jobSt = $state->{$jobName};
-            #DEBUG("%-40s + %-40s = %s %s", "$multiName: $multiSt->{jState} $multiSt->{jResult}", "$jobName: $jobSt->{jState} $jobSt->{jResult}", $jState, $jResult);
+            #DEBUG("%-40s + %-40s = %s %s", "$multiName: $multiSt->{jState} $multiSt->{jResult}", "$jobName: $jobSt->{jState} $jobSt->{jResult} " . _age_str($jobSt->{timestamp}), $jState, $jResult);
             if ($states{ $jobSt->{jState} } > $states{$jState})
             {
                 $jState = $jobSt->{jState};
@@ -510,6 +548,10 @@ sub updateMultiJobs
             {
                 $jResult = $jobSt->{jResult};
             }
+            if ($jobSt->{timestamp} > $timestamp)
+            {
+                $timestamp = $jobSt->{timestamp};
+            }
         }
 
         my $jStateDirty  = ($multiSt->{jState}  ne $jState ) ? 1 : 0;
@@ -517,14 +559,16 @@ sub updateMultiJobs
 
         if ($jStateDirty || $jResultDirty)
         {
-            PRINT("Multi: %-43s state: %-20s result: %-20s", $multiSt->{jobName},
+            PRINT("Multi: %-43s state: %-20s result: %-20s age: %s", $multiSt->{jobName},
                   $jStateDirty  ? "$multiSt->{jState} -> $jState"   : $jState,
-                  $jResultDirty ? "$multiSt->{jResult} -> $jResult" : $jResult);
+                  $jResultDirty ? "$multiSt->{jResult} -> $jResult" : $jResult,
+                  _age_str($timestamp));
 
             $multiSt->{jState}       = $jState;
             $multiSt->{jResult}      = $jResult;
             $multiSt->{jStateDirty}  = $jStateDirty;
             $multiSt->{jResultDirty} = $jResultDirty;
+            $multiSt->{timestamp}    = $timestamp;
         }
     }
 }
@@ -566,11 +610,11 @@ sub jobDoneCb
     if ($file =~ m{/build.xml$})
     {
         # get result
-        my ($jState, $jResult) = getJenkinsJob($state->{$jobName}->{jobDir}, path($file)->parent());
+        my ($jState, $jResult, $timestamp) = getJenkinsJob($state->{$jobName}->{jobDir}, path($file)->parent());
         DEBUG("Job '%s' has stopped, state is %s and result is '%s'.", $jobName, $jState, $jResult);
 
         # set status
-        setState($state->{$jobName}, $jState, $jResult);
+        setState($state->{$jobName}, $jState, $jResult, $timestamp);
         updateMultiJobs($state);
 
         # update backend
@@ -596,7 +640,7 @@ sub updateBackend
         my $st = $state->{$jobName};
         if ($st->{jStateDirty} || $st->{jResultdirty})
         {
-            my $_st = { name => $st->{jobName}, server => $CFG->{server} };
+            my $_st = { name => $st->{jobName}, server => $CFG->{server}, ts => $st->{timestamp} };
             if ($st->{jStateDirty})
             {
                 $_st->{state} = $st->{jState};
@@ -633,10 +677,10 @@ sub updateBackend
         }
 
         my @updates = (@pendingUpdates, @newUpdates);
+        DEBUG("updates=%s", \@updates);
         if ($#updates > -1)
         {
             my $t0 = time();
-            DEBUG("updates=%s", \@updates);
             my $userAgent = LWP::UserAgent->new( timeout => $CFG->{backendtimeout}, agent => $CFG->{agent} );
             my $json = JSON::PP->new()->utf8(1)->canonical(1)->pretty(0)->encode(
                 { debug => ($CFG->{verbosity} > 0 ? 1 : 0), cmd => 'update', states => \@updates } );
@@ -671,7 +715,7 @@ sub updateBackend
         foreach my $jobName (sort keys %{$state})
         {
             my $st = $state->{$jobName};
-            $json{$jobName}->{$_} = "$st->{$_}" for (qw(jobName jState jResult));
+            $json{$jobName}->{$_} = $st->{$_} for (qw(jobName jState jResult timestamp));
         }
         PRINT("Updating '%s' (%i/%i changed states).", $CFG->{statefile}, $#newUpdates + 1, scalar keys %json);
         eval
