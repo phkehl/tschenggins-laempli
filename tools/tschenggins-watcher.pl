@@ -200,6 +200,8 @@ sub help
           "Copyright (c) 2017-2018 Philippe Kehl <flipflip at oinkzwurgl dot org>",
           "https://oinkzwurgl.org/projaeggd/tschenggins-laempli",
           "",
+          "Watch Jenkins job directories for changes and update the backend server accordingly.",
+          "",
           "Usage:",
           "",
           "  $0 [-q] [-v] [-h] [-d] [-n <name>] [-b <statusurl>] [-j <statusfile>] [-m <multijobname>] <jobdir> ...",
