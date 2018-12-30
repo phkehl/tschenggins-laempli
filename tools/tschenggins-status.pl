@@ -643,7 +643,7 @@ variable.
                         ),
               $q->start_html(-title => $TITLE,
                              -head => [ '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>',
-                                        CGI::Link({ -rel => 'shortcut icon', -href => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABFklEQVQ4y82TTYqDQBCFX5WdRQiI+BM8Rm4h2Qlexp17D5JdzpBFtl4g24AbA0F0G3mz0UZnxgmzS0PTVHW/r6te08BHjjzPOY/LsuR/9ATACTKuFJH3kK7rCICqyhGEzWZjAX3fv4cYYwiAoxC73Y4AOObXyxYRXq9XAsDtdlscruvaxmEY8nw+L2Fjf4zj2G5EUURVZRAENuf7PgEwTVOb0xkEYRha8ePxAEk8n8/JWLRtC1XF8Xj82cPpdCIAZFk2GTg5TwA8HA4EgMvlsu5FVVUL0XwaY1gUxd+voKp0HOdXiIjQGMP7/b6A6HfIMAzWk7k/JPF6vdA0zXoF+/3e3uZ5HpMkoeu6FBGKCLfbLT/v430Br4uKwlVfZDgAAAAASUVORK5CYII=' }) ],
+                                        CGI::Link({ -rel => 'shortcut icon', -href => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAA0ElEQVQ4y5VRwQkCMRCcDfkdFiC+vDbOEoR7axkWcmXoW7CEsw19iQWIv0B8xJFNLjnMQmB2yczuzgoAjNZ6qNg4J0jigLcHgAGN6NyQ3DmHzjnkBGdjtNZ7IHo1Aubfjxw5rRkAuFr7K2o8J0IsJRNvZ0S1toekUwxoRHKdSF6vQn5/TEV4jeK8JBNThESGxdbH5lzyU1VfgR1TnEboxilU95yJy2Nce+4hUw++Ym0fr0LyYhfy1ynUTM2+JGtcJVD2ILNCepXcClUCWkSb+AEnDWJiA7f+pQAAAABJRU5ErkJggg==' }) ],
                              -style   => [ { src => 'tschenggins-status.css' } ],
                              -script  => [ { -type => 'javascript', -src => 'tschenggins-status.js' } ]),
               $q->a({ -class => 'database', -href => ($q->url() . '?cmd=rawdb;debug=1') }, 'DB: ' . ($ENV{'REMOTE_USER'} ? $ENV{'REMOTE_USER'} : '(default)')),
