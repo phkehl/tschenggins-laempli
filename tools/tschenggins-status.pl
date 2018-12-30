@@ -208,7 +208,8 @@ Connection check. Responds with "hi there" (immediately or after a delay).
 =item B<< C<< cmd=update [debug=...] [ascii=...] <states=...> [...] >> >>
 
 This expects a application/json POST request. The C<states> array consists of objects with the
-following fields: C<server>, C<name> and optionally C<state> and/or C<result>.
+following fields: C<server>, C<name> and optionally C<state> and/or C<result>. A last-changed
+timestamp can be given in C<ts>.
 
 Use the C<tschenggins-watcher.pl> script to watch multiple Jenkins jobs on the Jenkins server, or
 the C<tschenggins-update.pl> script to update single states manually or from scripts, or create your
@@ -824,7 +825,7 @@ sub _update
     {
         return 0, 'missing parameters';
     }
-
+    my $now = int(time() + 0.5);
     my $ok = 1;
     my $error = '';
     foreach my $st (@states)
@@ -833,6 +834,7 @@ sub _update
         my $server   = $st->{server} || '';
         my $jState   = $st->{state}  || '';
         my $jResult  = $st->{result} || '';
+        my $ts       = $st->{ts}     || $now;
         if ($st->{server} !~ m{$SERVERNAMERE})
         {
             $error = "not a valid server name: $server";
@@ -859,8 +861,8 @@ sub _update
         }
 
         my $id = substr(Digest::MD5::md5_hex("$server$jobName"), -8);
-        DEBUG("_update() $server $jobName $jState $jResult $id");
-        $db->{jobs}->{$id}->{ts}     = int(time() + 0.5);
+        DEBUG("_update() $server $jobName $jState $jResult $ts $id");
+        $db->{jobs}->{$id}->{ts}     = $ts;
         $db->{jobs}->{$id}->{name}   = $jobName;
         $db->{jobs}->{$id}->{server} = $server;
         $db->{jobs}->{$id}->{state}  //= 'unknown';
@@ -1189,7 +1191,7 @@ sub _gui
     {
         my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
         $jobSelectRadios .= '<label><input name="job" value="' . $jobId . '" autocomplete="off" type="radio"/>';
-        my $age = sprintf('%.1fh', ($now - $st->{ts}) / 3600);
+        my $age = _age_str($now, $st->{ts});
         $jobSelectRadios .= __gui_led($st) . " $st->{server}: $st->{name} ($st->{state}, $st->{result}, $age)";
         $jobSelectRadios .= '</label>';
     }
@@ -1249,7 +1251,7 @@ sub _gui_status
         push(@trs, $q->Tr(
                           $q->td({ -class => 'jobid' }, $jobId), $q->td($st->{server}), $q->td(__gui_led($st), $st->{name}),
                           $q->td($st->{state}), $q->td($st->{result}),
-                          $q->td({ -align => 'right', -data_sort => $st->{ts} }, sprintf('%.1fh', ($now - $st->{ts}) / 3600)),
+                          $q->td({ -align => 'right', -data_sort => $st->{ts} }, _age_str($now, $st->{ts})),
                           $q->td({}, $modify, $delete),
                          )
             );
@@ -1382,15 +1384,15 @@ sub _gui_clients
     my @html = ();
 
     my @trs = ();
+    my $now = time();
     foreach my $clientId (sort  @{$db->{_clientIds}})
     {
-        my $now = time();
         my $client = $db->{clients}->{$clientId};
         my $config = $db->{config}->{$clientId};
         my $name     = $client->{name} || 'unknown';
         my $cfgName  = $config->{name} || 'unknown';
         my $cfgModel = $config->{model} || 'unknown';
-        my $last     = $client->{ts} ? sprintf('%.1f hours ago', ($now - $client->{ts}) / 3600.0) : 'unknown';
+        my $last     = $client->{ts} ? _age_str($now, $client->{ts}) . ' ago' : 'unknown';
         my $online   = $client->{check} && (($now - $client->{check}) < 15) ? 'online' : 'offline';
         my $check    = $online eq 'online' ? int($now - $client->{check} + 0.5) : 'n/a';
         my $pid      = $client->{pid} || 'n/a';
@@ -1709,7 +1711,6 @@ sub _jsonEncode
     return $json;
 }
 
-
 sub _jsonDecode
 {
     my ($json) = @_;
@@ -1723,5 +1724,32 @@ sub _jsonDecode
     };
     return $data;
 }
+
+sub _age_str
+{
+    my ($now, $then) = @_;
+    my $dt = $now - $then;
+    if ($dt > (86400*365.25))
+    {
+        return sprintf('%.1fa', $dt / 86400 / 365.25);
+    }
+    elsif ($dt > (86400*31))
+    {
+        return sprintf('%.1fm', $dt / 86400 / (365.25 / 12));
+    }
+    elsif ($dt > (86400*7))
+    {
+        return sprintf('%.1fw', $dt / 86400 / 7);
+    }
+    elsif ($dt > 86400)
+    {
+        return sprintf('%.1fd', $dt / 86400);
+    }
+    else
+    {
+        return sprintf('%.1fh', $dt / 3600);
+    }
+}
+
 
 __END__
