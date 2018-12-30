@@ -1249,10 +1249,10 @@ sub _gui_status
         my $modify = $q->span({ -class => 'action action-modify-job', -data_jobid => $jobId }, 'modify');
         my $delete = $q->span({ -class => 'action action-delete-job', -data_jobid => $jobId }, 'delete');
         push(@trs, $q->Tr(
-                          $q->td({ -class => 'jobid' }, $jobId), $q->td($st->{server}), $q->td(__gui_led($st), $st->{name}),
+                          $q->td({ -class => 'jobid' }, $jobId), $q->td({ -class => 'nowrap' }, $st->{server}), $q->td(__gui_led($st), $st->{name}),
                           $q->td($st->{state}), $q->td($st->{result}),
                           $q->td({ -align => 'right', -data_sort => $st->{ts} }, _age_str($now, $st->{ts})),
-                          $q->td({}, $modify, $delete),
+                          $q->td({ -class => 'nowrap' }, $modify, $delete),
                          )
             );
     }
@@ -1261,18 +1261,18 @@ sub _gui_status
                       $q->Tr(
                              $q->th('Filter:'),
                              $q->td($q->input({ -type => 'text', -id => 'results-filter', -autocomplete => 'off', -placeholder => 'filter (regex)...', -default => '' })),
-                             $q->td({ -id => 'results-filter-status' }, 'showing all'),
+                             $q->td({ -id => 'results-filter-status', -class => 'right nowrap max-width' }, 'showing all'),
                             ),
                       ),
             $q->table({ -id => 'results-table' },
                       $q->thead(
                                 $q->Tr(
-                                       $q->th({ -class => 'sort' }, 'ID'),
-                                       $q->th({ -class => 'sort' }, 'Server'),
-                                       $q->th({ -class => 'sort' }, 'Job'),
-                                       $q->th({ -class => 'sort' }, 'State'),
-                                       $q->th({ -class => 'sort' }, 'Result'),
-                                       $q->th({ -class => 'sort' }, 'Age'),
+                                       $q->th({ -class => 'sort' }, $q->span({}, 'ID')),
+                                       $q->th({ -class => 'sort' }, $q->span({}, 'Server')),
+                                       $q->th({ -class => 'sort max-width' }, $q->span({}, 'Job')),
+                                       $q->th({ -class => 'sort' }, $q->span({}, 'State')),
+                                       $q->th({ -class => 'sort' }, $q->span({}, 'Result')),
+                                       $q->th({ -class => 'sort' }, $q->span({}, 'Age')),
                                        $q->th({}, 'Actions'),
                                       ),
                                ),
@@ -1416,13 +1416,16 @@ sub _gui_clients
         }
 
         push(@trs, $q->Tr({},
-                          $q->td({ -data_sort => hex($clientId), -class => 'clientid' }, $clientId),
-                          $q->td({}, $name), $q->td({}, $cfgName), $q->td({}, @leds),
-                          $q->td({ -align => 'center', -data_sort => ($client->{ts} || 0) }, $last),
-                          $q->td({ -class => $online, -align => 'center', -data_sort => "$online $pid" }, "$pid ($check)"),
-                          $q->td({ -align => 'center' }, $staIp), $q->td({ -align => 'center' }, $staSsid),
-                          $q->td({}, $cfgModel),
-                          $q->td({ -align => 'center' }, $version), $q->td({}, $edit)));
+                          $q->td({ -class => 'clientid', -data_sort => hex($clientId) }, $clientId),
+                          $q->td({ -class => 'nowrap' }, $name),
+                          $q->td({ -class => 'nowrap' }, $cfgName),
+                          $q->td({}, @leds),
+                          $q->td({ -class => 'class nowrap right', -data_sort => ($client->{ts} || 0) }, $last),
+                          $q->td({ -class => "$online center nowrap", -data_sort => "$online $pid" }, "$pid ($check)"),
+                          $q->td({ -class => 'center nowrap' }, $staIp),
+                          $q->td({ -align => 'center nowrap' }, $staSsid),
+                          $q->td({ }, $cfgModel),
+                          $q->td({ -class => 'center' }, $version), $q->td({}, $edit)));
     }
     push(@html,
          $q->table({},
@@ -1430,11 +1433,11 @@ sub _gui_clients
                                         $q->th({ -class => 'sort' }, 'ID'),
                                         $q->th({ -class => 'sort' }, 'Client'),
                                         $q->th({ -class => 'sort' }, 'Name'),
-                                        $q->th({}, 'Status'),
+                                        $q->th({ -class => 'max-width' }, 'Status'),
                                         $q->th({ -class => 'sort' }, 'Connected'),
                                         $q->th({ -class => 'sort' }, 'PID'),
-                                        $q->th({ -class => 'sort' }, 'Sta IP'),
-                                        $q->th({ -class => 'sort' }, 'Sta SSID'),
+                                        $q->th({ -class => 'sort nowrap' }, 'Sta IP'),
+                                        $q->th({ -class => 'sort nowrap' }, 'Sta SSID'),
                                         $q->th({ -class => 'sort' }, 'Model'),
                                         $q->th({ -class => 'sort' }, 'Version'),
                                         $q->th({}, 'Actions'),
@@ -1504,14 +1507,14 @@ sub __gui_config_client
         my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
         push(@jobsTrs, # Note: the job selection popup menu is populated run-time (JS), since $q->popup_menu() is very expensive
              $q->Tr({}, $q->td({ -align => 'right' }, $ix), $q->td({ -class => 'jobid' }, $jobId),
-                    $q->td({}, $jobId ? __gui_led($st) : ''), $q->td({ -class => 'jobSelectPopup'}, $jobId))
+                    $q->td({}, $jobId ? __gui_led($st) : ''), $q->td({ -class => 'jobSelectPopup' }, $jobId))
             );
     }
     my $htmlJobs =
       $q->div({ },
               $q->start_form(-method => 'GET', -action => $q->url() ),
               $q->table({},
-                        $q->Tr({}, $q->th({}, 'ix'), $q->th({}, 'ID'), $q->th({ -colspan => 2 }, 'Job')),
+                        $q->Tr({}, $q->th({}, 'Ix'), $q->th({}, 'ID'), $q->th({}, ''), $q->th({ -class => 'max-width' }, 'Job')),
                         @jobsTrs,
                         ($maxch ? $q->Tr({ }, $q->td({ -colspan => 4, -align => 'center' }, $q->submit(-value => 'save channel config'))) : ''),
                        ),

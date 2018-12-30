@@ -17,20 +17,24 @@ table td, table th { margin: 0; padding: 0.1em 0.25em 0.1em 0.25em;  border: 1px
 table th { font-weight: bold; background-color: #ddd; text-align: left; border-bottom: 1px solid #000; }
 table tr:hover td, table tr:hover td select, table tr:hover td input { background-color: hsl(160, 100%, 90%); }
 
+td.max-width, th.max-width { width: 100%; }
+
 div.blocker { background-color: #000; opacity: 0.75; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
 div.blocker-message { position: fixed; top: 0; left: 0; width: 100%; height: 100%; font-size: 200%; color: #fff; display: flex; align-items: center; justify-content: center; }
 
-th.sort { cursor: ns-resize; }
-th.sort::after { content: '↕'; color: #aaa; float:right; }
+th.sort { cursor: ns-resize; padding-right: 1em; }
+th.sort::after { content: '↕'; color: #aaa; float:right; position: relative; margin-right: -1em; right: 0; }
 th.sort.sort-asc::after { content: '↑'; color: #000; }
 th.sort.sort-desc::after { content: '↓'; color: #000; }
 
 .clientid, .jobid { font-family: monospace; }
 .action { color: blue; cursor: pointer; }
 .action:hover { background-color: hsl(160, 100%, 80%); }
-
+.right { text-align: right; }
+.center { text-align: center; }
 .hidden { display: none; }
 .error { color: #f00; }
+.nowrap { white-space: nowrap; }
 
 input, select { border: 0.1em solid #aaa; border-radius: 0.25em; background-color: transparent; }
 
