@@ -399,11 +399,12 @@ sub getJenkinsJob
     DEBUG("build=%s disabled=%s result=%s duration=%s",
           $haveBuild ? "present" : "missing", $disabled, $result, $duration);
 
-    # job explicitly disabled --> state=off
+    # job explicitly disabled --> state=off, result=unknown
     my $state;
     if ($disabled)
     {
         $state = 'off';
+        $result = 'unknown';
     }
     # job not disabled: we have a result: state=idle, we don't have a result yet: state=running
     else
