@@ -1257,8 +1257,13 @@ sub _gui_status
             );
     }
     return (
-            $q->table($q->Tr($q->th('Filter:'), $q->td(
-                $q->input({ -type => 'text', -id => 'results-filter', -autocomplete => 'off', -placeholder => 'filter (regex)...', -default => '' })))),
+            $q->table(
+                      $q->Tr(
+                             $q->th('Filter:'),
+                             $q->td($q->input({ -type => 'text', -id => 'results-filter', -autocomplete => 'off', -placeholder => 'filter (regex)...', -default => '' })),
+                             $q->td({ -id => 'results-filter-status' }, 'showing all'),
+                            ),
+                      ),
             $q->table({ -id => 'results-table' },
                       $q->thead(
                                 $q->Tr(

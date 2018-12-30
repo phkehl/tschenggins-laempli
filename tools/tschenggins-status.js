@@ -1769,9 +1769,15 @@ $(document).ready(function ()
 
     // results table filter
     var resultsFilter = $('#results-filter');
+    var resultsStatus = $('#results-filter-status');
     var resultsTableRows = $('#results-table tbody tr');
-    if (resultsFilter.length && resultsTableRows.length)
+    if (resultsFilter.length && resultsStatus.length && resultsTableRows.length)
     {
+        if (sessionStorage.getItem('results-filter-term'))
+        {
+            resultsFilter.val( sessionStorage.getItem('results-filter-term') );
+        }
+
         //DEBUG('resultsFilter', resultsFilter);
         //DEBUG('resultsTableRows', resultsTableRows);
         var index = resultsTableRows.map(function (ix, el)
@@ -1786,7 +1792,7 @@ $(document).ready(function ()
                 clearTimeout(filterTo);
             }
             filterTo = setTimeout(function () { filterTable(resultsFilter, index); }, 300);
-        });
+        }).trigger('keyup');
     }
     function filterTable(input, index)
     {
@@ -1796,6 +1802,9 @@ $(document).ready(function ()
         {
             input.removeClass('error');
             index.forEach(function (entry) { entry.tr.removeClass('hidden'); });
+            resultsStatus.removeClass('error');
+            resultsStatus.text('showing all ' + index.length + ' jobs');
+            sessionStorage.removeItem('results-filter-term');
             return;
         }
         var re;
@@ -1807,21 +1816,29 @@ $(document).ready(function ()
         {
             DEBUG('bad regexp: ' + e);
             input.addClass('error');
+            resultsStatus.text('bad regexp: ' + e);
+            resultsStatus.addClass('error');
         }
         if (typeof re === 'object')
         {
+            sessionStorage.setItem('results-filter-term', term);
+            var nShow = 0;
             input.removeClass('error');
             for (var ix = 0; ix < index.length; ix++)
             {
                 if (re.test( index[ix].text ))
                 {
                     index[ix].tr.removeClass('hidden')
+                    nShow++;
                 }
                 else
                 {
                     index[ix].tr.addClass('hidden')
                 }
             }
+            resultsStatus.removeClass('error');
+            resultsStatus.text('showing ' + nShow + ' of ' + index.length + ' jobs');
+
         }
     }
 
