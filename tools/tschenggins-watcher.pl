@@ -352,6 +352,8 @@ sub getJenkinsJob
     my ($jobDir, $buildDir) = @_;
     #DEBUG("getJenkinsJob(%s, %s)", $jobDir, $buildDir);
 
+    # FIXME: Maybe we could check for ./disabled, ./result and ./duration instead of insisting on certain root nodes.
+
     # load job config file
     my $configFile = "$jobDir/config.xml";
     if (!-f $configFile)
@@ -360,9 +362,9 @@ sub getJenkinsJob
         return;
     }
     my $config = loadXml($configFile);
-    if (!$config || ($config->nodeName() ne 'project'))
+    if ( !$config || ($config->nodeName() !~ m{^(project|flow-definition)$}) )
     {
-        WARNING("Ignoring invalid $configFile (have %s, expected <project/>)!", $config ? '<' . $config->nodeName() . '/>' : undef);
+        WARNING("Ignoring invalid $configFile (have %s)!", $config ? '<' . $config->nodeName() . '/>' : undef);
         return;
     }
 
@@ -378,7 +380,7 @@ sub getJenkinsJob
     {
         my $buildFile = "$buildDir/build.xml";
         my $build = loadXml($buildFile);
-        if ($build && ($build->nodeName() ne 'build'))
+        if ( $build && ($build->nodeName() !~ m{^(build|flow-build)$}) )
         {
             WARNING("Invalid build (project) type (have <%s/>, expected <build/>)!", $build->nodeName());
             return;
