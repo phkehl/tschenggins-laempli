@@ -298,16 +298,27 @@ sub run
     }
 
     # create states for muti-jobs
+    my $errors = 0;
     foreach my $multiJob (sort keys %{$multiJobs})
     {
-        my @depStates = sort map { $multiJobs->{$multiJob}->{$_}->basename() } sort keys %{$multiJobs->{$multiJob}};
+        my @depJobs = sort map { $multiJobs->{$multiJob}->{$_}->basename() } sort keys %{$multiJobs->{$multiJob}};
+        # check if they're all good
+        foreach my $jobName (@depJobs)
+        {
+            if (!$state->{$jobName})
+            {
+                ERROR("Error: Multi-job name '$multiJob' wants unusable '$jobName'!");
+                $errors++;
+            }
+        }
         $state->{$multiJob} =
         {
-            jobName => $multiJob, depStates => \@depStates,
+            jobName => $multiJob, depJobs => \@depJobs,
             jState => 'dontknow', jStateDirty => 0,
             jResult => 'dontknow', jResultDirty => 0,
         };
     }
+    exit(1) if ($errors);
     updateMultiJobs($state);
 
     unless ($CFG->{backend} || $CFG->{statefile})
@@ -476,13 +487,13 @@ sub updateMultiJobs
     my %states  = ( dontknow => -1, unknown => 0, off => 1, idle => 2, running => 3 );
     my %results = ( dontknow => -1, unknown => 0, success => 1, unstable => 2, failure => 3 );
 
-    foreach my $multiName (grep { $state->{$_}->{depStates} } sort keys %{$state})
+    foreach my $multiName (grep { $state->{$_}->{depJobs} } sort keys %{$state})
     {
         my $multiSt = $state->{$multiName};
         # determine multi-job state and result
         my $jState  = 'unknown';
         my $jResult = 'unknown';
-        foreach my $jobName (@{$multiSt->{depStates}})
+        foreach my $jobName (@{$multiSt->{depJobs}})
         {
             my $jobSt = $state->{$jobName};
             #DEBUG("%-40s + %-40s = %s %s", "$multiName: $multiSt->{jState} $multiSt->{jResult}", "$jobName: $jobSt->{jState} $jobSt->{jResult}", $jState, $jResult);
