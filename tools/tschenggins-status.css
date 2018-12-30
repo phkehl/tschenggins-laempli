@@ -41,8 +41,8 @@ td.online { color: hsl(125, 100%, 40%); } td.offline { color:hsl(0, 100%, 40%); 
 
 div.led { display: inline-block; margin: 0; padding: 0; width: 0.75em; height: 0.75em; max-width: 0.75em; max-height: 0.75em; border: 0.1em solid #aaa; border-radius: 0.75em; }
 
-\@keyframes pulse { 0% { opacity: 0.2; } 50% { opacity: 0.6; } 100% { opacity: 1.0; } }
-\@keyframes flicker { 0%, 50%, 70% { opacity: 0.2; } 5%, 66%, 100% { opacity: 0.5; } 35% { opacity: 0.8; } }
+@keyframes pulse { 0% { opacity: 0.2; } 50% { opacity: 0.6; } 100% { opacity: 1.0; } }
+@keyframes flicker { 0%, 50%, 70% { opacity: 0.2; } 5%, 66%, 100% { opacity: 0.5; } 35% { opacity: 0.8; } }
 
 div.led.state-unknown   { animation: flicker 1s ease-in-out 0s infinite; }
 div.led.state-off       { opacity: 0.5; }
