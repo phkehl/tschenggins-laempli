@@ -493,7 +493,7 @@ sub updateMultiJobs
     foreach my $multiName (grep { $state->{$_}->{depJobs} } sort keys %{$state})
     {
         my $multiSt = $state->{$multiName};
-        # determine multi-job state and result
+        # determine multi-job state and result (most active state, worst result)
         my $jState  = 'unknown';
         my $jResult = 'unknown';
         foreach my $jobName (@{$multiSt->{depJobs}})
