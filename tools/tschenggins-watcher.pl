@@ -1,21 +1,21 @@
 #!/usr/bin/perl
-################################################################################
+####################################################################################################
 #
 # Jenkins Lämpli -- Jenkins status watcher
 #
-# This watches a given Jenkins jobs directory for changes and publishes them
-# to the jenkins-status.pl on a webserver.
+# This watches a given Jenkins jobs directory for changes and publishes them to the
+# jenkins-status.pl on a webserver.
 #
 # Copyright (c) 2017-2018 Philippe Kehl <flipflip at oinkzwurgl dot org>
 # https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 #
-################################################################################
+####################################################################################################
 #
 # TODO:
 # - handle jobs that can run multiple times in parallel
 # - logging (when using -d)
 #
-################################################################################
+####################################################################################################
 
 use strict;
 use warnings;
@@ -41,14 +41,14 @@ use Ffi::Debug ':all';
 setrlimit( RLIMIT_VMEM, 0.35 * ( 1 << 30 ), 1 * ( 1 << 30 ) );
 
 
-################################################################################
+####################################################################################################
 # configuration
 
 my $CFG =
 {
     verbosity      => 0,
     backend        => '',
-    agent          => 'tschenggins-watcher/2.0',
+    agent          => 'tschenggins-watcher/3.0',
     checkperiod    => 60,
     server         => Sys::Hostname::hostname(),
     daemonise      => 0,
@@ -61,7 +61,11 @@ do
     my @jobdirs = ();
 
     # parse command line
+    my $errors = 0;
     my %jobDirsSeen = ();
+    my %jobNamesSeen = ();
+    my $multiJob = '';
+    my %multiJobs = ();
     while (my $arg = shift(@ARGV))
     {
         if    ($arg eq '-v') { $Ffi::Debug::VERBOSITY++; $CFG->{verbosity}++; }
@@ -70,6 +74,7 @@ do
         elsif ($arg eq '-s') { $CFG->{server} = shift(@ARGV); }
         elsif ($arg eq '-j') { $CFG->{statefile} = shift(@ARGV); }
         elsif ($arg eq '-d') { $CFG->{daemonise} = 1; }
+        elsif ($arg eq '-m') { $multiJob = shift(@ARGV); }
         elsif ($arg eq '-h') { help(); }
         elsif ($arg !~ m{^-})
         {
@@ -79,12 +84,30 @@ do
                 if (!$jobDirsSeen{$dir})
                 {
                     push(@jobdirs, $dir);
+                    my $jobName = $dir->basename();
+                    $jobNamesSeen{$jobName} = $dir;
                 }
                 else
                 {
-                    WARNING("Ignoring duplicate dir $dir!");
+                    if (!$multiJob)
+                    {
+                        WARNING("Ignoring duplicate dir '$dir'!");
+                    }
                 }
                 $jobDirsSeen{$dir}++;
+
+                # multi jobs
+                if ($multiJob)
+                {
+                    if (!$multiJobs{$multiJob}->{$dir})
+                    {
+                        $multiJobs{$multiJob}->{$dir} = $dir;
+                    }
+                    else
+                    {
+                        WARNING("Ignoring duplicate dir '$dir' for multi-job '$multiJob'!");
+                    }
+                }
             }
             else
             {
@@ -97,9 +120,32 @@ do
             exit(1);
         }
     }
-    DEBUG("jobdirs=%s", \@jobdirs);
 
-    if ($#jobdirs < 0)
+    # debug
+    foreach my $dir (sort @jobdirs)
+    {
+        DEBUG("jobdir: '$dir'");
+    }
+    foreach my $multi (sort keys %multiJobs)
+    {
+        DEBUG("multijob: '$multi':");
+        foreach my $dir (sort keys %{$multiJobs{$multi}})
+        {
+            DEBUG("        '$dir'");
+        }
+    }
+
+    # check for name clases
+    foreach my $multiJob (sort keys %multiJobs)
+    {
+        if ($jobNamesSeen{$multiJob})
+        {
+            ERROR("Error: Multi-job name '$multiJob' already used for '$jobNamesSeen{$multiJob}'!");
+            $errors++;
+        }
+    }
+
+    if ($errors || ($#jobdirs < 0))
     {
         ERROR("Try '$0 -h'.");
         exit(1);
@@ -144,7 +190,7 @@ do
     }
 
     # run..
-    run(@jobdirs);
+    run(\@jobdirs, \%multiJobs);
 };
 
 sub help
@@ -156,7 +202,7 @@ sub help
           "",
           "Usage:",
           "",
-          "  $0 [-q] [-v] [-h] [-d] [-n <name>] -b <statusurl> <jobdir> ...",
+          "  $0 [-q] [-v] [-h] [-d] [-n <name>] [-b <statusurl>] [-j <statusfile>] [-m <multijobname>] <jobdir> ...",
           "",
           "Where:",
           "",
@@ -164,8 +210,9 @@ sub help
           "  -q  decreases verbosity",
           "  -v  increases verbosity",
           "  -b <statusurl>  URL for the jenkins-status.pl backend",
-          "  -j <filename>  write state to this file (in JSON)",
+          "  -j <statusfile>  write state to this file (in JSON)",
           "  -s <server>  the Jenkins server name (default on this machine: $CFG->{server})",
+          "  -m <multijobname> consider all following <jobdir>s in this virtual multi-job",
           "  -d  run in background (daemonise)",
           "  <jobdir> one or more Jenkins job directories to monitor",
           "",
@@ -177,24 +224,27 @@ sub help
           "",
           "  $0 -s gugus -b https://user:pass\@foo.bar/path/to/jenkins-status.pl /var/lib/jenkins/jobs/CI_*",
           "",
+          "  $0 -j status.json -m CI_ALL /var/lib/jenkins/jobs/CI_* -m Nightly_ALL /var/lib/jenkins/jobs/Nightly_*",
+          "",
          );
     exit(0);
 
 }
 
-################################################################################
+####################################################################################################
 # watch Jenkins job dirs
 
 sub run
 {
-    my @jobdirs = @_;
+    my ($jobdirs, $multiJobs) = @_;
 
     PRINT("Initialising...");
     my $in = Linux::Inotify2->new() || die($!);
 
     my $state = {};
 
-    foreach my $jobDir (@jobdirs)
+    # populate initial state and add watcher for each job
+    foreach my $jobDir (@{$jobdirs})
     {
         my $jobName = $jobDir->basename();
         my $buildsDir = path("$jobDir/builds");
@@ -247,12 +297,27 @@ sub run
         }
     }
 
+    # create states for muti-jobs
+    foreach my $multiJob (sort keys %{$multiJobs})
+    {
+        my @depStates = sort map { $multiJobs->{$multiJob}->{$_}->basename() } sort keys %{$multiJobs->{$multiJob}};
+        $state->{$multiJob} =
+        {
+            jobName => $multiJob, depStates => \@depStates,
+            jState => 'dontknow', jStateDirty => 0,
+            jResult => 'dontknow', jResultDirty => 0,
+        };
+    }
+    updateMultiJobs($state);
+
     unless ($CFG->{backend} || $CFG->{statefile})
     {
         WARNING("No state file or backend URL given.");
     }
 
     # keep watching...
+    my $nJobs = $#{$jobdirs} + 1;
+    my $nMulti = scalar keys %{$multiJobs};
     my $lastCheck = 0;
     $in->blocking(0);
     while (1)
@@ -261,7 +326,7 @@ sub run
 
         if ( (time() - $lastCheck) > $CFG->{checkperiod} )
         {
-            PRINT("Watching %i jobs for '%s'.", $#jobdirs + 1, $CFG->{server});
+            PRINT("Watching %i jobs and %i multi-jobs for '%s'.", $nJobs, $nMulti, $CFG->{server});
             $lastCheck = time();
             # retry previously failed updates
             updateBackend($state);
@@ -395,7 +460,7 @@ sub setState
     my $jStateDirty  = ($st->{jState}  ne $jState ) ? 1 : 0;
     my $jResultDirty = ($st->{jResult} ne $jResult) ? 1 : 0;
 
-    PRINT("Job: %-40s state: %-20s result: %-20s", $st->{jobName},
+    PRINT("Job: %-45s state: %-20s result: %-20s", $st->{jobName},
           $jStateDirty  ? "$st->{jState} -> $jState"   : $jState,
           $jResultDirty ? "$st->{jResult} -> $jResult" : $jResult);
 
@@ -405,9 +470,50 @@ sub setState
     $st->{jResultDirty} = $jResultDirty;
 }
 
+sub updateMultiJobs
+{
+    my ($state) = @_;
+    my %states  = ( dontknow => -1, unknown => 0, off => 1, idle => 2, running => 3 );
+    my %results = ( dontknow => -1, unknown => 0, success => 1, unstable => 2, failure => 3 );
 
+    foreach my $multiName (grep { $state->{$_}->{depStates} } sort keys %{$state})
+    {
+        my $multiSt = $state->{$multiName};
+        # determine multi-job state and result
+        my $jState  = 'unknown';
+        my $jResult = 'unknown';
+        foreach my $jobName (@{$multiSt->{depStates}})
+        {
+            my $jobSt = $state->{$jobName};
+            #DEBUG("%-40s + %-40s = %s %s", "$multiName: $multiSt->{jState} $multiSt->{jResult}", "$jobName: $jobSt->{jState} $jobSt->{jResult}", $jState, $jResult);
+            if ($states{ $jobSt->{jState} } > $states{$jState})
+            {
+                $jState = $jobSt->{jState};
+            }
+            if ($results{ $jobSt->{jResult} } > $results{$jResult})
+            {
+                $jResult = $jobSt->{jResult};
+            }
+        }
 
-################################################################################
+        my $jStateDirty  = ($multiSt->{jState}  ne $jState ) ? 1 : 0;
+        my $jResultDirty = ($multiSt->{jResult} ne $jResult) ? 1 : 0;
+
+        if ($jStateDirty || $jResultDirty)
+        {
+            PRINT("Multi: %-43s state: %-20s result: %-20s", $multiSt->{jobName},
+                  $jStateDirty  ? "$multiSt->{jState} -> $jState"   : $jState,
+                  $jResultDirty ? "$multiSt->{jResult} -> $jResult" : $jResult);
+
+            $multiSt->{jState}       = $jState;
+            $multiSt->{jResult}      = $jResult;
+            $multiSt->{jStateDirty}  = $jStateDirty;
+            $multiSt->{jResultDirty} = $jResultDirty;
+        }
+    }
+}
+
+####################################################################################################
 # inotify callbacks
 
 # called when something was created in the builds directory
@@ -426,6 +532,7 @@ sub jobCreatedCb
 
         # set status
         setState($state->{$jobName}, 'running');
+        updateMultiJobs($state);
 
         # update backend
         updateBackend($state);
@@ -448,6 +555,7 @@ sub jobDoneCb
 
         # set status
         setState($state->{$jobName}, $jState, $jResult);
+        updateMultiJobs($state);
 
         # update backend
         updateBackend($state);
@@ -458,7 +566,7 @@ sub jobDoneCb
 }
 
 
-################################################################################
+####################################################################################################
 # update jenkins-status.pl
 
 sub updateBackend
@@ -563,4 +671,5 @@ sub updateBackend
     }
 }
 
+####################################################################################################
 __END__
