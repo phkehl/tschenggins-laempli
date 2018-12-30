@@ -107,3 +107,4 @@ See `make help` and `make info` for more information.
 - Run the `tools/tschenggins-watcher.pl` script on the Jenkins server to monitor the Jenkins jobs
   and point it to the location of the CGI script.
 
+![Tschenggins Lämpli System Concept](doc/system_concept.svg)
