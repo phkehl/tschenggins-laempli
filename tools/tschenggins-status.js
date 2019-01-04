@@ -1763,7 +1763,8 @@ $(document).ready(function ()
     $('form').on('submit', function ()
     {
         $('body').prepend( $('<div/>').addClass('blocker'),
-                           $('<div/>').addClass('blocker-message').html('&hellip;please wait&hellip;') );
+                           //$('<div/>').addClass('blocker-message').html('&hellip;please wait&hellip;'),
+                           '<div class="blocker-message bouncing-loader"><div></div><div></div><div></div></div>');
         return true;
     });
 

@@ -21,6 +21,12 @@ td.max-width, th.max-width { width: 100%; }
 
 div.blocker { background-color: #000; opacity: 0.75; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
 div.blocker-message { position: fixed; top: 0; left: 0; width: 100%; height: 100%; font-size: 200%; color: #fff; display: flex; align-items: center; justify-content: center; }
+/* from https://30-seconds.github.io/30-seconds-of-css/ */
+@keyframes bouncing-loader { to { opacity: 0.1; transform: translate3d(0, -1rem, 0); } }
+.bouncing-loader { display: flex; justify-content: center; }
+.bouncing-loader > div { width: 1rem; height: 1rem; margin: 3rem 0.2rem; background: #8385aa; border-radius: 50%; animation: bouncing-loader 0.6s infinite alternate; }
+.bouncing-loader > div:nth-child(2) { animation-delay: 0.2s; }
+.bouncing-loader > div:nth-child(3) { animation-delay: 0.4s; }
 
 th.sort { cursor: ns-resize; padding-right: 1em; }
 th.sort::after { content: '↕'; color: #aaa; float:right; position: relative; margin-right: -1em; right: 0; }
