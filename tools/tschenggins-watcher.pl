@@ -161,7 +161,7 @@ do
     if ($CFG->{backend})
     {
         PRINT("Using backend at '%s'.", $CFG->{backend});
-        my $userAgent = LWP::UserAgent->new( timeout => $CFG->{backendtimeout}, agent => $CFG->{agent} );
+        my $userAgent = _userAgent();
         my $resp = $userAgent->get("$CFG->{backend}?cmd=hello");
         if ($resp->is_success())
         {
@@ -324,8 +324,13 @@ sub run
             jState => 'dontknow', jStateDirty => 0,
             jResult => 'dontknow', jResultDirty => 0,
         };
+        if (!sendMultiJobInfo($state->{$multiJob}))
+        {
+            $errors++;
+        }
     }
     exit(1) if ($errors);
+
     updateMultiJobs($state);
 
     unless ($CFG->{backend} || $CFG->{statefile})
@@ -586,6 +591,32 @@ sub updateMultiJobs
     }
 }
 
+sub sendMultiJobInfo
+{
+    my ($st) = @_;
+    return 1 unless ($CFG->{backend});
+
+    my $t0 = time();
+    my $userAgent = _userAgent();
+
+    my $resp = $userAgent->post($CFG->{backend},
+        Content => { cmd => 'multi', server => $CFG->{server}, name => $st->{jobName}, names => $st->{depJobs} });
+    DEBUG("%s: %s", $resp->status_line(), $resp->decoded_content());
+    my $dt = time() - $t0;
+    if ($resp->is_success())
+    {
+        PRINT("Successfully sent multi-job info for '%s' (%.3fs).", $st->{jobName}, $dt);
+        return 1;
+    }
+    else
+    {
+        WARNING("Failed sending multi-job info for '%s' (%.3fs): %s", $st->{jobName}, $dt, $resp->status_line());
+        return 0;
+    }
+
+    exit;
+}
+
 ####################################################################################################
 # inotify callbacks
 
@@ -736,7 +767,7 @@ sub updateBackend
         if ($#updates > -1)
         {
             my $t0 = time();
-            my $userAgent = LWP::UserAgent->new( timeout => $CFG->{backendtimeout}, agent => $CFG->{agent} );
+            my $userAgent = _userAgent();
             my $json = JSON::PP->new()->utf8(1)->canonical(1)->pretty(0)->encode(
                 { debug => ($CFG->{verbosity} > 0 ? 1 : 0), cmd => 'update', states => \@updates } );
             my $resp = $userAgent->post($CFG->{backend}, 'Content-Type' => 'application/json', Content => $json);
@@ -784,6 +815,30 @@ sub updateBackend
             WARNING("Could not write '%s': %s", $CFG->{statefile}, $! || "$@");
         }
     }
+}
+
+sub _userAgent
+{
+    my ($trace) = @_;
+    my $ua = LWP::UserAgent->new( timeout => $CFG->{backendtimeout}, agent => $CFG->{agent} );
+    if ($trace)
+    {
+        $ua->add_handler('request_send', sub
+        {
+            my ($req, $ua, $h) = @_;
+            WARNING("trace 'request_send' follows:");
+            $req->dump();
+            return;
+        });
+        $ua->add_handler('response_done', sub
+        {
+            my ($resp, $ua, $h) = @_;
+            WARNING("trace 'response_done' follows:");
+            $resp->dump();
+            return;
+        });
+    }
+    return $ua;
 }
 
 ####################################################################################################
