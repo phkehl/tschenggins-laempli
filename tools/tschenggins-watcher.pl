@@ -13,6 +13,7 @@
 #
 # TODO:
 # - handle jobs that can run multiple times in parallel
+# - (maybe) handle job rename
 # - logging (when using -d)
 #
 ####################################################################################################
@@ -285,10 +286,13 @@ sub run
             }
         }
 
-        # add watch
+        # add watches
         if ($jState && $jResult)
         {
             setState($state->{$jobName}, $jState, $jResult, $timestamp);
+
+            # watch job config for changes
+            $in->watch($jobDir, IN_CREATE | IN_MOVED_TO, sub { jobChangedCb($state, $jobName, $in, @_); });
 
             # watch for new job output directories being created
             $in->watch($buildsDir, IN_CREATE, sub { jobCreatedCb($state, $jobName, $in, @_); });
@@ -411,10 +415,16 @@ sub getJenkinsJob
         $state = 'off';
         $result = 'unknown';
     }
-    # job not disabled: we have a result: state=idle, we don't have a result yet: state=running
-    else
+    # job not disabled and have build dir: we have a result: state=idle, we don't have a result yet: state=running
+    elsif ($haveBuild)
     {
         $state = $result ? 'idle' : 'running';
+    }
+    # job disabled, don't know result, don't know state
+    else
+    {
+        $state = 'idle';
+        $result = 'unknown';
     }
 
     # we have a duration, i.e. the job has completed and should have a result
@@ -539,7 +549,10 @@ sub updateMultiJobs
         foreach my $jobName (@{$multiSt->{depJobs}})
         {
             my $jobSt = $state->{$jobName};
-            #DEBUG("%-40s + %-40s = %s %s", "$multiName: $multiSt->{jState} $multiSt->{jResult}", "$jobName: $jobSt->{jState} $jobSt->{jResult} " . _age_str($jobSt->{timestamp}), $jState, $jResult);
+            #DEBUG("%-40s %-10s %-10s + %-40s %-10s %-10s %-10s = %-10s %-10s",
+            #      $multiName, $multiSt->{jState}, $multiSt->{jResult},
+            #      $jobName, $jobSt->{jState}, $jobSt->{jResult}, _age_str($jobSt->{timestamp}), $jState,
+            #      $jResult);
             if ($states{ $jobSt->{jState} } > $states{$jState})
             {
                 $jState = $jobSt->{jState};
@@ -581,6 +594,7 @@ sub jobCreatedCb
 {
     my ($state, $jobName, $in, $e) = @_;
     my $buildDir = $e->fullname();
+    DEBUG("jobCreatedCb(%s) %s %s", $jobName, $buildDir, _eventStr($e));
 
     # does it look like a build directory?
     if ( -d $buildDir && ($buildDir =~ m{/\d+$}) )
@@ -599,12 +613,35 @@ sub jobCreatedCb
     }
 }
 
+# called when job config changes (e.g. job disabled/enabled)
+sub jobChangedCb
+{
+    my ($state, $jobName, $in, $e) = @_;
+    my $file = $e->fullname();
+    DEBUG("jobChangedCb(%s) %s %s", $jobName, $file, _eventStr($e));
+
+    if ($file =~ m{/config.xml$})
+    {
+        my ($jState, $jResult, $timestamp) = getJenkinsJob(path($file)->parent());
+
+        if ($jState && $jResult)
+        {
+            # set status
+            setState($state->{$jobName}, $jState, $jResult, $timestamp);
+            updateMultiJobs($state);
+
+            # update backend
+            updateBackend($state);
+        }
+    }
+}
+
 # called when things change in the build directory, checks if job is done
 sub jobDoneCb
 {
     my ($state, $jobName, $e) = @_;
     my $file = $e->fullname();
-    #DEBUG("Job '%s' has new file '%s'.", $jobName, $file);
+    DEBUG("jobDoneCb(%s) %s %s", $jobName, $file, _eventStr($e));
 
     # the job is done once the build.xml file appears
     if ($file =~ m{/build.xml$})
@@ -625,6 +662,24 @@ sub jobDoneCb
     }
 }
 
+sub _eventStr
+{
+    my ($e) = @_;
+    my $str = sprintf('%08x', $e->mask());
+    $str .= ' IN_ACCESS'        if ($e->IN_ACCESS());
+    $str .= ' IN_MODIFY'        if ($e->IN_MODIFY());
+    $str .= ' IN_ATTRIB'        if ($e->IN_ATTRIB());
+    $str .= ' IN_CLOSE_WRITE'   if ($e->IN_CLOSE_WRITE());
+    $str .= ' IN_CLOSE_NOWRITE' if ($e->IN_CLOSE_NOWRITE());
+    $str .= ' IN_OPEN'          if ($e->IN_OPEN());
+    $str .= ' IN_MOVED_FROM'    if ($e->IN_MOVED_FROM());
+    $str .= ' IN_MOVED_TO'      if ($e->IN_MOVED_TO());
+    $str .= ' IN_CREATE'        if ($e->IN_CREATE());
+    $str .= ' IN_DELETE'        if ($e->IN_DELETE());
+    $str .= ' IN_DELETE_SELF'   if ($e->IN_DELETE_SELF());
+    $str .= ' IN_MOVE_SELF'     if ($e->IN_MOVE_SELF());
+    return $str;
+}
 
 ####################################################################################################
 # update jenkins-status.pl
@@ -638,7 +693,7 @@ sub updateBackend
     foreach my $jobName (sort keys %{$state})
     {
         my $st = $state->{$jobName};
-        if ($st->{jStateDirty} || $st->{jResultdirty})
+        if ($st->{jStateDirty} || $st->{jResultDirty})
         {
             my $_st = { name => $st->{jobName}, server => $CFG->{server}, ts => $st->{timestamp} };
             if ($st->{jStateDirty})
