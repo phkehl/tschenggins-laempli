@@ -65,8 +65,6 @@ do
     my $errors = 0;
     my %jobDirsSeen = ();
     my %jobNamesSeen = ();
-    my $multiJob = '';
-    my %multiJobs = ();
     while (my $arg = shift(@ARGV))
     {
         if    ($arg eq '-v') { $Ffi::Debug::VERBOSITY++; $CFG->{verbosity}++; }
@@ -75,7 +73,6 @@ do
         elsif ($arg eq '-s') { $CFG->{server} = shift(@ARGV); }
         elsif ($arg eq '-j') { $CFG->{statefile} = shift(@ARGV); }
         elsif ($arg eq '-d') { $CFG->{daemonise} = 1; }
-        elsif ($arg eq '-m') { $multiJob = shift(@ARGV); }
         elsif ($arg eq '-h') { help(); }
         elsif ($arg !~ m{^-})
         {
@@ -90,25 +87,9 @@ do
                 }
                 else
                 {
-                    if (!$multiJob)
-                    {
-                        WARNING("Ignoring duplicate dir '$dir'!");
-                    }
+                    WARNING("Ignoring duplicate dir '$dir'!");
                 }
                 $jobDirsSeen{$dir}++;
-
-                # multi jobs
-                if ($multiJob)
-                {
-                    if (!$multiJobs{$multiJob}->{$dir})
-                    {
-                        $multiJobs{$multiJob}->{$dir} = $dir;
-                    }
-                    else
-                    {
-                        WARNING("Ignoring duplicate dir '$dir' for multi-job '$multiJob'!");
-                    }
-                }
             }
             else
             {
@@ -126,24 +107,6 @@ do
     foreach my $dir (sort @jobdirs)
     {
         DEBUG("jobdir: '$dir'");
-    }
-    foreach my $multi (sort keys %multiJobs)
-    {
-        DEBUG("multijob: '$multi':");
-        foreach my $dir (sort keys %{$multiJobs{$multi}})
-        {
-            DEBUG("        '$dir'");
-        }
-    }
-
-    # check for name clases
-    foreach my $multiJob (sort keys %multiJobs)
-    {
-        if ($jobNamesSeen{$multiJob})
-        {
-            ERROR("Error: Multi-job name '$multiJob' already used for '$jobNamesSeen{$multiJob}'!");
-            $errors++;
-        }
     }
 
     if ($errors || ($#jobdirs < 0))
@@ -191,7 +154,7 @@ do
     }
 
     # run..
-    run(\@jobdirs, \%multiJobs);
+    run(@jobdirs);
 };
 
 sub help
@@ -239,7 +202,7 @@ sub help
 
 sub run
 {
-    my ($jobdirs, $multiJobs) = @_;
+    my (@jobdirs) = @_;
 
     PRINT("Initialising...");
     my $in = Linux::Inotify2->new() || die($!);
@@ -247,7 +210,7 @@ sub run
     my $state = {};
 
     # populate initial state and add watcher for each job
-    foreach my $jobDir (@{$jobdirs})
+    foreach my $jobDir (@jobdirs)
     {
         my $jobName = $jobDir->basename();
         my $buildsDir = path("$jobDir/builds");
@@ -304,43 +267,13 @@ sub run
         }
     }
 
-    # create states for muti-jobs
-    my $errors = 0;
-    foreach my $multiJob (sort keys %{$multiJobs})
-    {
-        my @depJobs = sort map { $multiJobs->{$multiJob}->{$_}->basename() } sort keys %{$multiJobs->{$multiJob}};
-        # check if they're all good
-        foreach my $jobName (@depJobs)
-        {
-            if (!$state->{$jobName})
-            {
-                ERROR("Error: Multi-job name '$multiJob' wants unusable '$jobName'!");
-                $errors++;
-            }
-        }
-        $state->{$multiJob} =
-        {
-            jobName => $multiJob, depJobs => \@depJobs,
-            jState => 'dontknow', jStateDirty => 0,
-            jResult => 'dontknow', jResultDirty => 0,
-        };
-        if (!sendMultiJobInfo($state->{$multiJob}))
-        {
-            $errors++;
-        }
-    }
-    exit(1) if ($errors);
-
-    updateMultiJobs($state);
-
     unless ($CFG->{backend} || $CFG->{statefile})
     {
         WARNING("No state file or backend URL given.");
     }
 
     # keep watching...
-    my $nJobs = $#{$jobdirs} + 1;
-    my $nMulti = scalar keys %{$multiJobs};
+    my $nJobs = $#jobdirs + 1;
     my $lastCheck = 0;
     $in->blocking(0);
     while (1)
@@ -349,7 +282,7 @@ sub run
 
         if ( (time() - $lastCheck) > $CFG->{checkperiod} )
         {
-            PRINT("Watching %i jobs and %i multi-jobs for '%s'.", $nJobs, $nMulti, $CFG->{server});
+            PRINT("Watching %i jobs for '%s'.", $nJobs, $CFG->{server});
             $lastCheck = time();
             # retry previously failed updates
             updateBackend($state);
@@ -538,85 +471,6 @@ sub _age_str
     }
 }
 
-sub updateMultiJobs
-{
-    my ($state) = @_;
-    my %states  = ( dontknow => -1, unknown => 0, off => 1, idle => 2, running => 3 );
-    my %results = ( dontknow => -1, unknown => 0, success => 1, unstable => 2, failure => 3 );
-
-    foreach my $multiName (grep { $state->{$_}->{depJobs} } sort keys %{$state})
-    {
-        my $multiSt = $state->{$multiName};
-        # determine multi-job state and result (most active state, worst result)
-        my $jState  = 'unknown';
-        my $jResult = 'unknown';
-        my $timestamp = 0;
-        foreach my $jobName (@{$multiSt->{depJobs}})
-        {
-            my $jobSt = $state->{$jobName};
-            #DEBUG("%-40s %-10s %-10s + %-40s %-10s %-10s %-10s = %-10s %-10s",
-            #      $multiName, $multiSt->{jState}, $multiSt->{jResult},
-            #      $jobName, $jobSt->{jState}, $jobSt->{jResult}, _age_str($jobSt->{timestamp}), $jState,
-            #      $jResult);
-            if ($states{ $jobSt->{jState} } > $states{$jState})
-            {
-                $jState = $jobSt->{jState};
-            }
-            if ($results{ $jobSt->{jResult} } > $results{$jResult})
-            {
-                $jResult = $jobSt->{jResult};
-            }
-            if ($jobSt->{timestamp} > $timestamp)
-            {
-                $timestamp = $jobSt->{timestamp};
-            }
-        }
-
-        my $jStateDirty  = ($multiSt->{jState}  ne $jState ) ? 1 : 0;
-        my $jResultDirty = ($multiSt->{jResult} ne $jResult) ? 1 : 0;
-
-        if ($jStateDirty || $jResultDirty)
-        {
-            PRINT("Multi: %-43s state: %-20s result: %-20s age: %s", $multiSt->{jobName},
-                  $jStateDirty  ? "$multiSt->{jState} -> $jState"   : $jState,
-                  $jResultDirty ? "$multiSt->{jResult} -> $jResult" : $jResult,
-                  _age_str($timestamp));
-
-            $multiSt->{jState}       = $jState;
-            $multiSt->{jResult}      = $jResult;
-            $multiSt->{jStateDirty}  = $jStateDirty;
-            $multiSt->{jResultDirty} = $jResultDirty;
-            $multiSt->{timestamp}    = $timestamp;
-        }
-    }
-}
-
-sub sendMultiJobInfo
-{
-    my ($st) = @_;
-    return 1 unless ($CFG->{backend});
-
-    my $t0 = time();
-    my $userAgent = _userAgent();
-
-    my $resp = $userAgent->post($CFG->{backend},
-        Content => { cmd => 'multi', server => $CFG->{server}, name => $st->{jobName}, names => $st->{depJobs} });
-    DEBUG("%s: %s", $resp->status_line(), $resp->decoded_content());
-    my $dt = time() - $t0;
-    if ($resp->is_success())
-    {
-        PRINT("Successfully sent multi-job info for '%s' (%.3fs).", $st->{jobName}, $dt);
-        return 1;
-    }
-    else
-    {
-        WARNING("Failed sending multi-job info for '%s' (%.3fs): %s", $st->{jobName}, $dt, $resp->status_line());
-        return 0;
-    }
-
-    exit;
-}
-
 ####################################################################################################
 # inotify callbacks
 
@@ -637,7 +491,6 @@ sub jobCreatedCb
 
         # set status
         setState($state->{$jobName}, 'running');
-        updateMultiJobs($state);
 
         # update backend
         updateBackend($state);
@@ -659,7 +512,6 @@ sub jobChangedCb
         {
             # set status
             setState($state->{$jobName}, $jState, $jResult, $timestamp);
-            updateMultiJobs($state);
 
             # update backend
             updateBackend($state);
@@ -683,7 +535,6 @@ sub jobDoneCb
 
         # set status
         setState($state->{$jobName}, $jState, $jResult, $timestamp);
-        updateMultiJobs($state);
 
         # update backend
         updateBackend($state);
