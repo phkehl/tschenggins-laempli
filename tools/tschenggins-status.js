@@ -189,7 +189,7 @@ $(document).ready(function ()
     }
 
     // job modify form magic
-    $('#modify-job-form input[name=job]').on('change', function (e)
+    $('#modify-job-form input[name=job]').on('click', function (e)
     {
         var label = $(this).parent('label');
         var data = label.data();
@@ -208,10 +208,10 @@ $(document).ready(function ()
     {
         var label = $(this).parent('label');
         var data = label.data();
-        $("#modify-multi-form input[name='jobs']").prop('checked', false);
+        $("#modify-multi-form input[name='jobs']").prop('checked', false).parents('label').removeClass('highlight');
         data.multi.split(',').forEach(function (id)
         {
-            $("#modify-multi-form input[name='jobs'][value='" + id + "'").prop('checked', true);
+            $("#modify-multi-form input[name='jobs'][value='" + id + "'").trigger('click'); // prop('checked', true);
         });
         var firstInput = $("#modify-multi-form input[name='jobs']:checked:first");
         if (firstInput.length)
@@ -227,18 +227,18 @@ $(document).ready(function ()
     });
 
     // form label highlighting
-    //$('form').on('change', 'input[type=radio]', function (e)
-    //{
-    //    var label = $(this).parent('label');
-    //    label.addClass('highlight').siblings().removeClass('highlight');
-    //});
-    //$('form').on('change', 'input[type=checkbox]', function (e)
-    //{
-    //    var label = $(this).parent('label');
-    //    label.addClass('highlight');
-    //    $(this).siblings(':checked').parents('label').addClass('highlight');
-    //    $(this).siblings().not(':checked').parents('label').removeClass('highlight');
-    //});
+    $('form').on('change', 'input[type=radio]', function (e)
+    {
+        var label = $(this).parent('label');
+        label.addClass('highlight').siblings().removeClass('highlight');
+    });
+    $('form').on('change', 'input[type=checkbox]', function (e)
+    {
+        var label = $(this).parent('label');
+        label.toggleClass('highlight', $(this).is(':checked'));
+        //label.siblings().find('input[type=checkbox]').parents('label').removeClass('highlight');
+        //label.siblings().find('input[type=checkbox]:checked').parents('label').addClass('highlight');
+    });
 
     // populate job popup menus in client config tabs
     var template = $('#jobSelectPopup');

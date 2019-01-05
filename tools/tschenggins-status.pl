@@ -1439,12 +1439,12 @@ sub _gui_modify
         -linebreak    => 0,
     };
     return (
-            $q->p({}, 'Modify a job and override its state and/or result.'),
+            $q->p({}, 'Select a job and override its state and/or result.'),
             $q->start_form(-method => 'POST', -action => $q->url(), id => 'modify-job-form' ),
             $q->table(
                       $q->Tr({},
                              $q->th('Job:'),
-                             $q->td({}, $jobSelectRadios),
+                             $q->td({ -class => 'max-width' }, $jobSelectRadios),
                             ),
                       $q->Tr({},
                              $q->th('State:'),
@@ -1470,12 +1470,12 @@ sub _gui_multi
     my $debug = $q->param('debug') || 0;
 
     return (
-            $q->p({}, 'Modify a multi-job. Select multijob first, then adjust included jobs.'),
+            $q->p({}, 'Select a multi-job and adjust included jobs.'),
             $q->start_form(-method => 'POST', -action => $q->url(), id => 'modify-multi-form' ),
             $q->table(
                       $q->Tr({},
                              $q->th('Multijob:'),
-                             $q->td({}, $multiSelectRadios),
+                             $q->td({ -class => 'max-width' }, $multiSelectRadios),
                             ),
                       $q->Tr({},
                              $q->th('Jobs:'),
@@ -1565,7 +1565,7 @@ sub _gui_delete
             $q->table(
                       $q->Tr(
                              $q->th('Job:'),
-                             $q->td({}, $jobSelectRadios),
+                             $q->td({ -class => 'max-width' }, $jobSelectRadios),
                             ),
                       $q->Tr($q->td({ -colspan => 2, -align => 'center' },
                                     $q->submit(-value => 'delete info')))

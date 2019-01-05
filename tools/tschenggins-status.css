@@ -92,7 +92,11 @@ td.command-buttons input[type=submit] { margin-bottom: 0.25em; }
 .multijob-info { display: none; }
 .multijob-info ul { margin: 0; padding-left: 1em; list-style-type: none; }
 
-label.highlight { font-weight: bold; }
+label.highlight { font-weight: bold; background-color: hsl(160, 100%, 80%); }
+/*input[type=radio][name=job] { position: absolute; opacity: 0; }*/
+/*input[type=checkbox][name=jobs] { position: absolute; opacity: 0; }*/
+input[type=radio][name=job] { display: none; }
+input[type=checkbox][name=jobs] { display: none; }
 
 /* eof */
 
