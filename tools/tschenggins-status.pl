@@ -80,6 +80,8 @@ The following parameters are used in the commands described below.
 
 =item * C<job> -- job ID
 
+=item * C<jobs> -- one or more job ID (array)
+
 =item * C<limit> -- limit of list of results (default 0, i.e. all)
 
 =item * C<maxch> -- maximum number of channels the client can handle (default 10)
@@ -112,6 +114,7 @@ The following parameters are used in the commands described below.
     my $cmd      = $q->param('cmd')      || $DEFAULTCMD;
     my $debug    = $q->param('debug')    || 0;
     my $job      = $q->param('job')      || '';
+    my @jobs     = $q->multi_param('jobs');
     my $result   = $q->param('result')   || ''; # 'unknown', 'success', 'unstable', 'failure'
     my $state    = $q->param('state')    || ''; # 'unknown', 'off', 'running', 'idle'
     my $redirect = $q->param('redirect') || '';
@@ -205,7 +208,7 @@ Connection check. Responds with "hi there" (immediately or after a delay).
 
 =pod
 
-=item B<< C<< cmd=update [debug=...] [ascii=...] <states=...> [...] >> >>
+=item B<< C<< cmd=update <states=...> >> >>
 
 This expects a application/json POST request. The C<states> array consists of objects with the
 following fields: C<server>, C<name> and optionally C<state> and/or C<result>. A last-changed
@@ -388,6 +391,23 @@ Set job state and/or result.
     elsif ($cmd eq 'set')
     {
         (my $res, $error) = _set($db, $job, $state, $result);
+        if ($res)
+        {
+            $text = "db updated";
+        }
+    }
+
+=pod
+
+=item B<< C<< cmd=multi job=<jobid> [jobs=<jobid> ...] >> >>
+
+Set multijob list of jobs.
+
+=cut
+
+    elsif ($cmd eq 'multi')
+    {
+        (my $res, $error) = _multi($db, $job, \@jobs);
         if ($res)
         {
             $text = "db updated";
@@ -645,7 +665,10 @@ variable.
                              -head => [ '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>',
                                         CGI::Link({ -rel => 'shortcut icon', -href => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAA0ElEQVQ4y5VRwQkCMRCcDfkdFiC+vDbOEoR7axkWcmXoW7CEsw19iQWIv0B8xJFNLjnMQmB2yczuzgoAjNZ6qNg4J0jigLcHgAGN6NyQ3DmHzjnkBGdjtNZ7IHo1Aubfjxw5rRkAuFr7K2o8J0IsJRNvZ0S1toekUwxoRHKdSF6vQn5/TEV4jeK8JBNThESGxdbH5lzyU1VfgR1TnEboxilU95yJy2Nce+4hUw++Ym0fr0LyYhfy1ynUTM2+JGtcJVD2ILNCepXcClUCWkSb+AEnDWJiA7f+pQAAAABJRU5ErkJggg==' }) ],
                              -style   => [ { src => 'tschenggins-status.css' } ],
-                             -script  => [ { -type => 'javascript', -src => 'tschenggins-status.js' } ]),
+                             -script  => [
+                                             { -type => 'javascript', -src => 'jquery-3.3.1.min.js' },
+                                             { -type => 'javascript', -src => 'tschenggins-status.js' },
+                                         ]),
               $q->a({ -class => 'database', -href => ($q->url() . '?cmd=rawdb;debug=1') }, 'DB: ' . ($ENV{'REMOTE_USER'} ? $ENV{'REMOTE_USER'} : '(default)')),
               $q->h1({ -class => 'title' }, $q->a({ -href => $q->url() }, $TITLE)),
               @html,
@@ -843,7 +866,7 @@ sub _update
         }
         if ($jobName !~ m{$JOBNAMERE})
         {
-            $error = "not a valid job name: $jobName";
+            $error = "not a valid job name: $jobName ($JOBNAMERE)";
             $ok = 0;
             last;
         }
@@ -860,7 +883,7 @@ sub _update
             last;
         }
 
-        my $id = substr(Digest::MD5::md5_hex("$server$jobName"), -8);
+        my $id = __serverAndNameToJobId($server, $jobName);
         DEBUG("_update() $server $jobName $jState $jResult $ts $id");
         $db->{jobs}->{$id}->{ts}     = $ts;
         $db->{jobs}->{$id}->{name}   = $jobName;
@@ -874,6 +897,11 @@ sub _update
     return $ok, $error;
 }
 
+sub __serverAndNameToJobId
+{
+    my ($server, $jobName) = @_;
+    return substr(Digest::MD5::md5_hex("$server$jobName"), -8);
+}
 
 ####################################################################################################
 # client commands
@@ -1134,6 +1162,48 @@ sub _set
     return 1, '';
 }
 
+sub _multi
+{
+    my ($db, $multiId, $jobIds) = @_;
+    DEBUG("_multi() %s -- %s", $multiId, "@{$jobIds}");
+
+    if (!$multiId)
+    {
+        return 0, 'missing parameter';
+    }
+
+    if ( !$db->{jobs}->{$multiId} || ($db->{jobs}->{$multiId}->{server} ne 'multijob') )
+    {
+        return 0, 'illegal job';
+    }
+
+    # empty @jobIds, delete multi job info
+    if ($#{$jobIds} < 0)
+    {
+        if ($db->{jobs}->{$multiId}->{multi})
+        {
+            $db->{jobs}->{$multiId}->{multi} = [];
+            $db->{_dirtiness}++;
+        }
+        return 1;
+    }
+
+    # verify that @jobIds are valid jobs
+    foreach my $id (@{$jobIds})
+    {
+        if ( !$db->{jobs}->{$id} || ($db->{jobs}->{$id} eq 'multijob') )
+        {
+            return 0, 'illegal jobs';
+        }
+    }
+
+    # store multi job info
+    $db->{jobs}->{$multiId}->{multi} = $jobIds;
+    $db->{_dirtiness}++;
+
+    return 1;
+}
+
 sub _add
 {
     my ($db, $server, $job, $state, $result) = @_;
@@ -1167,78 +1237,74 @@ sub _gui
     DEBUG("_gui() $client");
 
     # helpers
-    my $stateSelectArgs =
+    my %leds = ();
+    foreach my $jobId (@{$db->{_jobIds}})
     {
-        -name         => 'state',
-        -values       => [ '', sort { $VALIDSTATE->{$a} <=> $VALIDSTATE->{$b} } keys %{$VALIDSTATE} ],
-        -autocomplete => 'off',
-        -default      => '',
-        -labels       => { '' => '<empty>' },
-        -linebreak    => 0,
-    };
-    my $resultSelectArgs =
-    {
-        -name         => 'result',
-        -values       => [ '', sort { $VALIDRESULT->{$a} <=> $VALIDRESULT->{$b} } keys %{$VALIDRESULT} ],
-        -autocomplete => 'off',
-        -default      => '',
-        -labels       => { '' => '<empty>' },
-        -linebreak    => 0,
-    };
-    my $jobSelectRadios = '';
+        $leds{$jobId} = __gui_led($db->{jobs}->{$jobId});
+    }
+    my $jobSelectRadios = '<div class="joblist">';
+    my $jobSelectCheckboxes = '<div class="joblist">';
+    my $multiSelectRadios = '<div class="joblist">';
     my $now = time();
     foreach my $jobId (@{$db->{_jobIds}})
     {
         my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
-        $jobSelectRadios .= '<label><input name="job" value="' . $jobId . '" autocomplete="off" type="radio"/>';
         my $age = _age_str($now, $st->{ts});
-        $jobSelectRadios .= __gui_led($st) . " $st->{server}: $st->{name} ($st->{state}, $st->{result}, $age)";
-        $jobSelectRadios .= '</label>';
+        my $labelStart = '<label class="job" data-state="' . $st->{state} . '" data-result="' . $st->{result} . '"'
+          . ' data-server="' . $st->{server} . '" data-name="' . $st->{name} . '"'
+          . ' data-multi="' . join(',', @{ $st->{multi} || [] }) . '">';
+        my $labelEnd = "$leds{$jobId} $st->{server}: $st->{name} ($st->{state}, $st->{result}, $age)</label>";
+        my $radio = $labelStart . '<input type="radio" name="job" value="' . $jobId . '" autocomplete="off"/>' . $labelEnd;
+        my $checkbox = $labelStart . '<input type="checkbox" name="jobs" value="' . $jobId . '" autocomplete="off"/>' . $labelEnd;
+        if ($st->{server} ne 'multijob')
+        {
+            $jobSelectRadios .= $radio;
+            $jobSelectCheckboxes .= $checkbox;
+        }
+        else
+        {
+            $multiSelectRadios .= $radio;
+        }
     }
+    $jobSelectRadios .= '</div>';
+    $jobSelectCheckboxes .= '</div>';
+    $multiSelectRadios .= '</div>';
 
     return $q->div({ -class => 'tabs' },
 
                    $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-laempli', -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => 'tab-laempli' }, $q->h2('Lämpli')),
-                   $q->div({ -class => 'tab-contents' },
-                           $q->p({}, 'Here is a list of all known Lämpli.'),
-                           _gui_clients($db) ),
+                   $q->div({ -class => 'tab-contents' }, _gui_clients($db, \%leds) ),
 
                    $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-config', -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => 'tab-config' }, $q->h2('Config')),
-                   $q->div({ -class => 'tab-contents' },
-                           $q->p({}, 'Configure a Lämpli. Select yours:'),
-                           _gui_config($db) ),
+                   $q->div({ -class => 'tab-contents' }, _gui_config($db, \%leds) ),
 
                    $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-status', -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => 'tab-status' }, $q->h2('Status')),
-                   $q->div({ -class => 'tab-contents' },
-                           $q->p({}, 'The current state and result of all known jobs.'),
-                           _gui_status($db) ),
+                   $q->div({ -class => 'tab-contents' }, _gui_status($db, \%leds) ),
 
                    $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-modify', -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => 'tab-modify' }, $q->h2('Modify')),
-                   $q->div({ -class => 'tab-contents' },
-                           $q->p({}, 'Modify a job and override its state and/or result.'),
-                           _gui_modify($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) ),
+                   $q->div({ -class => 'tab-contents' }, _gui_modify($db, $jobSelectRadios) ),
+
+                   $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-multi', -autocomplete => 'off' }),
+                   $q->label({ -class => 'tab-label', -for => 'tab-multi' }, $q->h2('Multi')),
+                   $q->div({ -class => 'tab-contents' }, _gui_multi($db, $multiSelectRadios, $jobSelectCheckboxes) ),
 
                    $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-create', -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => 'tab-create' }, $q->h2('Create')),
-                   $q->div({ -class => 'tab-contents' },
-                           $q->p({}, 'Create a new job. Give a server name, a job name and its state and result.'),
-                           _gui_create($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) ),
+                   $q->div({ -class => 'tab-contents' }, _gui_create($db) ),
 
                    $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-delete', -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => 'tab-delete' }, $q->h2('Delete')),
-                   $q->div({ -class => 'tab-contents' },
-                           $q->p({}, 'Delete a job from the list of known jobs.'),
-                           _gui_delete($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) ),
+                   $q->div({ -class => 'tab-contents' }, _gui_delete($db, $jobSelectRadios) ),
                   );
 }
 
 sub _gui_status
 {
-    my ($db) = @_;
+    my ($db, $leds) = @_;
     my @html = ();
 
     my $now = time();
@@ -1246,17 +1312,34 @@ sub _gui_status
     foreach my $jobId (@{$db->{_jobIds}})
     {
         my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
-        my $modify = $q->span({ -class => 'action action-modify-job', -data_jobid => $jobId }, 'modify');
+        my $modify = $q->span({ -class => 'action action-modify-job', -data_server => $st->{server}, -data_jobid => $jobId }, 'modify');
         my $delete = $q->span({ -class => 'action action-delete-job', -data_jobid => $jobId }, 'delete');
+        my $multiInfo = '';
+        if ($db->{jobs}->{$jobId}->{multi})
+        {
+            $multiInfo .= '<span class="multijob-info-toggle" data-id="multijob-info-' . $jobId . '">details&hellip;</span>';
+            $multiInfo .= '<div id="multijob-info-' . $jobId . '" class="multijob-info"><ul>';
+            foreach my $id (@{$db->{jobs}->{$jobId}->{multi}})
+            {
+                my $s = $db->{jobs}->{$id};
+                my $age = _age_str($now, $s->{ts});
+                $multiInfo .= "<li>$leds->{$id} $s->{server}: $s->{name} ($s->{state}, $s->{result}, $age)</li>";
+            }
+            $multiInfo .= '</ul></div>';
+        }
+
         push(@trs, $q->Tr(
-                          $q->td({ -class => 'jobid' }, $jobId), $q->td({ -class => 'nowrap' }, $st->{server}), $q->td(__gui_led($st), $st->{name}),
-                          $q->td($st->{state}), $q->td($st->{result}),
+                          $q->td({ -class => 'jobid' }, $jobId),
+                          $q->td({ -class => 'nowrap' }, $st->{server}),
+                          $q->td({}, $leds->{$jobId}, $st->{name}, $multiInfo),
+                          $q->td({}, $st->{state}), $q->td({}, $st->{result}),
                           $q->td({ -align => 'right', -data_sort => $st->{ts} }, _age_str($now, $st->{ts})),
                           $q->td({ -class => 'nowrap' }, $modify, $delete),
                          )
             );
     }
     return (
+            $q->p({}, 'The current state and result of all known jobs.'),
             $q->table(
                       $q->Tr(
                              $q->th('Filter:'),
@@ -1285,27 +1368,44 @@ sub _gui_status
 
 sub _gui_modify
 {
-    my ($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) = @_;
+    my ($db, $jobSelectRadios) = @_;
     my $debug = $q->param('debug') || 0;
-
+    my $stateSelectArgs =
+    {
+        -name         => 'state',
+        -values       => [ '', sort { $VALIDSTATE->{$a} <=> $VALIDSTATE->{$b} } keys %{$VALIDSTATE} ],
+        -autocomplete => 'off',
+        -default      => '',
+        -labels       => { '' => '<empty>' },
+        -linebreak    => 0,
+    };
+    my $resultSelectArgs =
+    {
+        -name         => 'result',
+        -values       => [ '', sort { $VALIDRESULT->{$a} <=> $VALIDRESULT->{$b} } keys %{$VALIDRESULT} ],
+        -autocomplete => 'off',
+        -default      => '',
+        -labels       => { '' => '<empty>' },
+        -linebreak    => 0,
+    };
     return (
+            $q->p({}, 'Modify a job and override its state and/or result.'),
             $q->start_form(-method => 'POST', -action => $q->url(), id => 'modify-job-form' ),
             $q->table(
-                      $q->Tr(
+                      $q->Tr({},
                              $q->th('Job:'),
-                             $q->td({ -style => 'height: 20em; display: inline-block; overflow-y: scroll;' }, $jobSelectRadios),
-                             #$q->td($q->popup_menu($jobSelectArgs))
+                             $q->td({}, $jobSelectRadios),
                             ),
-                      $q->Tr(
+                      $q->Tr({},
                              $q->th('State:'),
                              $q->td($q->radio_group($stateSelectArgs)),
-                            ),
-                      $q->Tr(
+                             ),
+                      $q->Tr({},
                              $q->th('Result:'),
                              $q->td($q->radio_group($resultSelectArgs)),
                             ),
-                      $q->Tr($q->td({ -colspan => 2, -align => 'center' },
-                                    $q->submit(-value => 'override'))),
+                      $q->Tr($q->td({ -colspan => 4, -align => 'center' },
+                                    $q->submit(-value => 'modify'))),
                      ),
             ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
             $q->hidden(-name => 'cmd', -default => 'set'),
@@ -1314,64 +1414,108 @@ sub _gui_modify
            );
 }
 
-sub _gui_create
+sub _gui_multi
 {
-    my ($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) = @_;
+    my ($db, $multiSelectRadios, $jobSelectCheckboxes) = @_;
     my $debug = $q->param('debug') || 0;
 
     return (
-            $q->start_form(-method => 'POST', -action => $q->url(), id => 'create-job-form' ),
+            $q->p({}, 'Modify a multi-job. Select multijob first, then adjust included jobs.'),
+            $q->start_form(-method => 'POST', -action => $q->url(), id => 'modify-multi-form' ),
             $q->table(
-                      $q->Tr(
-                             $q->th('Server:'),
-                             $q->td($q->input({
-                                               -type => 'text',
-                                               -name => 'server',
-                                               -size => 20,
-                                               -autocomplete => 'off',
-                                               -default => '',
-                                              })),
+                      $q->Tr({},
+                             $q->th('Multijob:'),
+                             $q->td({}, $multiSelectRadios),
                             ),
-                      $q->Tr(
-                             $q->th('Job:'),
-                             $q->td($q->input({
-                                               -type => 'text',
-                                               -name => 'job',
-                                               -size => 20,
-                                               -autocomplete => 'off',
-                                               -default => '',
-                                              })),
+                      $q->Tr({},
+                             $q->th('Jobs:'),
+                             $q->td({}, $jobSelectCheckboxes),
                             ),
-                      $q->Tr(
-                             $q->th('State:'),
-                             $q->td($q->radio_group($stateSelectArgs)),
-                            ),
-                      $q->Tr(
-                             $q->th('Result:'),
-                             $q->td($q->radio_group($resultSelectArgs)),
-                            ),
-                      $q->Tr($q->td({ -colspan => 2, -align => 'center' },
-                                    $q->submit(-value => 'create')))
+                      $q->Tr($q->td({ -colspan => 4, -align => 'center' },
+                                    $q->submit(-value => 'modify'))),
                      ),
             ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
-            $q->hidden(-name => 'cmd', -default => 'add'),
-            $q->hidden(-name => 'redirect', -default => 'cmd=gui#create'),
+            $q->hidden(-name => 'cmd', -default => 'multi'),
+            $q->hidden(-name => 'redirect', -default => 'cmd=gui#multi'),
             $q->end_form()
            );
 }
 
+sub _gui_create
+{
+    my ($db) = @_;
+    my $debug = $q->param('debug') || 0;
+    my $stateSelectArgs =
+    {
+        -name         => 'state',
+        -values       => [ sort { $VALIDSTATE->{$a} <=> $VALIDSTATE->{$b} } keys %{$VALIDSTATE} ],
+        -autocomplete => 'off',
+        -default      => 'unknown',
+        -linebreak    => 0,
+    };
+    my $resultSelectArgs =
+    {
+        -name         => 'result',
+        -values       => [ sort { $VALIDRESULT->{$a} <=> $VALIDRESULT->{$b} } keys %{$VALIDRESULT} ],
+        -autocomplete => 'off',
+        -default      => 'unknown',
+        -linebreak    => 0,
+    };
+
+    return (
+        $q->p({}, 'Create a new job. Give a server name (or <i>multijob</i>), a job name and its state and result.'),
+        $q->start_form(-method => 'POST', -action => $q->url(), id => 'create-job-form' ),
+        $q->table(
+                  $q->Tr(
+                         $q->th('Server:'),
+                         $q->td($q->input({
+                                           -type => 'text',
+                                           -name => 'server',
+                                           -size => 20,
+                                           -autocomplete => 'off',
+                                           -default => '',
+                                          })),
+                        ),
+                  $q->Tr(
+                         $q->th('Job:'),
+                         $q->td($q->input({
+                                           -type => 'text',
+                                           -name => 'job',
+                                           -size => 20,
+                                           -autocomplete => 'off',
+                                           -default => '',
+                                          })),
+                        ),
+                  $q->Tr(
+                         $q->th('State:'),
+                         $q->td($q->radio_group($stateSelectArgs)),
+                        ),
+                  $q->Tr(
+                         $q->th('Result:'),
+                         $q->td($q->radio_group($resultSelectArgs)),
+                        ),
+                  $q->Tr($q->td({ -colspan => 2, -align => 'center' },
+                                $q->submit(-value => 'create')))
+                 ),
+        ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
+        $q->hidden(-name => 'cmd', -default => 'add'),
+        $q->hidden(-name => 'redirect', -default => 'cmd=gui#create-single'),
+        $q->end_form()
+    );
+}
+
 sub _gui_delete
 {
-    my ($db, $stateSelectArgs, $resultSelectArgs, $jobSelectRadios) = @_;
+    my ($db, $jobSelectRadios) = @_;
     my $debug = $q->param('debug') || 0;
 
     return (
+            $q->p({}, 'Delete a job from the list of known jobs.'),
             $q->start_form(-method => 'POST', -action => $q->url(), id => 'delete-job-form' ),
             $q->table(
                       $q->Tr(
                              $q->th('Job:'),
-                             $q->td({ -style => 'height: 20em; display: inline-block; overflow-y: scroll;' }, $jobSelectRadios),
-                             #$q->td($q->popup_menu($jobSelectArgs)),
+                             $q->td({}, $jobSelectRadios),
                             ),
                       $q->Tr($q->td({ -colspan => 2, -align => 'center' },
                                     $q->submit(-value => 'delete info')))
@@ -1385,8 +1529,7 @@ sub _gui_delete
 
 sub _gui_clients
 {
-    my ($db) = @_;
-    my @html = ();
+    my ($db, $leds) = @_;
 
     my @trs = ();
     my $now = time();
@@ -1411,7 +1554,7 @@ sub _gui_clients
         {
             if ($jobId)
             {
-                push(@leds, __gui_led( $db->{jobs}->{$jobId} ));
+                push(@leds, $leds->{$jobId});
             }
         }
 
@@ -1427,7 +1570,8 @@ sub _gui_clients
                           $q->td({ }, $cfgModel),
                           $q->td({ -class => 'center' }, $version), $q->td({}, $edit)));
     }
-    push(@html,
+    return (
+         $q->p({}, 'Here is a list of all known Lämpli.'),
          $q->table({},
                    $q->thead({}, $q->Tr({},
                                         $q->th({ -class => 'sort' }, 'ID'),
@@ -1444,13 +1588,11 @@ sub _gui_clients
                                        ),
                              ),
                    $q->tbody({}, @trs)));
-
-    return @html;
 }
 
 sub _gui_config
 {
-    my ($db) = @_;
+    my ($db, $leds) = @_;
 
     my @tabs = ();
 
@@ -1461,7 +1603,7 @@ sub _gui_config
         push(@tabs,
                    $q->input({ -class => 'tab-input', -name => 'tabs-config', type => 'radio', id => "tab-config-$clientId", -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => "tab-config-$clientId" }, $q->h3($name)),
-                   $q->div({ -class => 'tab-contents' }, __gui_config_client($db, $clientId) ),
+                   $q->div({ -class => 'tab-contents' }, __gui_config_client($db, $clientId, $leds) ),
             );
     }
 
@@ -1484,12 +1626,15 @@ sub _gui_config
         -id           => 'jobSelectPopup'
     };
 
-    return $q->div({ -class => 'tabs' }, @tabs, $q->popup_menu($jobSelectArgs));
+    return (
+            $q->p({}, 'Configure a Lämpli. Select yours:'),
+            $q->div({ -class => 'tabs' }, @tabs, $q->popup_menu($jobSelectArgs)),
+           );
 }
 
 sub __gui_config_client
 {
-    my ($db, $clientId) = @_;
+    my ($db, $clientId, $leds) = @_;
     my $client = $db->{clients}->{$clientId};
     my $config = $db->{config}->{$clientId};
     if (!$client || !$config)
@@ -1507,7 +1652,7 @@ sub __gui_config_client
         my $st = $db->{jobs}->{$jobId} || $UNKSTATE;
         push(@jobsTrs, # Note: the job selection popup menu is populated run-time (JS), since $q->popup_menu() is very expensive
              $q->Tr({}, $q->td({ -align => 'right' }, $ix), $q->td({ -class => 'jobid' }, $jobId),
-                    $q->td({}, $jobId ? __gui_led($st) : ''), $q->td({ -class => 'jobSelectPopup' }, $jobId))
+                    $q->td({}, $leds->{$jobId} || ''), $q->td({ -class => 'jobSelectPopup' }, $jobId))
             );
     }
     my $htmlJobs =
@@ -1761,3 +1906,56 @@ sub _age_str
 
 
 __END__
+sub updateMultiJobs
+{
+    my ($state) = @_;
+    my %states  = ( dontknow => -1, unknown => 0, off => 1, idle => 2, running => 3 );
+    my %results = ( dontknow => -1, unknown => 0, success => 1, unstable => 2, failure => 3 );
+
+    foreach my $multiName (grep { $state->{$_}->{depJobs} } sort keys %{$state})
+    {
+        my $multiSt = $state->{$multiName};
+        # determine multi-job state and result (most active state, worst result)
+        my $jState  = 'unknown';
+        my $jResult = 'unknown';
+        my $timestamp = 0;
+        foreach my $jobName (@{$multiSt->{depJobs}})
+        {
+            my $jobSt = $state->{$jobName};
+            #DEBUG("%-40s %-10s %-10s + %-40s %-10s %-10s %-10s = %-10s %-10s",
+            #      $multiName, $multiSt->{jState}, $multiSt->{jResult},
+            #      $jobName, $jobSt->{jState}, $jobSt->{jResult}, _age_str($jobSt->{timestamp}), $jState,
+            #      $jResult);
+            if ($states{ $jobSt->{jState} } > $states{$jState})
+            {
+                $jState = $jobSt->{jState};
+            }
+            if ($results{ $jobSt->{jResult} } > $results{$jResult})
+            {
+                $jResult = $jobSt->{jResult};
+            }
+            if ($jobSt->{timestamp} > $timestamp)
+            {
+                $timestamp = $jobSt->{timestamp};
+            }
+        }
+
+        my $jStateDirty  = ($multiSt->{jState}  ne $jState ) ? 1 : 0;
+        my $jResultDirty = ($multiSt->{jResult} ne $jResult) ? 1 : 0;
+
+        if ($jStateDirty || $jResultDirty)
+        {
+            PRINT("Multi: %-43s state: %-20s result: %-20s age: %s", $multiSt->{jobName},
+                  $jStateDirty  ? "$multiSt->{jState} -> $jState"   : $jState,
+                  $jResultDirty ? "$multiSt->{jResult} -> $jResult" : $jResult,
+                  _age_str($timestamp));
+
+            $multiSt->{jState}       = $jState;
+            $multiSt->{jResult}      = $jResult;
+            $multiSt->{jStateDirty}  = $jStateDirty;
+            $multiSt->{jResultDirty} = $jResultDirty;
+            $multiSt->{timestamp}    = $timestamp;
+        }
+    }
+}
+
