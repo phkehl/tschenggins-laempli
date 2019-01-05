@@ -227,11 +227,11 @@ $(document).ready(function ()
     });
 
     // form label highlighting
-    $('form').on('change', 'input[type=radio]', function (e)
-    {
-        var label = $(this).parent('label');
-        label.addClass('highlight').siblings().removeClass('highlight');
-    });
+    //$('form').on('change', 'input[type=radio]', function (e)
+    //{
+    //    var label = $(this).parent('label');
+    //    label.addClass('highlight').siblings().removeClass('highlight');
+    //});
     //$('form').on('change', 'input[type=checkbox]', function (e)
     //{
     //    var label = $(this).parent('label');

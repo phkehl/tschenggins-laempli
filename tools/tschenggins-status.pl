@@ -848,7 +848,7 @@ sub _update
     {
         return 0, 'missing parameters';
     }
-    my $now = int(time() + 0.5);
+    my $now = int(time());
     my $ok = 1;
     my $error = '';
     foreach my $st (@states)
@@ -894,6 +894,13 @@ sub _update
         $db->{jobs}->{$id}->{result} = $jResult      if ($jResult);
         $db->{_dirtiness}++;
     }
+
+    # update multijobs
+    if ($ok)
+    {
+        __update_multijobs($db);
+    }
+
     return $ok, $error;
 }
 
@@ -901,6 +908,45 @@ sub __serverAndNameToJobId
 {
     my ($server, $jobName) = @_;
     return substr(Digest::MD5::md5_hex("$server$jobName"), -8);
+}
+
+sub __update_multijobs
+{
+    my ($db) = @_;
+    my %states  = ( dontknow => -1, unknown => 0, off => 1, idle => 2, running => 3 );
+    my %results = ( dontknow => -1, unknown => 0, success => 1, unstable => 2, failure => 3 );
+    foreach my $multiSt (grep { ($_->{server} eq 'multijob') && $_->{multi} } map { $db->{jobs}->{$_} } @{$db->{_jobIds}})
+    {
+        my $state = 'unknown';
+        my $result = 'unknown';
+        my $ts = 0;
+        foreach my $id (@{$multiSt->{multi}})
+        {
+            my $jobSt = $db->{jobs}->{$id};
+            #DEBUG("$multiSt->{name}: consider $jobSt->{name} $jobSt->{state} $jobSt->{result}");
+            if ($VALIDSTATE->{ $jobSt->{state} } > $VALIDSTATE->{$state})
+            {
+                $state = $jobSt->{state};
+            }
+            if ($VALIDRESULT->{ $jobSt->{result} } > $VALIDRESULT->{$result})
+            {
+                $result = $jobSt->{result};
+            }
+            if ($jobSt->{ts} > $ts)
+            {
+                $ts = $jobSt->{ts};
+            }
+        }
+        $ts ||= int(time());
+        if ( ($multiSt->{state} ne $state) || ($multiSt->{result} ne $result) || ($multiSt->{ts} != $ts) )
+        {
+            DEBUG("$multiSt->{name}: $multiSt->{state} -> $state, $multiSt->{result} -> $result, $multiSt->{ts} -> $ts");
+            $multiSt->{state}     = $state;
+            $multiSt->{result}    = $result;
+            $multiSt->{ts} = $ts;
+            $db->{_dirtiness}++;
+        }
+    }
 }
 
 ####################################################################################################
@@ -1185,6 +1231,7 @@ sub _multi
             $db->{jobs}->{$multiId}->{multi} = [];
             $db->{_dirtiness}++;
         }
+        __update_multijobs($db);
         return 1;
     }
 
@@ -1200,6 +1247,8 @@ sub _multi
     # store multi job info
     $db->{jobs}->{$multiId}->{multi} = $jobIds;
     $db->{_dirtiness}++;
+
+    __update_multijobs($db);
 
     return 1;
 }
@@ -1330,7 +1379,7 @@ sub _gui_status
 
         push(@trs, $q->Tr(
                           $q->td({ -class => 'jobid' }, $jobId),
-                          $q->td({ -class => 'nowrap' }, $st->{server}),
+                          $q->td({ -class => 'nowrap' }, $st->{server} eq 'multijob' ? $q->i($st->{server}) : $st->{server}),
                           $q->td({}, $leds->{$jobId}, $st->{name}, $multiInfo),
                           $q->td({}, $st->{state}), $q->td({}, $st->{result}),
                           $q->td({ -align => 'right', -data_sort => $st->{ts} }, _age_str($now, $st->{ts})),
@@ -1904,58 +1953,4 @@ sub _age_str
     }
 }
 
-
 __END__
-sub updateMultiJobs
-{
-    my ($state) = @_;
-    my %states  = ( dontknow => -1, unknown => 0, off => 1, idle => 2, running => 3 );
-    my %results = ( dontknow => -1, unknown => 0, success => 1, unstable => 2, failure => 3 );
-
-    foreach my $multiName (grep { $state->{$_}->{depJobs} } sort keys %{$state})
-    {
-        my $multiSt = $state->{$multiName};
-        # determine multi-job state and result (most active state, worst result)
-        my $jState  = 'unknown';
-        my $jResult = 'unknown';
-        my $timestamp = 0;
-        foreach my $jobName (@{$multiSt->{depJobs}})
-        {
-            my $jobSt = $state->{$jobName};
-            #DEBUG("%-40s %-10s %-10s + %-40s %-10s %-10s %-10s = %-10s %-10s",
-            #      $multiName, $multiSt->{jState}, $multiSt->{jResult},
-            #      $jobName, $jobSt->{jState}, $jobSt->{jResult}, _age_str($jobSt->{timestamp}), $jState,
-            #      $jResult);
-            if ($states{ $jobSt->{jState} } > $states{$jState})
-            {
-                $jState = $jobSt->{jState};
-            }
-            if ($results{ $jobSt->{jResult} } > $results{$jResult})
-            {
-                $jResult = $jobSt->{jResult};
-            }
-            if ($jobSt->{timestamp} > $timestamp)
-            {
-                $timestamp = $jobSt->{timestamp};
-            }
-        }
-
-        my $jStateDirty  = ($multiSt->{jState}  ne $jState ) ? 1 : 0;
-        my $jResultDirty = ($multiSt->{jResult} ne $jResult) ? 1 : 0;
-
-        if ($jStateDirty || $jResultDirty)
-        {
-            PRINT("Multi: %-43s state: %-20s result: %-20s age: %s", $multiSt->{jobName},
-                  $jStateDirty  ? "$multiSt->{jState} -> $jState"   : $jState,
-                  $jResultDirty ? "$multiSt->{jResult} -> $jResult" : $jResult,
-                  _age_str($timestamp));
-
-            $multiSt->{jState}       = $jState;
-            $multiSt->{jResult}      = $jResult;
-            $multiSt->{jStateDirty}  = $jStateDirty;
-            $multiSt->{jResultDirty} = $jResultDirty;
-            $multiSt->{timestamp}    = $timestamp;
-        }
-    }
-}
-

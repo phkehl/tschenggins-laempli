@@ -13,7 +13,7 @@ p { margin-top: 0; }
 /* body, select, input { font-family: sans-serif; background-color: hsl(160, 100%, 95%); font-size: 100%; } */
 
 table { padding: 0; border: 0.1em solid #000; border-collapse: collapse; margin: 0 0 0.5em 0; }
-table td, table th { margin: 0; padding: 0.1em 0.25em 0.1em 0.25em; border: 1px solid #000; vertical-align: top; }
+table td, table th { margin: 0; padding: 0.1em 0.25em 0.1em 0.25em; border: 1px solid #000; }
 table th { font-weight: bold; background-color: #ddd; text-align: left; border-bottom: 1px solid #000; }
 table tr:hover td, table tr:hover td select, table tr:hover td input { background-color: hsl(160, 100%, 90%); }
 
@@ -56,7 +56,7 @@ div.led { display: inline-block; margin: 0; padding: 0; width: 0.75em; height: 0
 @keyframes pulse { 0% { opacity: 0.4; transform: rotate(0deg); } 50% { opacity: 1.0; } 100% { opacity: 0.4; transform: rotate(360deg); } }
 @keyframes flicker { 0%, 50%, 70% { opacity: 0.2; } 5%, 66%, 100% { opacity: 0.5; } 35% { opacity: 0.8; } }
 
-div.led.state-unknown   { animation: flicker 1s ease-in-out 0s infinite; }
+div.led.state-unknown   { animation: flicker 0.8s linear 0s infinite; }
 div.led.state-off       { opacity: 0.5; }
 div.led.state-running   { animation: pulse 1.5s linear infinite; border-left-color: #444; }
 div.led.state-idle      {}

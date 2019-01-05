@@ -128,7 +128,7 @@ do
     my $json = JSON::PP->new()->utf8(1)->canonical(1)->pretty(0)->encode(
         { debug => ($CFG->{verbosity} > 0 ? 1 : 0), cmd => 'update', states => [ $update ] } );
     $resp = $userAgent->post($CFG->{backend}, 'Content-Type' => 'application/json', Content => $json);
-    DEBUG("%s: %s", $resp->status_line(), $resp->decoded_content());
+    DEBUG($resp->status_line(), split(/\n/, $resp->decoded_content()));
     my $dt = time() - $t0;
     if ($resp->is_success())
     {
