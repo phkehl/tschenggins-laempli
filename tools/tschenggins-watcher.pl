@@ -6,7 +6,7 @@
 # This watches a given Jenkins jobs directory for changes and publishes them to the
 # jenkins-status.pl on a webserver.
 #
-# Copyright (c) 2017-2018 Philippe Kehl <flipflip at oinkzwurgl dot org>
+# Copyright (c) 2017-2019 Philippe Kehl <flipflip at oinkzwurgl dot org>
 # https://oinkzwurgl.org/projaeggd/tschenggins-laempli
 #
 ####################################################################################################
@@ -14,7 +14,6 @@
 # TODO:
 # - handle jobs that can run multiple times in parallel
 # - (maybe) handle job rename
-# - logging (when using -d)
 #
 ####################################################################################################
 
@@ -41,6 +40,10 @@ use Ffi::Debug ':all';
 # limit our resource usage
 setrlimit( RLIMIT_VMEM, 0.35 * ( 1 << 30 ), 1 * ( 1 << 30 ) );
 
+# configure debugging output
+$Ffi::Debug::TIMESTAMP = 3;
+$Ffi::Debug::PRINTTYPE = 1;
+$Ffi::Debug::PRINTPID  = 1;
 
 ####################################################################################################
 # configuration
@@ -55,6 +58,8 @@ my $CFG =
     daemonise      => 0,
     backendtimeout => 5,
     statefile      => '',
+    logfile        => '',
+    pidfile        => '',
 };
 
 do
@@ -72,7 +77,6 @@ do
         elsif ($arg eq '-b') { $CFG->{backend} = shift(@ARGV); }
         elsif ($arg eq '-s') { $CFG->{server} = shift(@ARGV); }
         elsif ($arg eq '-j') { $CFG->{statefile} = shift(@ARGV); }
-        elsif ($arg eq '-d') { $CFG->{daemonise} = 1; }
         elsif ($arg eq '-h') { help(); }
         elsif ($arg !~ m{^-})
         {
@@ -103,27 +107,15 @@ do
         }
     }
 
-    # debug
-    foreach my $dir (sort @jobdirs)
-    {
-        DEBUG("jobdir: '$dir'");
-    }
-
     if ($errors || ($#jobdirs < 0))
     {
         ERROR("Try '$0 -h'.");
         exit(1);
     }
 
-    # configure debugging output
-    $Ffi::Debug::TIMESTAMP = 3;
-    $Ffi::Debug::PRINTTYPE = 1;
-    $Ffi::Debug::PRINTPID  = 1;
-
     # check server connection
     if ($CFG->{backend})
     {
-        PRINT("Using backend at '%s'.", $CFG->{backend});
         my $userAgent = _userAgent();
         my $resp = $userAgent->get("$CFG->{backend}?cmd=hello");
         if ($resp->is_success())
@@ -137,22 +129,6 @@ do
         }
     }
 
-    # daemonise?
-    if ($CFG->{daemonise})
-    {
-        my $pid = fork();
-        if ($pid)
-        {
-            PRINT("tschenggins-watcher.pl running, pid=%i", $pid);
-            exit(0);
-        }
-        chdir('/');
-        open(STDIN, '<', '/dev/null');
-        open(STDOUT, '>', '/dev/null');
-        open(STDERR, '>', '/dev/null');
-        setsid();
-    }
-
     # run..
     run(@jobdirs);
 };
@@ -161,14 +137,14 @@ sub help
 {
     PRINT(
           "$CFG->{agent}",
-          "Copyright (c) 2017-2018 Philippe Kehl <flipflip at oinkzwurgl dot org>",
+          "Copyright (c) 2017-2019 Philippe Kehl <flipflip at oinkzwurgl dot org>",
           "https://oinkzwurgl.org/projaeggd/tschenggins-laempli",
           "",
           "Watch Jenkins job directories for changes and update the backend server accordingly.",
           "",
           "Usage:",
           "",
-          "  $0 [-q] [-v] [-h] [-d] [-n <name>] [-b <statusurl>] [-j <statusfile>] [-m <multijobname>] <jobdir> ...",
+          "  $0 [-q] [-v] [-h] [-s <servername>] [-b <statusurl>] [-j <statusfile>] <jobdir> ...",
           "",
           "Where:",
           "",
@@ -179,7 +155,6 @@ sub help
           "  -j <statusfile>  write state to this file (in JSON)",
           "  -s <server>  the Jenkins server name (default on this machine: $CFG->{server})",
           "  -m <multijobname> consider all following <jobdir>s in this virtual multi-job",
-          "  -d  run in background (daemonise)",
           "  <jobdir> one or more Jenkins job directories to monitor",
           "",
           "Note that this uses the Linux 'inotify' interface to detect changes in the",
@@ -203,6 +178,19 @@ sub help
 sub run
 {
     my (@jobdirs) = @_;
+
+    unless ($CFG->{backend} || $CFG->{statefile})
+    {
+        WARNING("No state file or backend URL given.");
+    }
+    if ($CFG->{backend})
+    {
+        PRINT("Using backend '%s'.", $CFG->{backend});
+    }
+    if ($CFG->{statefile})
+    {
+        PRINT("Using state file '%s'.", $CFG->{statefile});
+    }
 
     PRINT("Initialising...");
     my $in = Linux::Inotify2->new() || die($!);
@@ -265,11 +253,6 @@ sub run
         {
             DEBUG("Not watching '%s' in '%s'", $jobName, "$buildsDir");
         }
-    }
-
-    unless ($CFG->{backend} || $CFG->{statefile})
-    {
-        WARNING("No state file or backend URL given.");
     }
 
     # keep watching...
