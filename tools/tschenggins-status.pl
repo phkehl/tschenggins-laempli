@@ -43,7 +43,7 @@ my $q = CGI->new();
 my @DEBUGSTRS     = ();
 my $DATADIR       = $FindBin::Bin;
 my $VALIDRESULT   = { unknown => 1, success => 2, unstable => 3, failure => 4 };
-my $VALIDSTATE    = { unknown => 1, off => 2, running => 3, idle => 4 };
+my $VALIDSTATE    = { unknown => 1, off => 2, idle => 3, running => 4 };
 my $UNKSTATE      = { name => 'unknown', server => 'unknown', result => 'unknown', state => 'unknown', ts => int(time()) };
 my $JOBNAMERE     = qr{^[-_a-zA-Z0-9]{5,50}$};
 my $SERVERNAMERE  = qr{^[-_a-zA-Z0-9.]{5,50}$};
@@ -913,8 +913,6 @@ sub __serverAndNameToJobId
 sub __update_multijobs
 {
     my ($db) = @_;
-    my %states  = ( dontknow => -1, unknown => 0, off => 1, idle => 2, running => 3 );
-    my %results = ( dontknow => -1, unknown => 0, success => 1, unstable => 2, failure => 3 );
     foreach my $multiSt (grep { ($_->{server} eq 'multijob') && $_->{multi} } map { $db->{jobs}->{$_} } @{$db->{_jobIds}})
     {
         my $state = 'unknown';
@@ -923,7 +921,7 @@ sub __update_multijobs
         foreach my $id (@{$multiSt->{multi}})
         {
             my $jobSt = $db->{jobs}->{$id};
-            #DEBUG("$multiSt->{name}: consider $jobSt->{name} $jobSt->{state} $jobSt->{result}");
+            DEBUG("$multiSt->{name}: consider $jobSt->{name} $jobSt->{state} $jobSt->{result}");
             if ($VALIDSTATE->{ $jobSt->{state} } > $VALIDSTATE->{$state})
             {
                 $state = $jobSt->{state};
@@ -1292,6 +1290,7 @@ sub _gui
         $leds{$jobId} = __gui_led($db->{jobs}->{$jobId});
     }
     my $jobSelectRadios = '<div class="joblist">';
+    my $jobSelectRadiosAll = '<div class="joblist">';
     my $jobSelectCheckboxes = '<div class="joblist">';
     my $multiSelectRadios = '<div class="joblist">';
     my $now = time();
@@ -1305,6 +1304,7 @@ sub _gui
         my $labelEnd = "$leds{$jobId} $st->{server}: $st->{name} ($st->{state}, $st->{result}, $age)</label>";
         my $radio = $labelStart . '<input type="radio" name="job" value="' . $jobId . '" autocomplete="off"/>' . $labelEnd;
         my $checkbox = $labelStart . '<input type="checkbox" name="jobs" value="' . $jobId . '" autocomplete="off"/>' . $labelEnd;
+        $jobSelectRadiosAll .= $radio;
         if ($st->{server} ne 'multijob')
         {
             $jobSelectRadios .= $radio;
@@ -1316,6 +1316,7 @@ sub _gui
         }
     }
     $jobSelectRadios .= '</div>';
+    $jobSelectRadiosAll .= '</div>';
     $jobSelectCheckboxes .= '</div>';
     $multiSelectRadios .= '</div>';
 
@@ -1347,7 +1348,7 @@ sub _gui
 
                    $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-delete', -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => 'tab-delete' }, $q->h2('Delete')),
-                   $q->div({ -class => 'tab-contents' }, _gui_delete($db, $jobSelectRadios) ),
+                   $q->div({ -class => 'tab-contents' }, _gui_delete($db, $jobSelectRadiosAll) ),
                   );
 }
 
@@ -1367,7 +1368,7 @@ sub _gui_status
         if ($db->{jobs}->{$jobId}->{multi})
         {
             $multiInfo .= '<span class="multijob-info-toggle" data-id="multijob-info-' . $jobId . '">details&hellip;</span>';
-            $multiInfo .= '<div id="multijob-info-' . $jobId . '" class="multijob-info"><ul>';
+            $multiInfo .= '<div id="multijob-info-' . $jobId . '" class="multijob-info joblist"><ul>';
             foreach my $id (@{$db->{jobs}->{$jobId}->{multi}})
             {
                 my $s = $db->{jobs}->{$id};
@@ -1548,7 +1549,7 @@ sub _gui_create
                  ),
         ($debug ? $q->hidden(-name => 'debug', -default => $debug ) : ''),
         $q->hidden(-name => 'cmd', -default => 'add'),
-        $q->hidden(-name => 'redirect', -default => 'cmd=gui#create-single'),
+        $q->hidden(-name => 'redirect', -default => 'cmd=gui#create'),
         $q->end_form()
     );
 }

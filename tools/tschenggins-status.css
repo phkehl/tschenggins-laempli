@@ -19,7 +19,9 @@ table tr:hover td, table tr:hover td select, table tr:hover td input { backgroun
 
 td.max-width, th.max-width { width: 100%; }
 
-.joblist { height: 20em; display: inline-block; overflow-y: scroll; width: 100%; }
+#results-table td { vertical-align: top; }
+
+.joblist { max-height: 20em; display: inline-block; overflow-y: auto; width: 100%; }
 
 div.blocker { background-color: #000; opacity: 0.75; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
 div.blocker-message { position: fixed; top: 0; left: 0; width: 100%; height: 100%; font-size: 200%; color: #fff; display: flex; align-items: center; justify-content: center; }
