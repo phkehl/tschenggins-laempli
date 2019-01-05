@@ -92,7 +92,8 @@ $(document).ready(function ()
             $('#tab-modify').trigger('click');
             input = $("#modify-job-form input[name='job'][value='" + jobId + "']").trigger('click');
         }
-        input.parents('.joblist').scrollTo(input, { offset: -50, duration: 300 });
+        var label = input.parent('label');
+        input.parents('.joblist').scrollTo(label, { offset: -50, duration: 300 });
     });
 
     // arm "delete" links in results list
@@ -101,7 +102,8 @@ $(document).ready(function ()
         var jobId = $(this).data('jobid');
         $('#tab-delete').trigger('click');
         var input = $("#delete-job-form input[name='job'][value='" + jobId + "']").prop('checked', true);
-        input.parents('.joblist').scrollTo(input, { offset: -50, duration: 300 });
+        var label = input.parent('label');
+        input.parents('.joblist').scrollTo(label, { offset: -50, duration: 300 });
     });
 
     // block ui when sending form
@@ -216,7 +218,7 @@ $(document).ready(function ()
         var firstInput = $("#modify-multi-form input[name='jobs']:checked:first");
         if (firstInput.length)
         {
-            firstInput.parents('.joblist').scrollTo(firstInput, { offset: -50, duration: 300 });
+            firstInput.parents('.joblist').scrollTo(firstInput.parent('label'), { offset: -50, duration: 300 });
         }
     });
 

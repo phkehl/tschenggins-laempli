@@ -6,7 +6,7 @@
 
 =head1 tschenggins-status.pl -- Tschenggins Lämpli Backend and User Inferface
 
-Copyright (c) 2017-2018 Philippe Kehl <flipflip at oinkzwurgl dot org>,
+Copyright (c) 2017-2019 Philippe Kehl <flipflip at oinkzwurgl dot org>,
 L<https://oinkzwurgl.org/projaeggd/tschenggins-laempli>
 
 =head2 Usage
