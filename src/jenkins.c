@@ -542,7 +542,7 @@ void jenkinsInit(void)
     DEBUG("jenkins: init");
 
     static StaticQueue_t sQueue;
-    static uint8_t sQueueBuf[sizeof(JENKINS_INFO_t) * JENKINS_MSG_QUEUE_LEN];
+    static uint8_t sQueueBuf[sizeof(JENKINS_MSG_t) * JENKINS_MSG_QUEUE_LEN];
     sJenkinsMsgQueue = xQueueCreateStatic(JENKINS_MSG_QUEUE_LEN, sizeof(JENKINS_MSG_t), sQueueBuf, &sQueue);
     sJenkinsClearAll();
 }
