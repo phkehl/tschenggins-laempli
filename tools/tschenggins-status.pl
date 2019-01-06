@@ -45,7 +45,7 @@ my $DATADIR       = $FindBin::Bin;
 my $VALIDRESULT   = { unknown => 1, success => 2, unstable => 3, failure => 4 };
 my $VALIDSTATE    = { unknown => 1, off => 2, idle => 3, running => 4 };
 my $UNKSTATE      = { name => 'unknown', server => 'unknown', result => 'unknown', state => 'unknown', ts => int(time()) };
-my $JOBNAMERE     = qr{^[-_a-zA-Z0-9]{5,50}$};
+my $JOBNAMERE     = qr{^[-_a-zA-Z0-9]{5,100}$};
 my $SERVERNAMERE  = qr{^[-_a-zA-Z0-9.]{5,50}$};
 my $JOBIDRE       = qr{^[0-9a-z]{8,8}$};
 my $DBFILE        = $ENV{'REMOTE_USER'} ? "$DATADIR/tschenggins-status-$ENV{'REMOTE_USER'}.json" : "$DATADIR/tschenggins-status.json";
