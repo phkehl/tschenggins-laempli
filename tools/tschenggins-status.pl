@@ -1331,9 +1331,9 @@ sub _gui
                    $q->label({ -class => 'tab-label', -for => 'tab-config' }, $q->h2('Config')),
                    $q->div({ -class => 'tab-contents' }, _gui_config($db, \%leds) ),
 
-                   $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-status', -autocomplete => 'off' }),
-                   $q->label({ -class => 'tab-label', -for => 'tab-status' }, $q->h2('Status')),
-                   $q->div({ -class => 'tab-contents' }, _gui_status($db, \%leds) ),
+                   $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-jobs', -autocomplete => 'off' }),
+                   $q->label({ -class => 'tab-label', -for => 'tab-jobs' }, $q->h2('Jobs')),
+                   $q->div({ -class => 'tab-contents' }, _gui_jobs($db, \%leds) ),
 
                    $q->input({ -class => 'tab-input', -name => 'tabs', type => 'radio', id => 'tab-modify', -autocomplete => 'off' }),
                    $q->label({ -class => 'tab-label', -for => 'tab-modify' }, $q->h2('Modify')),
@@ -1353,7 +1353,7 @@ sub _gui
                   );
 }
 
-sub _gui_status
+sub _gui_jobs
 {
     my ($db, $leds) = @_;
     my @html = ();
@@ -1394,11 +1394,11 @@ sub _gui_status
             $q->table(
                       $q->Tr(
                              $q->th('Filter:'),
-                             $q->td($q->input({ -type => 'text', -id => 'results-filter', -autocomplete => 'off', -placeholder => 'filter (regex)...', -default => '' })),
-                             $q->td({ -id => 'results-filter-status', -class => 'right nowrap max-width' }, 'showing all'),
+                             $q->td($q->input({ -type => 'text', -id => 'jobs-filter', -autocomplete => 'off', -placeholder => 'filter (regex)...', -default => '' })),
+                             $q->td({ -id => 'jobs-filter-status', -class => 'right nowrap max-width' }, 'showing all'),
                             ),
                       ),
-            $q->table({ -id => 'results-table' },
+            $q->table({ -id => 'jobs-table' },
                       $q->thead(
                                 $q->Tr(
                                        $q->th({ -class => 'sort' }, $q->span({}, 'ID')),

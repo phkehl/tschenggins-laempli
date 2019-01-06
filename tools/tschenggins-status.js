@@ -77,7 +77,7 @@ $(document).ready(function ()
         tbody.append(rows);
     });
 
-    // arm "modify" links in results list
+    // arm "modify" links in jobs list
     $('.action-modify-job').on('click', function (e)
     {
         var jobId = $(this).data('jobid');
@@ -96,7 +96,7 @@ $(document).ready(function ()
         input.parents('.joblist').scrollTo(label, { offset: -50, duration: 300 });
     });
 
-    // arm "delete" links in results list
+    // arm "delete" links in jobs list
     $('.action-delete-job').on('click', function (e)
     {
         var jobId = $(this).data('jobid');
@@ -115,31 +115,31 @@ $(document).ready(function ()
         return true;
     });
 
-    // results table filter
-    var resultsFilter = $('#results-filter');
-    var resultsStatus = $('#results-filter-status');
-    var resultsTableRows = $('#results-table tbody tr');
-    if (resultsFilter.length && resultsStatus.length && resultsTableRows.length)
+    // jobs table filter
+    var jobsFilter = $('#jobs-filter');
+    var jobsStatus = $('#jobs-filter-status');
+    var jobsTableRows = $('#jobs-table tbody tr');
+    if (jobsFilter.length && jobsStatus.length && jobsTableRows.length)
     {
-        if (sessionStorage.getItem('results-filter-term'))
+        if (sessionStorage.getItem('jobs-filter-term'))
         {
-            resultsFilter.val( sessionStorage.getItem('results-filter-term') );
+            jobsFilter.val( sessionStorage.getItem('jobs-filter-term') );
         }
 
-        //DEBUG('resultsFilter', resultsFilter);
-        //DEBUG('resultsTableRows', resultsTableRows);
-        var index = resultsTableRows.map(function (ix, el)
+        //DEBUG('jobsFilter', jobsFilter);
+        //DEBUG('jobsTableRows', jobsTableRows);
+        var index = jobsTableRows.map(function (ix, el)
         {
             return { tr: $(el), text: $(el).text() };
         });
         var filterTo;
-        resultsFilter.on('keyup', function (e)
+        jobsFilter.on('keyup', function (e)
         {
             if (filterTo)
             {
                 clearTimeout(filterTo);
             }
-            filterTo = setTimeout(function () { filterTable(resultsFilter, index); }, 300);
+            filterTo = setTimeout(function () { filterTable(jobsFilter, index); }, 300);
         }).trigger('keyup');
     }
     function filterTable(input, index)
@@ -150,9 +150,9 @@ $(document).ready(function ()
         {
             input.removeClass('error');
             index.each(function () { this.tr.removeClass('hidden'); });
-            resultsStatus.removeClass('error');
-            resultsStatus.text('showing all ' + index.length + ' jobs');
-            sessionStorage.removeItem('results-filter-term');
+            jobsStatus.removeClass('error');
+            jobsStatus.text('showing all ' + index.length + ' jobs');
+            sessionStorage.removeItem('jobs-filter-term');
             return;
         }
         var re;
@@ -164,12 +164,12 @@ $(document).ready(function ()
         {
             DEBUG('bad regexp: ' + e);
             input.addClass('error');
-            resultsStatus.text('bad regexp: ' + e);
-            resultsStatus.addClass('error');
+            jobsStatus.text('bad regexp: ' + e);
+            jobsStatus.addClass('error');
         }
         if (typeof re === 'object')
         {
-            sessionStorage.setItem('results-filter-term', term);
+            sessionStorage.setItem('jobs-filter-term', term);
             var nShow = 0;
             input.removeClass('error');
             for (var ix = 0; ix < index.length; ix++)
@@ -184,9 +184,8 @@ $(document).ready(function ()
                     index[ix].tr.addClass('hidden')
                 }
             }
-            resultsStatus.removeClass('error');
-            resultsStatus.text('showing ' + nShow + ' of ' + index.length + ' jobs');
-
+            jobsStatus.removeClass('error');
+            jobsStatus.text('showing ' + nShow + ' of ' + index.length + ' jobs');
         }
     }
 
