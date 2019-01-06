@@ -83,17 +83,25 @@ do
             my $dir = path($arg);
             if ($dir->exists() && $dir->is_dir())
             {
-                if (!$jobDirsSeen{$dir})
+                my $buildsDir = path("$arg/builds");
+                if  ($buildsDir->exists() && $buildsDir->is_dir())
                 {
-                    push(@jobdirs, $dir);
-                    my $jobName = $dir->basename();
-                    $jobNamesSeen{$jobName} = $dir;
+                    if (!$jobDirsSeen{$dir})
+                    {
+                        push(@jobdirs, $dir);
+                        my $jobName = $dir->basename();
+                        $jobNamesSeen{$jobName} = $dir;
+                    }
+                    else
+                    {
+                        WARNING("Ignoring duplicate dir '$dir'!");
+                    }
+                    $jobDirsSeen{$dir}++;
                 }
                 else
                 {
-                    WARNING("Ignoring duplicate dir '$dir'!");
+                    WARNING("Ignoring funny dir '$dir'!");
                 }
-                $jobDirsSeen{$dir}++;
             }
             else
             {
@@ -103,11 +111,17 @@ do
         else
         {
             ERROR("Illegal argument '%s'!", $arg);
-            exit(1);
+            $errors++;
         }
     }
 
-    if ($errors || ($#jobdirs < 0))
+    if ($#jobdirs < 0)
+    {
+        WARNING("No job dir(s)!");
+        $errors++;
+    }
+
+    if ($errors)
     {
         ERROR("Try '$0 -h'.");
         exit(1);
