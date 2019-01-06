@@ -1201,8 +1201,9 @@ sub _set
     my $st = $db->{jobs}->{$id};
     $db->{jobs}->{$id}->{state}  = $state  if ($state);
     $db->{jobs}->{$id}->{result} = $result if ($result);
-    $db->{jobs}->{$id}->{ts}     = int(time() + 0.5);
+    $db->{jobs}->{$id}->{ts}     = int(time());
     $db->{_dirtiness}++;
+    __update_multijobs($db);
     return 1, '';
 }
 
@@ -1841,7 +1842,10 @@ sub __gui_config_client
       $q->div({ },
               $q->table({},
                         $q->Tr({}, $q->th({ -colspan => 2 }, 'Client Info')),
-                        (map { $q->Tr({}, $q->td({}, $_), $q->td({}, $client->{$_})) } sort keys %{$client}),
+                        (map { $q->Tr({},
+                                      $q->td({}, $_),
+                                      $q->td({}, $_ =~ m{^(ts|check)$} ?  $client->{$_} . ' (' . _age_str(time(), $client->{$_}) . ')' : $client->{$_})
+                                     ) } sort keys %{$client}),
                         #(map { $q->Tr({}, $q->th({}, $_), $q->td({}, $config->{$_})) } sort keys %{$config}),
                        ),
              );
