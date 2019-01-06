@@ -561,14 +561,12 @@ sub updateBackend
         if ($st->{jStateDirty} || $st->{jResultDirty})
         {
             my $_st = { name => $st->{jobName}, server => $CFG->{server}, ts => $st->{timestamp} };
-            if ($st->{jStateDirty})
+            # always send full info, users may have modified it on the server manually
+            if ($st->{jStateDirty} || $st->{jResultDirty})
             {
                 $_st->{state} = $st->{jState};
-                $st->{jStateDirty} = 0;
-            }
-            if ($st->{jResultDirty})
-            {
                 $_st->{result} = $st->{jResult};
+                $st->{jStateDirty} = 0;
                 $st->{jResultDirty} = 0;
             }
             push(@newUpdates, $_st);
