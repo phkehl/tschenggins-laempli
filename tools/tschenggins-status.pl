@@ -131,7 +131,6 @@ The following parameters are used in the commands described below.
     my $maxch    = $q->param('maxch')    || 10;
     my $chunked  = $q->param('chunked')  || 0;
     my @states   = (); # $q->multi_param('states');
-    my @jobs     = $q->multi_param('jobs');
     my $model    = $q->param('model')    || '';
     my $driver   = $q->param('driver')   || ''; # TODO: @key-@val
     my $order    = $q->param('order')    || '';
