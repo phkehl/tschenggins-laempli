@@ -19,7 +19,7 @@ table tr:hover td, table tr:hover td select, table tr:hover td input { backgroun
 
 td.max-width, th.max-width { width: 100%; }
 
-#results-table td { vertical-align: top; }
+#jobs-table td { vertical-align: top; }
 
 .joblist { max-height: 20em; display: inline-block; overflow-y: auto; width: 100%; }
 
