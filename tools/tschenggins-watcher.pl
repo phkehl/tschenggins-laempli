@@ -505,7 +505,10 @@ sub jobChangedCb
     {
         my ($jState, $jResult, $timestamp) = getJenkinsJob(path($file)->parent());
 
-        if ($jState && $jResult)
+        if ( ($jState && $jResult) &&
+             # only enable -> disable and disable -> enable transitions, do not consider other job edits
+             ( ($jState eq 'off') || ($state->{$jobName}->{jState} eq 'off') )
+           )
         {
             # set status
             setState($state->{$jobName}, $jState, $jResult, $timestamp);
