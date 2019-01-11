@@ -57,7 +57,7 @@ my $CFG =
     server         => Sys::Hostname::hostname(),
     daemonise      => 0,
     backendtimeout => 5,
-    statefile      => '',
+    statusfile     => '',
     logfile        => '',
     pidfile        => '',
 };
@@ -76,7 +76,7 @@ do
         elsif ($arg eq '-q') { $Ffi::Debug::VERBOSITY--; $CFG->{verbosity}--; }
         elsif ($arg eq '-b') { $CFG->{backend} = shift(@ARGV); }
         elsif ($arg eq '-s') { $CFG->{server} = shift(@ARGV); }
-        elsif ($arg eq '-j') { $CFG->{statefile} = shift(@ARGV); }
+        elsif ($arg eq '-j') { $CFG->{statusfile} = shift(@ARGV); }
         elsif ($arg eq '-h') { help(); }
         elsif ($arg !~ m{^-})
         {
@@ -193,7 +193,7 @@ sub run
 {
     my (@jobdirs) = @_;
 
-    unless ($CFG->{backend} || $CFG->{statefile})
+    unless ($CFG->{backend} || $CFG->{statusfile})
     {
         WARNING("No state file or backend URL given.");
     }
@@ -201,9 +201,9 @@ sub run
     {
         PRINT("Using backend '%s'.", $CFG->{backend});
     }
-    if ($CFG->{statefile})
+    if ($CFG->{statusfile})
     {
-        PRINT("Using state file '%s'.", $CFG->{statefile});
+        PRINT("Using status file '%s'.", $CFG->{statusfile});
     }
 
     PRINT("Initialising...");
@@ -644,7 +644,7 @@ sub updateBackend
     }
 
     # update state file
-    if (($#newUpdates > -1) && $CFG->{statefile})
+    if (($#newUpdates > -1) && $CFG->{statusfile})
     {
         my %json = ();
         foreach my $jobName (sort keys %{$state})
@@ -652,16 +652,16 @@ sub updateBackend
             my $st = $state->{$jobName};
             $json{$jobName}->{$_} = $st->{$_} for (qw(jobName jState jResult timestamp));
         }
-        PRINT("Updating '%s' (%i/%i changed states).", $CFG->{statefile}, $#newUpdates + 1, scalar keys %json);
+        PRINT("Updating '%s' (%i/%i changed states).", $CFG->{statusfile}, $#newUpdates + 1, scalar keys %json);
         eval
         {
             local $SIG{__DIE__} = 'default';
             my $jsonStr = JSON::PP->new()->utf8(1)->canonical(1)->pretty(1)->encode(\%json);
-            path($CFG->{statefile})->append_utf8({ truncate => 1 }, $jsonStr);
+            path($CFG->{statusfile})->append_utf8({ truncate => 1 }, $jsonStr);
         };
         if ($@)
         {
-            WARNING("Could not write '%s': %s", $CFG->{statefile}, $! || "$@");
+            WARNING("Could not write '%s': %s", $CFG->{statusfile}, $! || "$@");
         }
     }
 }
