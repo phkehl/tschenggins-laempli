@@ -289,7 +289,8 @@ update as things happen (i.e. the web server will keep sending).
 
 The response will be something like this:
 
-    hello 861468 256 clientname\r\n
+    \r\n
+    hello 87e984 256 clientname\r\n
     \r\n
     heartbeat 1545832436 1\r\n
     \r\n
@@ -920,7 +921,7 @@ sub __update_multijobs
         foreach my $id (@{$multiSt->{multi}})
         {
             my $jobSt = $db->{jobs}->{$id};
-            DEBUG("$multiSt->{name}: consider $jobSt->{name} $jobSt->{state} $jobSt->{result}");
+            #DEBUG("$multiSt->{name}: consider $jobSt->{name} $jobSt->{state} $jobSt->{result}");
             if ($VALIDSTATE->{ $jobSt->{state} } > $VALIDSTATE->{$state})
             {
                 $state = $jobSt->{state};
@@ -1053,7 +1054,7 @@ sub _realtime
 
     $0 = 'tschenggins-status.pl (' . ($info->{name} || $client) . ')';
     STDOUT->autoflush(1);
-    print("hello $client $strlen $info->{name}\r\n");
+    print("\r\nhello $client $strlen $info->{name}\r\n");
 
     while (1)
     {
