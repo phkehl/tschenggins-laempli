@@ -8,7 +8,7 @@ package Ffi::Debug;
 
 Common debugging and message output related stuff.
 
-=head2 DESCRIPTION
+=head2 Description
 
 This module provides several functions to output messages. The default output
 device is a colourful C<STDERR>, but may be changed by replacing the output
@@ -25,6 +25,11 @@ below). The C<__DIE__> handler with try to figure out if the signal has been
 raised in an C<eval()> or not. If it did it will C<PANIC()> the error message
 and not exit the program (which it will do otherwise).
 
+Note that for CGI scripts the C<__WARN__> and C<__DIE__> it will do special handling, too. It will
+try hard to produce some useful debug and error output to the web browser in case of syntax errors
+etc. when compiling the script. It's similar to what L<CGI::Carp> does with its I<fatalsToBrowser>
+option. You should not mix this module with L<CGI::Carp>.
+
 =head2 Examples
 
     use Ffi::Debug ':all';
@@ -36,6 +41,8 @@ and not exit the program (which it will do otherwise).
     {
         ERROR("Something went wrong!");
     }
+
+    open(F, '>', 'blabla.dat') || die("Ouch, cannot open blabla.dat for writing: $!");
 
     TRACE("some data: %s", \%someHash);
 
@@ -57,9 +64,8 @@ messages you have two options:
 
 =back
 
-The module will enable full stack traces for C<__WARN__> and C<__DIE__> signals as well as for the
-C<PANIC()> call. C<TRACE()> prints will add the last stack frame only. Consider the following
-script:
+The module will enable stack traces for C<__WARN__> and C<__DIE__> signals as
+well as for the C<PANIC()> call. Consider the following script:
 
     #!/usr/bin/perl
     
@@ -207,7 +213,7 @@ Add a message type char to the output (0 = no, 1 = yes). Default: 0.
 
 The type chars are (see also C<%msgTypeIds>): B<X> (PANIC), B<%> (DIE), B<!>
 (WARN), B<W> (WARNING), B<S> (SUCCESS), B<F> (FAILURE), B<E> (ERROR), B<N>
-(NOTICE), B<P> (PRINT), B<1>/B<2>/B<3> (DEBUG1/2/3)
+(NOTICE), B<P> (PRINT), B<1> (DEBUG), B<2> (TRACE)
 
 
 =item C<$STACK>
@@ -665,7 +671,7 @@ sub _FORMAT
 
 our %msgTypeIds = ( PANIC => 'X', DIE => '%', WARN => '!', WARNING => 'W',
                     SUCCESS => 'S', FAILURE => 'F', ERROR => 'E',
-                    NOTICE => 'N', PRINT => 'P', DEBUG => '1', TRACE => 'T' );
+                    NOTICE => 'N', PRINT => 'P', DEBUG => 'D', TRACE => 'T' );
 # ($string, $typeId) = _RENDERS( \%msg ) >>
 # Renders a message formatted by C<_FORMAT()> into a printable string.
 sub _RENDER
