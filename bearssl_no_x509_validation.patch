@@ -1,0 +1,15 @@
+diff --git a/src/x509/x509_minimal.c b/src/x509/x509_minimal.c
+index 5da61e1..760b0b0 100644
+--- a/src/x509/x509_minimal.c
++++ b/src/x509/x509_minimal.c
+@@ -310,6 +310,10 @@ xm_end_chain(const br_x509_class **ctx)
+ 	br_x509_minimal_context *cc;
+ 
+ 	cc = (br_x509_minimal_context *)ctx;
++
++	// ffi hack hack hack!!!
++    cc->err = BR_ERR_X509_OK;
++
+ 	if (cc->err == 0) {
+ 		if (cc->num_certs == 0) {
+ 			cc->err = BR_ERR_X509_EMPTY_CHAIN;
