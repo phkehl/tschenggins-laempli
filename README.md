@@ -1,3 +1,8 @@
+# Breaking news
+
+This version is obsolete. Go to the [TschengginsLaempli](https://github.com/phkehl/TschengginsLaempli) repository for the latest and greatest.
+
+
 # Tschenggins Lämpli (ESP8266 IoT Jenkins CI Lights/Beacon/Build Status Indicator)
 
 by Philippe Kehl <flipflip at oinkzwurgl dot org>,
